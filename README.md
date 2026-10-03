@@ -21,7 +21,7 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
    if 8000 is taken locally, VS Code picks another port and shows it there).
 
 Logs and restarts from the devcontainer terminal:
-`docker compose -p plane-and-simple_devcontainer logs -f web worker migrate` (project name: see
+`docker compose -p planeandsimple_devcontainer logs -f web worker migrate` (project name: see
 `docker compose ls`).
 
 Optional: enter a Wikidata contact (your URL or e-mail) under **Settings → Platform Settings**
@@ -51,8 +51,8 @@ booked connections are not protected.
 One-time setup on the server:
 
 ```bash
-git clone https://github.com/<owner>/plane-and-simple.git
-cd plane-and-simple
+git clone https://github.com/<owner>/planeandsimple.git
+cd planeandsimple
 cp .env.example .env    # fill in POSTGRES_PASSWORD, SECRET_KEY and ADMIN_PASSWORD_HASH (see below)
 scripts/deploy.sh
 ```
@@ -66,7 +66,7 @@ docker run --rm -it flighttracker:latest python -m flighttracker.cli hash-passwo
 ```
 
 If you deploy from a private fork instead, clone over SSH with a read-only GitHub "Deploy key"
-(`ssh-keygen -t ed25519 -f ~/.ssh/plane-and-simple -N ""`, add the `.pub` in the repo settings).
+(`ssh-keygen -t ed25519 -f ~/.ssh/planeandsimple -N ""`, add the `.pub` in the repo settings).
 
 Every update: `scripts/deploy.sh` (= `git pull` + `docker compose up -d --build`). Migrations and
 the first airport import run automatically in the `migrate` service.
@@ -101,10 +101,10 @@ and build there:
 # From your workstation, excluding local/dev-only files:
 rsync -az --delete \
   --exclude .git --exclude .venv --exclude __pycache__ --exclude .env \
-  ./ youruser@server:/opt/plane-and-simple/
+  ./ youruser@server:/opt/planeandsimple/
 
 ssh youruser@server
-cd /opt/plane-and-simple
+cd /opt/planeandsimple
 cp .env.example .env   # first time only; keep the server's .env, rsync excludes it afterwards
 docker compose up -d --build --remove-orphans
 ```
