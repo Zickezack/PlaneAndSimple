@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ trip.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ trip.name }}</h1>
+  <div class="actions">
+    {{ ui.action_form("/trips/%d/poll" % trip.id, _("Poll trip now"), "primary") }}
+    {{ ui.link_button(_("Tracked searches"), "/searches") }}
+  </div>
+</div>
+<p class="summary">{{ trip.starts_on | weekday_date }} – {{ trip.ends_on | weekday_date }} · {{ _("Checks every {hours} hours", hours=poll_interval_minutes // 60) }}</p>
+<p class="hint">{{ _("Only complete options with known flight times and valid layovers are shown. Prices are the sum of the separate one-way tracked searches, not a through-ticket fare.") }}</p>
+
+<section class="card">
+  <h2>{{ _("Route") }}</h2>
+  <ol class="trip-route">
+    {% for leg in trip.legs %}
+    <li><a href="/searches/{{ leg.search_id }}">{{ leg.search.name }}</a>{% if not loop.first %}<small class="hint">{{ _("Stay: at least {minimum} days", minimum=leg.min_layover_days or 0) }}{% if leg.max_layover_days is not none %} · {{ _("up to {maximum} days", maximum=leg.max_layover_days) }}{% endif %}</small>{% endif %}</li>
+    {% endfor %}
+  </ol>
+  <p class="hint">{{ _("Next check") }}: {{ trip.next_poll_at | datetime }} · {{ _("Last check") }}: {{ trip.last_polled_at | datetime }}</p>
+</section>
+
+<section class="card">
+  <h2>{{ _("Working options") }}</h2>
+  {% if itineraries %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>{{ _("Departure") }}</th><th>{{ _("Route") }}</th><th>{{ _("Flight times") }}</th><th class="num">{{ _("Total for separate legs") }}</th></tr></thead>
+      <tbody>
+      {% for itinerary in itineraries %}
+        <tr{% if itinerary.fake %} class="fake-row"{% endif %}>
+          <td>{{ itinerary.legs[0].departure_date | weekday_date }}</td>
+          <td>{% for leg in itinerary.legs %}{{ leg.origin }} → {{ leg.destination }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+          <td>{% for leg in itinerary.legs %}{{ leg.details.departure_time }} – {{ leg.details.arrival_time }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+          <td class="num"><strong>{{ itinerary.total_price | price(itinerary.currency) }}</strong>{% if itinerary.fake %} {{ ui.fake_tag() }}{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">{{ _("No complete options yet. The first coordinated poll starts shortly; every leg needs usable departure and arrival times.") }}</p>
+  {% endif %}
+</section>
+{% endblock %}

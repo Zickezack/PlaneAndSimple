@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("Log") }}{% endblock %}
+{% block content %}
+{% macro stops_label(stops) -%}
+{% if stops == 0 %}{{ _("direct") }}{% elif stops == 1 %}{{ _("1 stop") }}{% else %}{{ _("{n} stops", n=stops) }}{% endif %}
+{%- endmacro %}
+<div class="page-header">
+  <h1>{{ _("Log") }}</h1>
+</div>
+<p class="hint">{{ _("Every provider query of every poll: route × departure month × cabin class. Entries are kept, even for deleted tracked searches.") }}</p>
+
+<form method="get" action="/log" class="card form">
+  <div class="grid-3">
+    {{ ui.select_field("search_id", _("Tracked search"), [("", _("All"))] + search_options, selected_search) }}
+    {{ ui.select_field("outcome", _("Result"), [("", _("All"))] + (labels.OUTCOME_LABELS.items() | tr_options), selected_outcome) }}
+  </div>
+  <div class="actions">{{ ui.button(_("Filter"), "secondary") }}</div>
+</form>
+
+{% if page.entries %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>{{ _("Time") }}</th><th>{{ _("Tracked search") }}</th><th>{{ _("Route") }}</th><th>{{ _("Month") }}</th><th>{{ _("Cabin") }}</th><th>{{ _("Result") }}</th><th class="num">{{ _("Duration") }}</th><th>{{ _("Source") }}</th></tr>
+    </thead>
+    <tbody>
+      {% for e in page.entries %}
+      {% set fake = e.provider in fake_providers %}
+      <tr{% if fake %} class="fake-row"{% endif %}>
+        <td>{{ e.started_at | datetime }}</td>
+        <td>
+          {% if e.search_id in page.existing_search_ids %}<a href="/searches/{{ e.search_id }}">{{ e.search_name }}</a>
+          {% else %}{{ e.search_name }} <small class="hint">({{ _("deleted") }})</small>{% endif %}
+        </td>
+        <td>{{ e.origin_iata }} → {{ e.destination_iata }}</td>
+        <td>{{ e.departure_month | month }}</td>
+        <td>{{ _(labels.CABIN_LABELS[e.cabin_class]) }}</td>
+        <td>
+          {% if e.outcome == "ok" and e.results %}
+          <details class="log-results">
+            <summary>{{ ui.badge(_("{found} prices ({stored} new)", found=e.quotes_found, stored=e.quotes_stored), "success") }}</summary>
+            <ul>
+              {% for r in e.results %}
+              <li>{{ r.date | iso_weekday_date }}{% if r["return"] %} → {{ r["return"] | iso_weekday_date }}{% endif %}: <strong>{{ r.price | float | price(r.currency) }}</strong>{% if r.stops is not none %} · {{ stops_label(r.stops) }}{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </details>
+          {% elif e.outcome == "ok" %}{{ ui.badge(_("{found} prices ({stored} new)", found=e.quotes_found, stored=e.quotes_stored), "success") }}
+          {% elif e.outcome == "empty" %}{{ ui.badge(_(labels.OUTCOME_LABELS[e.outcome]), "muted") }}
+          {% else %}{{ ui.badge(_(labels.OUTCOME_LABELS[e.outcome]), "danger") }} <small class="hint">{{ e.error }}</small>{% endif %}
+        </td>
+        <td class="num">{{ "%.1f" % (e.duration_ms / 1000) }} s</td>
+        <td>{{ e.provider }}{% if fake %} {{ ui.fake_tag() }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if page.next_before %}
+<div class="actions">
+  {{ ui.link_button(_("Older entries"), "/log?before=%d&search_id=%s&outcome=%s" % (page.next_before, selected_search, selected_outcome)) }}
+</div>
+{% endif %}
+{% else %}
+<div class="card empty">{{ _("No log entries yet.") }}</div>
+{% endif %}
+{% endblock %}

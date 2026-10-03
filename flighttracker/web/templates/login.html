@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("Log in") }}{% endblock %}
+{% block content %}
+<section class="card card-narrow">
+  <h1>{{ _("Log in") }}</h1>
+  {% if error %}{{ ui.alert(error, "error") }}{% endif %}
+  <form method="post" action="/login" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("username", _("Username"), required=True, autocomplete="username") }}
+    {{ ui.text_field("password", _("Password"), type="password", required=True, autocomplete="current-password") }}
+    <div class="actions">{{ ui.button(_("Log in")) }}</div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,31 @@
+{
+  "name": "Plane and simple",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/plane-and-simple",
+  "shutdownAction": "stopCompose",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "forwardPorts": ["web:8000"],
+  "portsAttributes": {
+    "web:8000": { "label": "Plane and simple", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && pip install --user -e '.[dev,scraper]' && python -m flighttracker.cli init-dev-env",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "samuelcolvin.jinjahtml",
+        "anthropic.claude-code"
+      ],
+      "settings": {
+        "python.testing.pytestEnabled": true,
+        "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" }
+      }
+    }
+  }
+}

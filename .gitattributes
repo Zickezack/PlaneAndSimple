@@ -1,0 +1,4 @@
+# Store text files with LF line endings, whatever the contributor's OS (shell scripts with
+# CRLF fail on the Linux server).
+* text=auto eol=lf
+*.png binary

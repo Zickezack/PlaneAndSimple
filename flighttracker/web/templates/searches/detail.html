@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ search.name }}{% endblock %}
+{% block content %}
+<script src="{{ static_url('js/price-chart.js') }}" defer></script>
+{% set f = spec.filters %}
+
+{#- Plane and simple: the overview shows prices first; settings, history and deletion unfold. -#}
+{% macro stops_text(stops) -%}
+{% if stops is none %}–{% elif stops == 0 %}{{ _("direct") }}{% elif stops == 1 %}{{ _("1 stop") }}{% else %}{{ _("{n} stops", n=stops) }}{% endif %}
+{%- endmacro %}
+
+<div class="page-header">
+  <h1>{{ search.name }} {{ ui.status_badge(search) }}</h1>
+  <div class="actions">
+    {% if trip %}
+      {{ ui.link_button(_("Back to trip"), "/trips/%d" % trip.id) }}
+      {{ ui.action_form("/trips/%d/poll" % trip.id, _("Poll trip now"), "primary") }}
+    {% else %}
+    {% if not search.is_archived %}
+      {% if search.status == "active" %}{{ ui.action_form("/searches/%d/poll" % search.id, _("Poll now"), "primary") }}{% endif %}
+      {{ ui.link_button(_("Edit"), "/searches/%d/edit" % search.id) }}
+      {% if search.status == "active" %}
+        {{ ui.action_form("/searches/%d/pause" % search.id, _("Pause")) }}
+      {% else %}
+        {{ ui.action_form("/searches/%d/resume" % search.id, _("Resume")) }}
+      {% endif %}
+    {% else %}
+      {{ ui.action_form("/searches/%d/restore" % search.id, _("Restore")) }}
+    {% endif %}
+    {% endif %}
+    {{ ui.link_button(_("Export"), "/searches/%d/export" % search.id, "ghost") }}
+  </div>
+</div>
+
+<p class="summary">
+  <strong>{{ origins }} → {{ destinations }}</strong>
+  · {{ _(labels.TRIP_TYPE_LABELS[f.trip_type]) }}
+  · {% for c in f.cabin_classes | sort %}{{ _(labels.CABIN_LABELS[c]) }}{% if not loop.last %}, {% endif %}{% endfor %}
+  · {{ _("{n} passengers", n=passengers) }}
+  · {{ _("Last poll") }}: {{ search.last_polled_at | datetime }}
+</p>
+{% if not provider.prices_all_passengers and passengers > 1 %}<p class="note">{{ _('Note: prices from "{provider}" are for one adult; the number of passengers is not considered.', provider=provider.name) }}</p>
+{% elif f.children and not provider.supports_children %}<p class="note">{{ _('Note: not available with the data source "{provider}" – prices do not include children.', provider=provider.name) }}</p>{% endif %}
+
+<section class="card prices">
+  {% if has_fake_prices %}
+  <div class="fake-banner" role="alert">{{ _("This table contains invented prices (demo data). They are marked in red and are not real.") }}</div>
+  {% endif %}
+
+  {% if points %}
+  {#- Only filters that offer a real choice (static/js/price-chart.js shows the row). -#}
+  <div class="filter-row" data-price-filters hidden>
+    {% if filter_origins | length > 1 %}{{ ui.select_field("filter_origin", _("Origin"), [("", _("All"))] + filter_origins, "") }}{% endif %}
+    {% if filter_destinations | length > 1 %}{{ ui.select_field("filter_destination", _("Destination"), [("", _("All"))] + filter_destinations, "") }}{% endif %}
+    {% if filter_cabins | length > 1 %}{{ ui.select_field("filter_cabin", _("Cabin"), filter_cabins | tr_options, filter_cabins[0][0]) }}{% endif %}
+    {% if filter_stays | length > 1 %}{{ ui.select_field("filter_stay", _("Stay"), [("", _("All"))] + filter_stays | map("stay_option") | list, "") }}{% endif %}
+  </div>
+
+  <figure class="chart" data-price-chart hidden>
+    <figcaption class="chart-title">{{ _("Price by departure date") }} <small class="hint">({{ f.currency }} · {{ _("click a date to keep its flights") }})</small></figcaption>
+    <label class="choice chart-toggle" data-chart-trends-toggle hidden><input type="checkbox" data-chart-trends checked> <span>{{ _("Show price changes") }}</span></label>
+    <div class="chart-legend" data-chart-legend></div>
+    <div class="chart-plot" data-chart-plot></div>
+    <div class="chart-tooltip" data-chart-tooltip role="status" hidden></div>
+  </figure>
+  <section class="chart-selection" data-chart-selection aria-live="polite" hidden></section>
+  <script type="application/json" id="price-chart-data">{{ chart_json | safe }}</script>
+
+
+  <div class="table-header">
+    <h2>{{ _("Flights") }}</h2>
+    <div class="view-switch" data-view-switch hidden>
+      {{ ui.select_field("filter_view", _("Show"), [("month", _("Cheapest per month")), ("all", _("All flights"))], "month") }}
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="table flights-table" data-price-table>
+      <thead>
+        <tr><th>{{ _("Departure") }}</th><th>{{ _("Route") }}</th><th>{{ _("Flight") }}</th><th class="num">{{ _("Price") }}</th></tr>
+      </thead>
+      <tbody>
+        {% for p in points %}
+        {% set s = summarize(p) %}
+        {% set last_year = previous_year(p) %}
+        <tr data-origin="{{ p.origin }}" data-destination="{{ p.destination }}" data-cabin="{{ p.cabin_class }}" data-date="{{ p.departure_date.isoformat() }}" data-month="{{ p.departure_date.strftime('%Y-%m') }}" data-price="{{ p.price }}" data-stay="{{ p.stay_days if p.stay_days is not none else '' }}"{% if p.fake %} class="fake-row"{% endif %}>
+          <td class="date-cell">
+            <a href="/searches/{{ search.id }}/flights/{{ p.id }}"><strong>{{ p.departure_date | weekday_date }}</strong></a>
+            {%- if p.return_date %}<br><small class="hint">→ {{ p.return_date | weekday_date }} · {{ _("{n} days", n=p.stay_days) }}</small>{% endif %}
+          </td>
+          <td class="route-cell"><span class="route-dot" data-route="{{ p.origin }}-{{ p.destination }}" aria-hidden="true"></span>{{ p.origin }} → {{ p.destination }}{% if multiple_cabins %}<br><small class="hint">{{ _(labels.CABIN_LABELS[p.cabin_class]) }}</small>{% endif %}</td>
+          <td>
+            {% if s %}
+            {{ s.airlines | join(", ") }}{% if s.flights %} · {{ s.flights | join(", ") }}{% endif %}
+            <br><small class="hint">{% if s.departure_time %}{{ s.departure_time }}–{{ s.arrival_time }}{% if s.arrival_day_offset %}<sup>+{{ s.arrival_day_offset }}</sup>{% endif %} · {% endif %}{{ duration(s.duration_min) }} · {{ stops_text(p.stops) }}{% for layover in s.layovers %} · {{ layover.airport }} {{ duration(layover.minutes) }}{% endfor %}</small>
+            {% else %}
+            {{ p.airline or "–" }}<br><small class="hint">{{ stops_text(p.stops) }}</small>
+            {% endif %}
+          </td>
+          <td class="num">
+            <strong>{{ p.price | price(p.currency) }}</strong>{% if p.fake %} {{ ui.fake_tag() }}{% endif %}
+            {% set trend = trend_for(p) %}{% if trend %}<br>{{ ui.trend_spark(trend) }}{% endif %}
+            {% if last_year %}<br><small class="hint">{{ _("Previous year") }}: {{ last_year.price | price(p.currency) }}</small>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="empty" data-filter-empty hidden>{{ _("No prices for this selection yet.") }}</p>
+  <p class="hint">{{ _("Changes compare with observations around 1 day, 1 week and 1 month earlier. Click a date for all flight details.") }}</p>
+  {% else %}
+  <p class="empty">{{ _("No prices yet. The worker fetches them shortly.") }}</p>
+  {% endif %}
+</section>
+
+<details class="card more">
+  <summary>{{ _("Settings") }}</summary>
+  <dl class="facts">
+    <dt>{{ _("Origin") }}</dt><dd>{{ origins }}</dd>
+    <dt>{{ _("Destination") }}</dt><dd>{{ destinations }}</dd>
+    <dt>{{ _("Stops") }}</dt><dd>{{ _(labels.stops_label(f.max_stops)) }}</dd>
+    <dt>{{ _("Period") }}</dt><dd>{{ _("{n} months ahead", n=f.months_ahead) }}</dd>
+    <dt>{{ _("Departure days") }}</dt><dd>{% if f.days_per_month in labels.DAYS_PER_MONTH_LABELS %}{{ _(labels.DAYS_PER_MONTH_LABELS[f.days_per_month]) }}{% else %}{{ f.days_per_month }}{% endif %}{% if estimate.stay_lengths %} · {{ _("stays of {days} days", days=estimate.stay_lengths | join(", ")) }}{% endif %}</dd>
+    <dt>{{ _("Passengers") }}</dt><dd>{{ _("{adults} adults, {children} children", adults=f.adults, children=f.children) }}</dd>
+    <dt>{{ _("Global poll interval") }}</dt><dd>{{ _("every {n} h", n=poll_interval_minutes // 60) }}</dd>
+    <dt>{{ _("Scope") }}</dt><dd>{{ _("{routes} routes · {queries} queries · {requests} requests (about {minutes} min) per poll", routes=estimate.routes, queries=estimate.queries, requests=estimate.requests, minutes=estimate.minutes) }}</dd>
+    <dt>{{ _("Stored prices") }}</dt><dd>{{ observation_count }}</dd>
+  </dl>
+</details>
+
+<details class="card more">
+  <summary>{{ _("Recent polls") }}</summary>
+  <p class="hint"><a href="/log?search_id={{ search.id }}">{{ _("All queries of this tracked search in the log") }}</a></p>
+  {% if jobs %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>{{ _("Status") }}</th><th class="num">{{ _("Queries") }}</th><th class="num">{{ _("New prices") }}</th><th>{{ _("Created") }}</th></tr></thead>
+      <tbody>
+        {% for j in jobs %}
+        <tr>
+          <td>{{ _(labels.JOB_STATUS_LABELS[j.status]) }}{% if j.last_error %} <small class="hint">({{ j.last_error }})</small>{% endif %}</td>
+          <td class="num">{{ j.queries_total }}{% if j.queries_failed %} <small class="fake">({{ _("{n} failed", n=j.queries_failed) }})</small>{% endif %}</td>
+          <td class="num">{{ j.quotes_stored }}</td>
+          <td>{{ j.created_at | datetime }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="empty">{{ _("No polls yet.") }}</p>{% endif %}
+</details>
+
+<details class="card more">
+  <summary>{{ _("Change history") }}</summary>
+  <p class="hint">{{ _("Every change creates a new revision. Existing prices stay unchanged.") }}</p>
+  <ul class="revisions">
+    {% for r in revisions %}
+    <li><strong>{{ _("Revision {no}", no=r.revision_no) }}</strong> · {{ r.created_at | datetime }}<br>
+      <small>{{ r.snapshot.origins | map(attribute="code") | join(", ") }} → {{ r.snapshot.destinations | map(attribute="code") | join(", ") }}
+        {%- for code, airports in (r.snapshot.country_airports or {}).items() %}<br>{{ code }}: {{ airports | join(", ") }}{% endfor %}</small></li>
+    {% endfor %}
+  </ul>
+</details>
+
+<details class="card more danger-zone">
+  <summary>{{ _("Archive or delete") }}</summary>
+  {% if not search.is_archived %}
+  <p>{{ _("Archiving hides the tracked search and stops polling; all data is kept.") }}</p>
+  <div class="actions">{{ ui.action_form("/searches/%d/archive" % search.id, _("Archive")) }}</div>
+  {% endif %}
+  <h2>{{ _("Delete permanently") }}</h2>
+  <p>{{ _("Deletes the tracked search including its entire price history. This cannot be undone. To keep the data, archive it instead.") }}</p>
+  <form method="post" action="/searches/{{ search.id }}/delete" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("confirm_name", _("Enter the name to confirm"), autocomplete="off") }}
+    <div class="actions">{{ ui.button(_("Delete permanently"), "danger") }}</div>
+  </form>
+</details>
+{% endblock %}

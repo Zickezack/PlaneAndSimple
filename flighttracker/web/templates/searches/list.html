@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("Archive") if archived else _("Tracked searches") }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ _("Archived tracked searches") if archived else _("Tracked searches") }}</h1>
+  <div class="actions">
+    {% if archived %}
+      {{ ui.link_button(_("Back to active tracked searches"), "/searches") }}
+    {% else %}
+      {{ ui.link_button(_("Export all data"), "/settings/export", "ghost") }}
+      {{ ui.link_button(_("Archive"), "/searches?archived=true") }}
+      {{ ui.link_button(_("New tracked search"), "/searches/new", "primary") }}
+    {% endif %}
+  </div>
+</div>
+
+{% if not archived %}
+<details class="card" {% if not searches %}open{% endif %}>
+  <summary>{{ _("About Plane and simple") }}</summary>
+  <p>{{ _("Plane and simple tracks flight prices for you: create a tracked search (origin, destination, cabin class, travel period) and a background worker checks prices regularly and keeps every price it observes, so you can compare current fares with the same month last year.") }}</p>
+  <h2>{{ _("Creating a tracked search") }}</h2>
+  <ol>
+    <li>{{ _('Click "New tracked search" above.') }}</li>
+    <li>{{ _("Enter an origin and destination: an airport (3-letter IATA code, e.g. ZRH) or a whole country (2-letter ISO code, e.g. DE) – several separated by commas.") }}</li>
+    <li>{{ _("Choose cabin class, stops, travel period and passengers; the defaults are fine to start with.") }}</li>
+    <li>{{ _("Save. A country selection first shows its largest airports to confirm; a tracked search that overlaps an existing one offers to merge instead of duplicating it.") }}</li>
+    <li>{{ _("The first poll starts right away – prices then build up over time on the tracked search's page.") }}</li>
+  </ol>
+</details>
+{% endif %}
+
+{% for trip in trips %}
+<details class="trip-group">
+  <summary>
+    <strong>{{ trip.name }}</strong>
+    <span class="hint">{{ trip.starts_on | weekday_date }} – {{ trip.ends_on | weekday_date }} · {{ trip.legs | length }} {{ _("legs") }}</span>
+  </summary>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>{{ _("Tracked search") }}</th><th>{{ _("Origin") }}</th><th>{{ _("Destination") }}</th><th>{{ _("Status") }}</th><th class="num">{{ _("Prices") }}</th><th>{{ _("Last poll") }}</th></tr></thead>
+      <tbody>
+      {% for leg in trip.legs %}
+      <tr>
+        <td><a href="/searches/{{ leg.search_id }}">{{ leg.search.name }}</a></td>
+        <td>{{ location_text(leg.search, "origin") }}</td>
+        <td>{{ location_text(leg.search, "destination") }}</td>
+        <td>{{ ui.status_badge(leg.search) }}</td>
+        <td class="num">{{ counts.get(leg.search_id, 0) }}</td>
+        <td>{{ leg.search.last_polled_at | datetime }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="actions"><a href="/trips/{{ trip.id }}">{{ _("Open trip options") }}</a></p>
+</details>
+{% endfor %}
+
+{% if not searches and not trips %}
+  <div class="card empty">
+    {% if archived %}{{ _("No archived tracked searches.") }}{% else %}{{ _("No tracked searches yet – create your first one.") }}{% endif %}
+  </div>
+{% elif searches %}
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>{{ _("Name") }}</th><th>{{ _("Origin") }}</th><th>{{ _("Destination") }}</th><th>{{ _("Status") }}</th><th class="num">{{ _("Prices") }}</th><th>{{ _("Last poll") }}</th></tr>
+    </thead>
+    <tbody>
+      {% for s in searches %}
+      <tr>
+        <td><a href="/searches/{{ s.id }}">{{ s.name }}</a></td>
+        <td>{{ location_text(s, "origin") }}</td>
+        <td>{{ location_text(s, "destination") }}</td>
+        <td>{{ ui.status_badge(s) }}</td>
+        <td class="num">{{ counts.get(s.id, 0) }}</td>
+        <td>{{ s.last_polled_at | datetime }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

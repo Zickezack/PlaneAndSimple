@@ -1,0 +1,48 @@
+{% import "_macros.html" as ui with context %}
+<!doctype html>
+<html lang="{{ locale }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ _("Tracked searches") }}{% endblock %} · Plane and simple</title>
+  <link rel="stylesheet" href="{{ static_url('css/app.css') }}">
+  <script src="{{ static_url('js/app.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/searches">✈ Plane and simple</a>
+    <nav class="nav nav-primary" aria-label="{{ _('Main navigation') }}">
+      {% if current_user %}
+      <a href="/searches">{{ _("Tracked searches") }}</a>
+      <a href="/searches/new">{{ _("New tracked search") }}</a>
+      <a href="/trips/new">{{ _("Trip Planner") }}</a>
+      {% endif %}
+    </nav>
+    <div class="nav-utilities">
+      <span class="language-switch">
+        {% for code, name in locales.items() %}
+          {% if code == locale %}<strong>{{ code | upper }}</strong>
+          {% else %}<a href="/language/{{ code }}" hreflang="{{ code }}" title="{{ name }}">{{ code | upper }}</a>{% endif %}
+        {% endfor %}
+      </span>
+      {% if current_user %}
+      <a class="nav-utility-link" href="/log">{{ _("Poll Log") }}</a>
+      <a class="nav-utility-link" href="/settings">{{ _("Settings") }}</a>
+      <form method="post" action="/logout" class="inline-form">
+        {{ ui.csrf_field() }}
+        {{ ui.button(_("Log out"), "logout") }}
+      </form>
+      {% endif %}
+    </div>
+  </header>
+  {% if provider.fake_data %}
+  <div class="fake-banner" role="alert">
+    {{ _('Demo mode: the data source "{provider}" invents all prices. They are not real.', provider=provider.name) }}
+  </div>
+  {% endif %}
+  <main class="container">
+    {% for f in flashes %}{{ ui.alert(f.message, f.category) }}{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,270 @@
+/* Plane and simple – one stylesheet, mobile first. All pages use the same components. */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --text: #1c2430;
+  --muted: #5d6b7c;
+  --border: #d8dee6;
+  --primary: #1f5fbf;
+  --primary-dark: #174a96;
+  --danger: #b42318;
+  --success-bg: #e7f6ec;
+  --success: #1c7c3a;
+  --warning-bg: #fff4dc;
+  --warning: #8a5a00;
+  --info-bg: #e8f0fc;
+  --error-bg: #fdecea;
+  --radius: 8px;
+  --space: 1rem;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
+a { color: var(--primary); }
+h1 { font-size: 1.5rem; margin: 0; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
+
+/* Layout */
+.topbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: .5rem; padding: .75rem var(--space); background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.brand { font-weight: 700; text-decoration: none; color: var(--text); }
+.nav { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.nav a { text-decoration: none; }
+.nav-utilities { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.nav-primary a, .nav-utility-link {
+  padding: .4rem .85rem; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); font-weight: 500;
+  transition: background-color .1s ease, border-color .1s ease;
+}
+.nav-primary a:hover, .nav-utility-link:hover { background: var(--info-bg); border-color: var(--primary); }
+.nav-primary a[aria-current="page"] { background: var(--info-bg); border-color: var(--primary); color: var(--primary-dark); }
+.nav-utility-link { text-decoration: none; }
+.nav-primary { flex-basis: 100%; justify-content: center; }
+.nav-utilities { margin-left: auto; }
+.container { max-width: 1200px; margin: 0 auto; padding: var(--space); }
+.page-header {
+  display: flex; flex-wrap: wrap; gap: var(--space); align-items: center;
+  justify-content: space-between; margin-bottom: var(--space);
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--space); margin-bottom: var(--space);
+}
+.card-narrow { max-width: 420px; margin: 2rem auto; }
+.grid-2, .grid-3 { display: grid; gap: var(--space); grid-template-columns: 1fr; }
+.empty { color: var(--muted); }
+
+/* Forms */
+.form { display: flex; flex-direction: column; gap: var(--space); }
+.field { display: flex; flex-direction: column; gap: .25rem; margin: 0; }
+.field label, .field legend { font-weight: 600; }
+.input {
+  font: inherit; padding: .55rem .7rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface); width: 100%;
+}
+.input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.hint { color: var(--muted); font-size: .85rem; }
+.choice-group { border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .75rem; }
+.choice { display: flex; gap: .5rem; align-items: center; font-weight: 400; padding: .2rem 0; }
+/* Long airport lists (e.g. US) scroll inside their box instead of stretching the form. */
+.airport-choices .choice-group { max-height: 16rem; overflow-y: auto; }
+.airport-selection h2 { font-size: 1rem; margin-bottom: .25rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.inline-form { display: inline; margin: 0; }
+
+/* Buttons */
+.btn {
+  font: inherit; display: inline-flex; align-items: center; justify-content: center;
+  padding: .5rem 1rem; border-radius: 6px; border: 1px solid transparent;
+  cursor: pointer; text-decoration: none; min-height: 2.5rem;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.btn-secondary:hover { border-color: var(--muted); }
+.btn-ghost { background: transparent; color: var(--primary); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-logout { background: var(--surface); color: var(--danger); border-color: var(--danger); border-radius: 8px; }
+.btn-logout:hover { background: var(--error-bg); }
+
+/* Price trends: sparkline between first and current price */
+.spark-wrap { display: inline-flex; align-items: center; gap: .3rem; font-variant-numeric: tabular-nums; }
+.spark-wrap small { color: var(--muted); }
+.spark-down { color: var(--success); }
+.spark-up { color: var(--danger); }
+.spark-flat { color: var(--muted); }
+.spark { flex: none; }
+.trend-changes { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .2rem .55rem; }
+.trend-change { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Feedback */
+.alert { padding: .75rem 1rem; border-radius: var(--radius); margin-bottom: var(--space); }
+.alert p { margin: .25rem 0; }
+.alert ul { margin: .25rem 0 0; padding-left: 1.25rem; }
+.alert-info { background: var(--info-bg); }
+.alert-success { background: var(--success-bg); }
+.alert-error { background: var(--error-bg); }
+.badge { font-size: .8rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px; }
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-muted, .badge-neutral { background: var(--bg); color: var(--muted); }
+.badge-danger { background: var(--error-bg); color: var(--danger); }
+.delta-up { color: var(--danger); }
+.delta-down { color: var(--success); }
+
+/* Tables */
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: .5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.table th { font-size: .85rem; color: var(--muted); }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Detail page */
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; margin: 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.revisions { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .5rem; }
+.danger-zone { border-color: var(--danger); }
+
+@media (min-width: 720px) {
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  h1 { font-size: 1.75rem; }
+}
+
+/* Language switch */
+.language-switch { display: flex; gap: .4rem; font-size: .85rem; }
+.language-switch a { text-decoration: none; }
+
+/* Suggestion dropdown (static/js/app.js) */
+.suggest { position: relative; }
+.suggest-list {
+  position: absolute; z-index: 10; left: 0; right: 0; margin: 2px 0 0; padding: .25rem 0;
+  list-style: none; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+  max-height: 18rem; overflow-y: auto;
+}
+.suggest-list li { display: flex; gap: .5rem; align-items: baseline; padding: .35rem .75rem; cursor: pointer; }
+.suggest-list li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest-list li small { color: var(--muted); }
+.suggest-list li[aria-selected="true"], .suggest-list li:hover { background: var(--info-bg); }
+
+/* Notes about provider limitations (e.g. children not available) */
+.note { color: var(--warning); }
+
+/* Invented (demo/test) data – always red, so it can never be mistaken for real prices. */
+.fake-banner {
+  background: var(--danger); color: #fff; font-weight: 600;
+  padding: .6rem var(--space); text-align: center;
+}
+.card .fake-banner { border-radius: var(--radius); margin-bottom: .75rem; text-align: left; }
+.fake-row td { background: var(--error-bg); }
+.fake { color: var(--danger); font-weight: 600; }
+.fake-tag {
+  display: inline-block; padding: 0 .35rem; border-radius: 4px;
+  background: var(--danger); color: #fff; font-size: .75rem; font-weight: 600; text-transform: uppercase;
+}
+
+/* Price chart (static/js/price-chart.js) – thin marks, hairline chrome, text in ink tokens. */
+.filter-row { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: .75rem; }
+.filter-row .field { flex: 0 1 14rem; margin: 0; }
+.chart { position: relative; margin: 0 0 1.25rem; }
+.chart-title { font-weight: 600; margin-bottom: .25rem; }
+.chart-toggle { margin-bottom: .25rem; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: .5rem 2rem; font-size: .85rem; color: var(--muted); margin: .25rem 0 .5rem; }
+.legend-item { display: inline-flex; align-items: center; gap: .45rem; }
+.line-key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; flex: none; }
+.chart-plot { width: 100%; }
+.chart-plot svg { display: block; max-width: 100%; height: auto; }
+.chart-plot svg:focus { outline: none; }
+.chart-plot svg:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.chart-axis { font-size: 11px; fill: #898781; font-variant-numeric: tabular-nums; }
+.chart-label { font-size: 11px; fill: #52514e; font-weight: 600; }
+.chart-empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+.chart-tooltip {
+  position: absolute; z-index: 5; max-width: 340px; pointer-events: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .12); padding: .5rem .65rem; font-size: .8rem;
+}
+.tt-date { font-weight: 600; margin-bottom: .25rem; }
+.tt-row { display: flex; align-items: center; gap: .4rem; margin-top: .35rem; }
+.tt-row strong { font-size: .9rem; color: var(--text); }
+.tt-row span:not(.line-key):not(.fake-tag) { color: var(--muted); }
+.tt-note { color: var(--muted); padding-left: calc(14px + .4rem); }
+
+/* Flight details in the price tables */
+.prices h3 { font-size: 1rem; margin: 1rem 0 .5rem; }
+.flight { line-height: 1.35; min-width: 16rem; }
+.flight .hint { display: block; }
+.all-dates { margin-top: 1rem; }
+.all-dates summary { cursor: pointer; font-weight: 600; }
+.legend-hint { color: var(--muted); font-style: italic; }
+
+.chart-overlay { cursor: pointer; }
+.chart-help { margin: .25rem 0 0; }
+.tt-hint { color: var(--muted); font-style: italic; margin-top: .4rem; }
+.diamond-key { display: inline-block; width: 9px; height: 9px; transform: rotate(45deg); outline: 2px solid var(--text); outline-offset: -1px; flex: none; margin: 0 2px; }
+
+/* Pinned date below the chart */
+.chart-selection { border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem 1rem; margin-bottom: 1rem; background: var(--info-bg); }
+.selection-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.selection-item { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; padding: .4rem 0; border-top: 1px solid var(--border); margin-top: .4rem; }
+.selection-route { font-weight: 500; }
+.selection-link { margin-left: auto; white-space: nowrap; }
+
+/* Flights table: month headers, unfoldable groups, pinned date */
+.flights-table .month-row th { background: var(--bg); font-size: .85rem; text-align: left; padding-top: .6rem; }
+.flights-table .group-member td { background: #fafbfc; }
+.flights-table .group-member td:first-child { padding-left: 1.5rem; }
+.flights-table tr.is-selected td { background: var(--info-bg); }
+.group-toggle { display: block; margin-top: .35rem; padding: .1rem .4rem; font-size: .8rem; }
+.date-cell { white-space: nowrap; }
+
+.log-results summary { cursor: pointer; list-style-position: inside; }
+.log-results ul { margin: .35rem 0 0; padding-left: 1.1rem; font-size: .85rem; }
+
+/* Simple detail page: summary line, flights header, unfoldable secondary sections */
+.summary { margin: 0 0 .25rem; color: var(--muted); }
+.summary strong { color: var(--text); }
+.table-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: .5rem 1rem; margin: 1.25rem 0 .5rem; }
+.table-header h2 { margin: 0; }
+.view-switch .field { margin: 0; min-width: 12rem; }
+.route-cell { white-space: nowrap; }
+.route-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: .45rem; vertical-align: middle; }
+details.more { padding-top: .75rem; padding-bottom: .75rem; }
+details.more > summary { cursor: pointer; font-weight: 600; }
+details.more[open] > summary { margin-bottom: .75rem; }
+.price-large { font-size: 1.35rem; }
+.layover-row td { color: var(--muted); font-size: .85rem; background: var(--bg); }
+.more-options { border-top: 1px solid var(--border); padding-top: .75rem; }
+.more-options > summary { cursor: pointer; font-weight: 600; margin-bottom: .5rem; }
+
+/* Nicer top bar and cards */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  box-shadow: 0 2px 8px rgba(28, 36, 48, .09);
+}
+.card { box-shadow: 0 2px 6px rgba(28, 36, 48, .05); }
+.btn { transition: background-color .1s ease, border-color .1s ease; }
+
+@media (min-width: 900px) {
+  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .nav-primary { flex-basis: auto; justify-content: center; }
+  .nav-utilities { justify-self: end; }
+}
+
+.trip-group { border-bottom: 1px solid var(--border); padding: .8rem .25rem; }
+.trip-group > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem 1rem; }
+.trip-group[open] > summary { margin-bottom: .5rem; }
+.trip-legs { display: flex; flex-direction: column; gap: .75rem; }
+.section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.section-heading h2 { margin: 0; }
+.trip-leg { min-width: 0; margin: 0; padding: .8rem; border: 1px solid var(--border); border-radius: 6px; }
+.trip-leg legend { padding: 0 .35rem; font-weight: 600; }
+.trip-layover[hidden] { display: none; }
+.trip-route { display: flex; flex-direction: column; gap: .55rem; padding-left: 1.5rem; }
+.trip-route li small { display: block; }
+

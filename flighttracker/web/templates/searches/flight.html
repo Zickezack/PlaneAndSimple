@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ observed.origin_iata }} → {{ observed.destination_iata }} · {{ observed.departure_date | weekday_date }}{% endblock %}
+{% block content %}
+<p><a href="/searches/{{ search.id }}">← {{ search.name }}</a></p>
+<div class="page-header">
+  <h1>{{ observed.origin_iata }} → {{ observed.destination_iata }}</h1>
+  {% if url %}<div class="actions"><a class="btn btn-primary" href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ _("Open on Google Flights") }} ↗</a></div>{% endif %}
+</div>
+
+<section class="card">
+  <dl class="facts">
+    <dt>{{ _("Departure") }}</dt><dd>{{ observed.departure_date | weekday_date }}</dd>
+    {% if round_trip %}<dt>{{ _("Return") }}</dt><dd>{{ observed.return_date | weekday_date }} · {{ _("{n} days", n=(observed.return_date - observed.departure_date).days) }}</dd>{% endif %}
+    <dt>{{ _("Cabin") }}</dt><dd>{{ _(labels.CABIN_LABELS[observed.cabin_class]) }}</dd>
+    <dt>{{ _("Price") }}</dt>
+    <dd><strong class="price-large">{{ observed.price | price(observed.currency) }}</strong>{% if fake %} {{ ui.fake_tag() }}{% endif %}
+      {% if passengers > 1 %}<small class="hint">({{ _("for {n} passengers", n=passengers) }})</small>{% endif %}</dd>
+    <dt>{{ _("As of") }}</dt><dd>{{ observed.observed_at | datetime }} · {{ observed.provider }}</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>{{ _("Outbound flight") }}</h2>
+  {% if segments %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>{{ _("Flight") }}</th><th>{{ _("Route") }}</th><th>{{ _("Departure") }}</th><th>{{ _("Arrival") }}</th><th>{{ _("Duration") }}</th><th>{{ _("Aircraft") }}</th></tr></thead>
+      <tbody>
+        {% for s in segments %}
+        <tr>
+          <td>{% if s.flightradar %}<a href="{{ s.flightradar }}" target="_blank" rel="noopener noreferrer" title="{{ _('Flight history on Flightradar24') }}">{{ s.flight }} ↗</a>{% else %}{{ s.flight or "–" }}{% endif %}</td>
+          <td>{{ s.origin }} → {{ s.destination }}</td>
+          <td>{{ s.departure }}</td>
+          <td>{{ s.arrival }}</td>
+          <td>{{ s.duration }}</td>
+          <td>{{ s.aircraft or "–" }}</td>
+        </tr>
+        {% if s.layover %}<tr class="layover-row"><td colspan="6">{{ _("Layover in {airport}: {duration}", airport=s.destination, duration=s.layover) }}</td></tr>{% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">{{ _("Local times of the airports. Flight numbers link to Flightradar24 (route, aircraft and punctuality of past flights).") }}
+    {% if round_trip %}{{ _("The price covers the round trip; the return flight is chosen on Google Flights.") }}{% endif %}</p>
+  {% else %}
+  <p class="empty">{{ _("The data source delivered no flight details for this price.") }}{% if observed.airline %} {{ observed.airline }}{% endif %}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>{{ _("Price history of these dates") }}</h2>
+  <p class="hint">{{ _("Every poll's cheapest flight for exactly these dates – newest first.") }}</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>{{ _("Poll") }}</th><th class="num">{{ _("Price") }}</th><th class="num">Δ</th><th>{{ _("Flight") }}</th></tr></thead>
+      <tbody>
+        {% for h in history %}
+        {% set older = history[loop.index] if loop.index < history | length else none %}
+        <tr{% if h.id == observed.id %} class="is-selected"{% endif %}>
+          <td>{{ h.observed_at | datetime }}</td>
+          <td class="num">{{ h.price | price(h.currency) }}</td>
+          <td class="num">
+            {% if older and older.price != h.price %}
+              <span class="{{ 'delta-up' if h.price > older.price else 'delta-down' }}">{{ "▲" if h.price > older.price else "▼" }} {{ (h.price - older.price) | abs | price(h.currency) }}</span>
+            {% else %}–{% endif %}
+          </td>
+          <td>{{ (h.details or {}).get("segments", []) | map(attribute="flight") | select | join(", ") or h.airline or "–" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

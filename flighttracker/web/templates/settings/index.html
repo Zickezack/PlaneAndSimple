@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("Platform Settings") }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ _("Platform Settings") }}</h1>
+</div>
+
+<section class="card">
+  <h2>{{ _("Export and import") }}</h2>
+  <p class="hint">{{ _("Export every tracked search with its price history and query log, plus every Trip with its ordered legs and layover rules, as one JSON file. Importing only ever adds new data – existing records are never changed or removed, so the same file can safely be imported twice or combined with exports from other servers.") }}</p>
+  <div class="actions">
+    {{ ui.link_button(_("Export all data"), "/settings/export") }}
+  </div>
+  <form method="post" action="/settings/import" enctype="multipart/form-data" class="form">
+    {{ ui.csrf_field() }}
+    <div class="field">
+      <label for="f-file">{{ _("Import a JSON export") }}</label>
+      <input class="input" id="f-file" name="file" type="file" accept="application/json" required>
+      <small class="hint">{{ _('From "Export all data" above, or the Export button on a single tracked search.') }}</small>
+    </div>
+    <div class="actions">{{ ui.button(_("Import"), "secondary") }}</div>
+  </form>
+</section>
+
+{% for section in sections %}
+<details class="card more">
+  <summary>{{ _(section.label) }}</summary>
+  <form method="post" action="/settings/section/{{ section.key }}" class="form">
+    {{ ui.csrf_field() }}
+    {% for field in section.fields %}
+      {% if field.is_choice %}
+      <div class="field">
+        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <select class="input" id="f-{{ field.key }}" name="{{ field.key }}">
+          {% for option in provider_options %}
+          <option value="{{ option }}"{% if option == field.value %} selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+        <small class="hint">{{ _(field.hint) }}</small>
+      </div>
+      {% elif field.is_secret %}
+      <div class="field">
+        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <input class="input" id="f-{{ field.key }}" name="{{ field.key }}" type="password" autocomplete="off" placeholder="{{ _('set, not shown') if field.has_value else _('not set') }}">
+        <label class="choice"><input type="checkbox" name="{{ field.key }}_clear" value="1"> <span>{{ _("Clear (fall back to .env)") }}</span></label>
+        <small class="hint">{{ _(field.hint) }}</small>
+      </div>
+      {% else %}
+      {% if field.key == "default_currency" %}
+      {{ ui.text_field(field.key, _(field.label), field.value, hint=_(field.hint), suggest="/api/suggest/currencies") }}
+      {% else %}
+      {{ ui.text_field(field.key, _(field.label), field.value, hint=_(field.hint)) }}
+      {% endif %}
+      {% endif %}
+      {% if field.is_overridden %}<p class="hint">{{ _("Overridden here; leave the field empty and save to fall back to .env again.") }}</p>{% endif %}
+    {% endfor %}
+    <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
+  </form>
+  {% if section.key == "airport_import" %}
+  <form method="post" action="/settings/airport-import/run" class="inline-form">
+    {{ ui.csrf_field() }}
+    {{ ui.button(_("Re-import airports now"), "secondary") }}
+  </form>
+  <p class="hint">{{ _("Re-fetches countries, airports and passenger numbers from OurAirports and Wikidata (needs a contact above; otherwise airports are only ranked by type).") }}</p>
+  {% endif %}
+</details>
+{% endfor %}
+
+<details class="card more">
+  <summary>{{ _("User management") }}</summary>
+  <p>{{ _("Plane and simple currently has a single admin account configured in .env. Multiple users with roles and permissions are a planned feature (see the backlog in userstories.md).") }}</p>
+</details>
+{% endblock %}

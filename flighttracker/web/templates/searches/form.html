@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("Edit tracked search") if search else _("New tracked search") }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ _("Edit tracked search") if search else _("New tracked search") }}</h1>
+</div>
+
+{{ ui.error_list(errors) }}
+{% if notice %}{{ ui.alert(notice) }}{% endif %}
+
+{% if overlaps %}
+{#- Outside the form so that Enter never triggers a merge; buttons attach via form="search-form". -#}
+<section class="card overlaps">
+  <h2>{{ _("Similar tracked searches found") }}</h2>
+  {% for o in overlaps %}
+  <div class="alert {{ 'alert-success' if o.covered else 'alert-info' }}">
+    {% if o.covered %}
+      <p><strong>{{ _("Already covered") }}</strong> {{ _("by") }} <a href="/searches/{{ o.search.id }}">{{ o.search.name }}</a>
+        ({{ o.origins }} → {{ o.destinations }}). {{ _("A new tracked search is not needed.") }}</p>
+    {% else %}
+      <p><a href="/searches/{{ o.search.id }}">{{ o.search.name }}</a> ({{ o.origins }} → {{ o.destinations }})
+        {{ _("covers the same countries.") }}</p>
+      <p>{{ _("After merging:") }} <strong>{{ o.merged_origins }} → {{ o.merged_destinations }}</strong>
+        {%- if o.filters_widened %} – {{ _("the filters are widened so that both searches are covered") }}{% endif %}.</p>
+      <div class="actions">
+        {{ ui.button(_('Add to "{name}"', name=o.search.name), "primary", form="search-form",
+                     formaction="/searches/%d/merge" % o.search.id) }}
+      </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <div class="actions">
+    {{ ui.button(_("Create anyway"), "secondary", form="search-form", name="confirm_overlap", value="1") }}
+  </div>
+</section>
+{% endif %}
+
+<form id="search-form" method="post" action="{{ '/searches/%d/edit' % search.id if search else '/searches' }}" class="form card">
+  {{ ui.csrf_field() }}
+
+  {{ ui.text_field("name", _("Name"), values.name, required=True, placeholder=_("e.g. Zurich → Spain summer")) }}
+
+  <div class="grid-2">
+    {{ ui.text_field("origins", _("Origin"), values.origins, required=True, placeholder=_("ZRH, GVA or CH"),
+       hint=_("Airport (3-letter IATA code) or whole country (2-letter ISO code) – separate several with commas."),
+       suggest="/api/suggest/locations", multiple=True) }}
+    {{ ui.text_field("destinations", _("Destination"), values.destinations, required=True, placeholder=_("BCN or ES"),
+       hint=_("For countries, the largest airports are preselected – adjustable."),
+       suggest="/api/suggest/locations", multiple=True) }}
+  </div>
+
+  {% if values.airport_countries %}
+  <section class="airport-selection">
+    <h2>{{ _("Airports per country") }}</h2>
+    <p class="hint">{{ _("Only the checked airports are queried, sorted by passenger numbers. Every additional airport multiplies the number of queries.") }}</p>
+    <input type="hidden" name="airport_countries" value="{{ values.airport_countries | join(',') }}">
+    <div class="grid-2">
+      {% for code in values.airport_countries %}
+      <div class="airport-choices">
+        {% set options = airport_options.get(code, []) %}
+        {% if options %}
+          {{ ui.choice_group(airport_field_name(code), "%s – %s" % (code, country_names.get(code, code)),
+               options | map("airport_label") | list, values.country_airports.get(code, []), multiple=True) }}
+          {#- Shown by static/js/app.js; without JavaScript the boxes are unchecked one by one. -#}
+          <button class="btn btn-ghost" type="button" data-clear-choices="{{ airport_field_name(code) }}" hidden>{{ _("Clear selection") }}</button>
+        {% else %}
+          <p class="empty">{{ _("{code}: no airports with scheduled service found.", code=code) }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="actions">
+      {% if estimate %}<p class="hint">{{ _("{routes} routes · {queries} queries · {requests} requests (about {minutes} min) per poll", routes=estimate.routes, queries=estimate.queries, requests=estimate.requests, minutes=estimate.minutes) }}</p>{% endif %}
+      {{ ui.button(_("Update selection"), "secondary", name="refresh_airports", value="1") }}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="grid-2">
+    {{ ui.choice_group("trip_type", _("Trip type"), labels.TRIP_TYPE_LABELS.items() | tr_options, values.trip_type) }}
+    {{ ui.choice_group("cabin_classes", _("Cabin class"), labels.CABIN_LABELS.items() | tr_options, values.cabin_classes, multiple=True) }}
+  </div>
+
+  <div class="grid-3">
+    {{ ui.number_field("months_ahead", _("Period (months ahead)"), values.months_ahead, min=1, max=12) }}
+    {{ ui.number_field("stay_days_min", _("Min. stay (days)"), values.stay_days_min, min=1, max=365, hint=_("Round trips only. Every stay length from min. to max. is checked (at most 8).")) }}
+    {{ ui.number_field("stay_days_max", _("Max. stay (days)"), values.stay_days_max, min=1, max=365) }}
+  </div>
+
+  <div class="grid-3">
+    {{ ui.number_field("adults", _("Adults"), values.adults, min=1, max=9,
+       hint=None if provider.prices_all_passengers else _('Note: prices from "{provider}" are for one adult; the number of passengers is not considered.', provider=provider.name)) }}
+    {{ ui.number_field("children", _("Children (2–11 years)"), values.children, min=0, max=8,
+       hint=None if provider.supports_children else _('Note: not available with the data source "{provider}" – prices do not include children.', provider=provider.name)) }}
+  </div>
+
+  {#- Rarely changed settings stay folded away (open when the form has errors). -#}
+  <details class="more-options"{% if errors %} open{% endif %}>
+    <summary>{{ _("More options") }}</summary>
+    <div class="grid-2">
+      {{ ui.select_field("max_stops", _("Stops"), labels.STOPS_OPTIONS | tr_options, values.max_stops) }}
+      {{ ui.select_field("days_per_month", _("Departure dates sampled per month"), days_per_month_options | tr_options, values.days_per_month,
+        hint=_("How many departure dates are sampled per month; this affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests (about 2 min), every day = 186 requests (about 12 min). Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.")) }}
+    </div>
+  </details>
+
+  <div class="actions">
+    {{ ui.button(_("Save") if search else _("Create tracked search")) }}
+    {{ ui.link_button(_("Cancel"), "/searches/%d" % search.id if search else "/searches") }}
+  </div>
+</form>
+{% endblock %}

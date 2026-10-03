@@ -1,0 +1,119 @@
+{#- Shared UI elements. Use these everywhere so buttons, inputs and tables look identical.
+    Labels are passed already translated (with `_`); messages may also be `Msg` objects. -#}
+
+{% macro csrf_field() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+{%- endmacro %}
+
+{% macro button(label, variant="primary", type="submit", name=None, value=None, formaction=None, form=None) -%}
+<button class="btn btn-{{ variant }}" type="{{ type }}"
+  {%- if form %} form="{{ form }}"{% endif %}
+  {%- if name %} name="{{ name }}"{% endif %}
+  {%- if value %} value="{{ value }}"{% endif %}
+  {%- if formaction %} formaction="{{ formaction }}"{% endif %}>{{ label }}</button>
+{%- endmacro %}
+
+{% macro link_button(label, href, variant="secondary") -%}
+<a class="btn btn-{{ variant }}" href="{{ href }}">{{ label }}</a>
+{%- endmacro %}
+
+{% macro action_form(action, label, variant="secondary") -%}
+<form method="post" action="{{ action }}" class="inline-form">
+  {{ csrf_field() }}
+  {{ button(label, variant) }}
+</form>
+{%- endmacro %}
+
+{#- `suggest`: URL of a JSON suggestion endpoint (static/js/app.js shows a dropdown);
+    `multiple`: comma-separated list, suggestions complete the last entry. -#}
+{% macro text_field(name, label, value="", hint=None, required=False, placeholder=None, type="text", autocomplete=None, suggest=None, multiple=False) -%}
+<div class="field{% if suggest %} suggest{% endif %}">
+  <label for="f-{{ name }}">{{ label }}</label>
+  <input class="input" id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
+    {%- if required %} required{% endif %}
+    {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+    {%- if suggest %} data-suggest="{{ suggest }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"
+      {%- if multiple %} data-suggest-multiple{% endif %}
+    {%- elif autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}>
+  {% if hint %}<small class="hint">{{ hint }}</small>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro number_field(name, label, value="", min=None, max=None, hint=None) -%}
+<div class="field">
+  <label for="f-{{ name }}">{{ label }}</label>
+  <input class="input" id="f-{{ name }}" name="{{ name }}" type="number" inputmode="numeric" value="{{ value }}"
+    {%- if min is not none %} min="{{ min }}"{% endif %}
+    {%- if max is not none %} max="{{ max }}"{% endif %}>
+  {% if hint %}<small class="hint">{{ hint }}</small>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro select_field(name, label, options, selected, hint=None) -%}
+<div class="field">
+  <label for="f-{{ name }}">{{ label }}</label>
+  <select class="input" id="f-{{ name }}" name="{{ name }}">
+    {% for value, text in options %}
+    <option value="{{ value }}"{% if value == selected %} selected{% endif %}>{{ text }}</option>
+    {% endfor %}
+  </select>
+  {% if hint %}<small class="hint">{{ hint }}</small>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro choice_group(name, label, options, selected, multiple=False) -%}
+<fieldset class="field choice-group">
+  <legend>{{ label }}</legend>
+  {% for value, text in options %}
+  <label class="choice">
+    <input type="{{ 'checkbox' if multiple else 'radio' }}" name="{{ name }}" value="{{ value }}"
+      {%- if (multiple and value in selected) or (not multiple and value == selected) %} checked{% endif %}>
+    <span>{{ text }}</span>
+  </label>
+  {% endfor %}
+</fieldset>
+{%- endmacro %}
+
+{#- First price, price curve and current price of one flight (needs two or more observations). -#}
+{% macro trend_spark(trend) -%}
+{% if trend %}
+<span class="spark-wrap spark-{{ 'down' if trend.change < 0 else 'up' if trend.change > 0 else 'flat' }}" title="{{ _('First observed price → current price') }}">
+  <small>{{ trend.first | price(trend.point.currency) }}</small>
+  {{ sparkline(trend.values | map(attribute="price") | list) }}
+  <small>{{ trend.current | price(trend.point.currency) }}</small>
+</span>
+{% if trend.changes %}<span class="trend-changes" aria-label="{{ _('Changes since 1d, 1w and 1m ago') }}">
+  {% for change in trend.changes %}
+  <small class="trend-change {{ 'delta-down' if change.amount < 0 else 'delta-up' if change.amount > 0 else 'hint' }}">{{ change.period }} {{ '▼' if change.amount < 0 else '▲' if change.amount > 0 else '=' }} {{ (change.amount | abs) | price(trend.point.currency) }}</small>
+  {% endfor %}
+</span>{% endif %}
+{% endif %}
+{%- endmacro %}
+
+{% macro badge(text, variant="neutral") -%}
+<span class="badge badge-{{ variant }}">{{ text }}</span>
+{%- endmacro %}
+
+{% macro status_badge(search) -%}
+{% if search.is_archived %}{{ badge(_("Archived"), "muted") }}
+{% elif search.status == "paused" %}{{ badge(_(labels.STATUS_LABELS[search.status]), "warning") }}
+{% else %}{{ badge(_(labels.STATUS_LABELS[search.status]), "success") }}{% endif %}
+{%- endmacro %}
+
+{% macro alert(message, category="info") -%}
+<div class="alert alert-{{ category }}" role="status">{{ _(message) }}</div>
+{%- endmacro %}
+
+{#- Invented (demo/test) data must always be visibly marked in red. -#}
+{% macro fake_tag() -%}
+<span class="fake-tag">{{ _("invented") }}</span>
+{%- endmacro %}
+
+{% macro error_list(errors) -%}
+{% if errors %}
+<div class="alert alert-error" role="alert">
+  <strong>{{ _("Please correct:") }}</strong>
+  <ul>{% for e in errors %}<li>{{ _(e) }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{%- endmacro %}

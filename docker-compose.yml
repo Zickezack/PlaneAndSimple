@@ -1,0 +1,81 @@
+# Production stack, deployed with `scripts/deploy.sh` (git pull + docker compose up).
+# All secrets come from the server's `.env` (never committed). Missing required values abort startup.
+name: flighttracker
+
+x-app: &app
+  image: ${APP_IMAGE:-flighttracker:latest}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: prod
+  restart: unless-stopped
+  environment:
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flighttracker}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set in .env}@db:5432/${POSTGRES_DB:-flighttracker}
+    SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is not set in .env}
+    ADMIN_USERNAME: ${ADMIN_USERNAME:?ADMIN_USERNAME is not set in .env}
+    ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is not set in .env}
+    SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+    FLIGHT_PROVIDER: ${FLIGHT_PROVIDER:-google_flights}
+    TRAVELPAYOUTS_TOKEN: ${TRAVELPAYOUTS_TOKEN:-}
+    SCRAPER_DAYS_PER_MONTH: ${SCRAPER_DAYS_PER_MONTH:-4}
+    SCRAPER_REQUEST_DELAY_SECONDS: ${SCRAPER_REQUEST_DELAY_SECONDS:-3}
+    WORKER_TICK_SECONDS: ${WORKER_TICK_SECONDS:-30}
+    DEFAULT_POLL_INTERVAL_MINUTES: ${DEFAULT_POLL_INTERVAL_MINUTES:-1440}
+    MAX_ROUTE_PAIRS_PER_SEARCH: ${MAX_ROUTE_PAIRS_PER_SEARCH:-50}
+    COUNTRY_DEFAULT_AIRPORTS: ${COUNTRY_DEFAULT_AIRPORTS:-3}
+    WIKIDATA_CONTACT: ${WIKIDATA_CONTACT:-}
+    DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-CHF}
+    DISPLAY_TIMEZONE: ${DISPLAY_TIMEZONE:-Europe/Zurich}
+    # Reverse proxy IPs whose X-Forwarded-For uvicorn trusts (for login throttling per client).
+    FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-flighttracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-flighttracker}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Intentionally no published port – the database is only reachable inside the stack.
+
+  migrate:
+    <<: *app
+    restart: "no"
+    # Airports (incl. size ranking) are imported once; a failed download does not block startup.
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && python -m flighttracker.cli import-airports --if-needed
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    <<: *app
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "flighttracker.worker"]
+    # The worker stops between two provider queries; one query takes up to ~30 s.
+    stop_grace_period: 60s
+
+volumes:
+  pgdata:

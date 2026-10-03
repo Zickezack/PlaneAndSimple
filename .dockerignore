@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+.git
+.devcontainer
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+tests
+data
+*.pem
+*.key
+secrets
