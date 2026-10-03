@@ -591,6 +591,8 @@ class TestPricePoints:
             "stops": 0,
             "price": Decimal("200"),
             "currency": "CHF",
+            "adults": 1,
+            "children": 0,
             "observed_at": NOW,
         }
         return PriceHistory(**(values | overrides))

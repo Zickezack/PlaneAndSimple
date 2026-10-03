@@ -5,7 +5,14 @@ Terminology: see datamodel.md (glossary).
 
 from flighttracker.domain.filters import CabinClass, TripType
 from flighttracker.domain.locations import LocationKind
-from flighttracker.models import JobKind, JobStatus, PriceSource, QueryOutcome, SearchStatus
+from flighttracker.models import (
+    JobKind,
+    JobStatus,
+    PriceSource,
+    QueryOutcome,
+    SearchStatus,
+    UserRole,
+)
 
 CABIN_LABELS = {
     CabinClass.ECONOMY: "Economy",
@@ -39,7 +46,9 @@ JOB_STATUS_LABELS = {
     JobStatus.RUNNING: "Running",
     JobStatus.DONE: "Done",
     JobStatus.FAILED: "Failed",
+    JobStatus.CANCELLED: "Cancelled",
 }
+ROLE_LABELS = {UserRole.ADMIN: "Admin", UserRole.USER: "User"}
 
 OUTCOME_LABELS = {
     QueryOutcome.OK: "Prices found",
@@ -83,6 +92,7 @@ SETTINGS_SECTION_LABELS = {
     "searches": "Search defaults",
     "worker": "Worker",
     "airport_import": "Airport import",
+    "users": "User limits",
 }
 SETTINGS_FIELD_LABELS = {
     "flight_provider": "Active flight data provider",
@@ -95,6 +105,8 @@ SETTINGS_FIELD_LABELS = {
     "max_route_pairs_per_search": "Max. route pairs per tracked search",
     "country_default_airports": "Airports preselected per country",
     "wikidata_contact": "Wikidata contact (URL or e-mail)",
+    "max_searches_per_user": "Max. tracked searches and Trips per user",
+    "max_requests_per_user": "Max. provider requests per poll per user",
 }
 SETTINGS_FIELD_HINTS = {
     "flight_provider": "Source of flight prices; the worker switches to it on its next tick.",
@@ -124,5 +136,13 @@ SETTINGS_FIELD_HINTS = {
     "wikidata_contact": (
         "Sent as the Wikidata User-Agent contact; required for passenger numbers to be "
         "fetched at all."
+    ),
+    "max_searches_per_user": (
+        "Counts active and paused ones; archived ones are free. A Trip counts once. "
+        "Admins have no limit; each user can get an own limit under User management."
+    ),
+    "max_requests_per_user": (
+        "Provider requests of one poll of all of a user's tracked searches and Trips "
+        "together – the real cost. 600 take about 40 minutes with a 3 s pause."
     ),
 }

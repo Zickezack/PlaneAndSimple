@@ -6,6 +6,7 @@
   <h1>{{ _("Trip Planner") }}</h1>
 </div>
 <p class="hint">{{ _("Build a trip from separate one-way tracked searches. The planner only queries dates that could connect within your travel window and layover limits.") }}</p>
+{{ ui.quota_hint(usage) }}
 {{ ui.error_list(errors) }}
 {% if notice %}{{ ui.alert(notice) }}{% endif %}
 <form method="post" action="/trips" class="form card" id="trip-form">

@@ -16,6 +16,7 @@ from flighttracker.web.routes import (
     searches,
     suggest,
     trips,
+    users,
 )
 from flighttracker.web.routes import (
     settings as settings_routes,
@@ -78,4 +79,5 @@ def create_app(
     app.include_router(log.router)
     app.include_router(settings_routes.router)
     app.include_router(trips.router)
+    app.include_router(users.router)
     return app

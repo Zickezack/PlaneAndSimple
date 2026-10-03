@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
-from sqlalchemy import case, delete, or_, select
+from sqlalchemy import ColumnElement, case, delete, or_, select
 from sqlalchemy.orm import Session, object_session, selectinload
 
 from flighttracker.domain.coverage import CoverageKind, find_overlaps, is_covered
@@ -304,12 +304,18 @@ def current_revision_id(session: Session, search: Search) -> int:
 
 
 def create_search(
-    session: Session, data: SearchInput, *, max_route_pairs: int, now: datetime | None = None
+    session: Session,
+    data: SearchInput,
+    *,
+    max_route_pairs: int,
+    owner_id: int | None = None,
+    now: datetime | None = None,
 ) -> Search:
     validate_input(session, data, max_route_pairs=max_route_pairs)
     now = now or _utcnow()
     search = Search(
         name=data.name,
+        owner_id=owner_id,
         status=SearchStatus.ACTIVE,
         filters=data.spec.filters.to_json(),
         poll_interval_minutes=data.poll_interval_minutes,
@@ -405,14 +411,17 @@ def get_search(session: Session, search_id: int) -> Search | None:
     ).first()
 
 
-def list_searches(session: Session, *, archived: bool = False) -> list[Search]:
+def list_searches(
+    session: Session, *, archived: bool = False, visible: ColumnElement[bool] | None = None
+) -> list[Search]:
+    """`visible`: condition from `services.access.visible_searches` (None = all)."""
     condition = Search.archived_at.is_not(None) if archived else Search.archived_at.is_(None)
+    statement = select(Search).where(condition)
+    if visible is not None:
+        statement = statement.where(visible)
     return list(
         session.scalars(
-            select(Search)
-            .where(condition)
-            .options(selectinload(Search.locations))
-            .order_by(Search.name, Search.id)
+            statement.options(selectinload(Search.locations)).order_by(Search.name, Search.id)
         )
     )
 
@@ -425,12 +434,17 @@ def _airport_countries_for(session: Session, *specs: SearchSpec) -> dict[str, st
 
 
 def find_overlapping_searches(
-    session: Session, spec: SearchSpec, *, exclude_id: int | None = None
+    session: Session,
+    spec: SearchSpec,
+    *,
+    exclude_id: int | None = None,
+    visible: ColumnElement[bool] | None = None,
 ) -> list[tuple[Search, CoverageKind]]:
+    """Only among the Suchabos the user may see (`visible`), so no other user's is revealed."""
     trip_search_ids = set(session.scalars(select(TripLeg.search_id)))
     candidates = {
         s.id: s
-        for s in list_searches(session)
+        for s in list_searches(session, visible=visible)
         if s.id != exclude_id and s.id not in trip_search_ids
     }
     specs = {search_id: spec_of(search) for search_id, search in candidates.items()}

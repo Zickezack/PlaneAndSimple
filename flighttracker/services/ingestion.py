@@ -70,6 +70,8 @@ def store_quotes(
     revision_id: int,
     source: PriceSource,
     quotes: Iterable[PriceQuote],
+    adults: int,
+    children: int,
 ) -> int:
     rows = [
         {
@@ -85,6 +87,8 @@ def store_quotes(
             "stops": quote.stops,
             "price": quote.price,
             "currency": quote.currency,
+            "adults": adults,
+            "children": children,
             "airline": quote.airline,
             "details": quote.details,
             "observed_at": quote.observed_at,
@@ -204,6 +208,8 @@ def run_query(
             revision_id=plan.revision_id,
             source=PriceSource.LIVE,
             quotes=quotes,
+            adults=query.adults,
+            children=query.children,
         )
         entry.outcome = QueryOutcome.OK if quotes else QueryOutcome.EMPTY
     entry.duration_ms = int((monotonic() - started) * 1000)

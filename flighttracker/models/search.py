@@ -50,6 +50,10 @@ class Search(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # None: no owner (created before user management, or the owner was deleted) – admins only.
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
 
     locations: Mapped[list["SearchLocation"]] = relationship(
         back_populates="search",

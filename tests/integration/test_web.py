@@ -241,6 +241,8 @@ def test_mock_provider_is_marked_as_invented(client, db):
             stops=0,
             price=Decimal("123.00"),
             currency="CHF",
+            adults=1,
+            children=0,
             observed_at=today,
         )
     )
@@ -260,6 +262,8 @@ def test_mock_provider_is_marked_as_invented(client, db):
                 stops=0,
                 price=Decimal("150.00") + stay,
                 currency="CHF",
+                adults=1,
+                children=0,
                 observed_at=today,
             )
         )
@@ -409,6 +413,8 @@ def _seed_price(db, search_id, *, details=None, price="123.00", observed_at=None
         stops=1,
         price=Decimal(price),
         currency="CHF",
+        adults=1,
+        children=0,
         observed_at=observed_at or today,
         details=details,
     )
@@ -821,6 +827,8 @@ def test_detail_shows_price_trends_per_flight_and_in_chart(client, db):
                 stops=0,
                 price=Decimal(price),
                 currency="CHF",
+                adults=1,
+                children=0,
                 observed_at=now - timedelta(days=days_ago),
             )
         )

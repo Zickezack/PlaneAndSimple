@@ -48,6 +48,22 @@ def requests_per_query(spec: SearchSpec) -> int:
     return spec.filters.days_per_month * max(len(spec.filters.stay_lengths), 1)
 
 
+def requests_per_poll(spec: SearchSpec, *, samples_days: bool) -> int:
+    """Provider requests of one poll; providers that do not sample days need one per query."""
+    queries = queries_per_poll(spec)
+    return queries * requests_per_query(spec) if samples_days else queries
+
+
+def trip_requests_per_poll(leg_specs: list[SearchSpec], window_days: int) -> int:
+    """Upper bound for a Trip poll: every leg queried on every day of the window.
+
+    Later legs only query dates that can connect, so real polls usually stay below it.
+    """
+    return sum(
+        len(route_pairs(spec)) * len(spec.filters.cabin_classes) * window_days for spec in leg_specs
+    )
+
+
 def departure_months(months_ahead: int, today: date) -> list[date]:
     """First day of the current month and the following `months_ahead - 1` months."""
     months = []

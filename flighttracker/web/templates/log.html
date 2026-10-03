@@ -10,6 +10,31 @@
 </div>
 <p class="hint">{{ _("Every provider query of every poll: route × departure month × cabin class. Entries are kept, even for deleted tracked searches.") }}</p>
 
+<section class="card">
+  <h2>{{ _("Running and queued polls") }}</h2>
+  {% if open_jobs %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>{{ _("Tracked search") }}</th><th>{{ _("Status") }}</th><th>{{ _("Since") }}</th><th class="num">{{ _("Queries done") }}</th><th></th></tr></thead>
+      <tbody>
+        {% for o in open_jobs %}
+        <tr>
+          <td>{% if o.trip_id %}<a href="/trips/{{ o.trip_id }}">{{ o.name }}</a> <small class="hint">({{ _("Trip") }})</small>{% else %}<a href="/searches/{{ o.job.search_id }}">{{ o.name }}</a>{% endif %}</td>
+          <td>{{ ui.badge(_(labels.JOB_STATUS_LABELS[o.job.status]), "success" if o.job.status == "running" else "muted") }}</td>
+          <td>{{ (o.job.started_at if o.job.status == "running" else o.job.run_after) | datetime }}</td>
+          <td class="num">{{ o.queries_done }}</td>
+          <td>{% if o.job.id in cancellable %}{{ ui.action_form("/log/jobs/%d/cancel" % o.job.id, _("Cancel"), "ghost") }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">{{ _("A cancelled poll stops after its current query; prices fetched so far are kept. The next regular poll runs as scheduled.") }} <a href="/log">{{ _("Refresh") }}</a></p>
+  {% else %}
+  <p class="empty">{{ _("No poll is running or queued.") }}</p>
+  {% endif %}
+</section>
+
 <form method="get" action="/log" class="card form">
   <div class="grid-3">
     {{ ui.select_field("search_id", _("Tracked search"), [("", _("All"))] + search_options, selected_search) }}

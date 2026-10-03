@@ -13,13 +13,21 @@ from flighttracker.domain.spec import (
     SearchSpec,
     merge_specs,
     queries_per_poll,
-    requests_per_query,
     route_pairs,
 )
 from flighttracker.i18n import Msg, translate
-from flighttracker.models import LocationRole, Search, SearchStatus
-from flighttracker.providers.registry import FAKE_DATA_PROVIDERS, provider_class
-from flighttracker.services import history, jobs
+from flighttracker.models import LocationRole, Search, SearchStatus, User
+from flighttracker.providers.registry import FAKE_DATA_PROVIDERS
+from flighttracker.services import history, jobs, quota
+from flighttracker.services.access import (
+    Access,
+    ShareError,
+    remove_share,
+    search_access,
+    share_with,
+    visible_searches,
+    visible_trips,
+)
 from flighttracker.services.data_transfer import export_search
 from flighttracker.services.searches import (
     SearchValidationError,
@@ -44,14 +52,18 @@ from flighttracker.services.trips import (
     list_trips,
     trip_search_ids,
 )
+from flighttracker.services.users import usernames
 from flighttracker.web import flights
 from flighttracker.web.deps import (
+    AuthUser,
     csrf_form,
     current_locale,
+    current_user,
     flash,
     get_db,
     get_effective_settings,
     require_admin,
+    require_login,
 )
 from flighttracker.web.forms import (
     SearchFormResult,
@@ -62,16 +74,43 @@ from flighttracker.web.forms import (
     values_from_search,
 )
 from flighttracker.web.labels import CABIN_LABELS, CHART_LABELS, DAYS_PER_MONTH_LABELS
+from flighttracker.web.sharing import sharing_view
 from flighttracker.web.templating import templates
 
-router = APIRouter(dependencies=[Depends(require_admin)])
+router = APIRouter(dependencies=[Depends(require_login)])
 
 
-def _load(db: Session, search_id: int) -> Search:
+def _load(db: Session, search_id: int, user: AuthUser, needed: Access = Access.VIEW) -> Search:
+    """The Suchabo if `user` has at least `needed` access; 404 if they may not even see it."""
     search = get_search(db, search_id)
-    if search is None:
+    access = search_access(db, user, search) if search is not None else None
+    if access is None:
         raise HTTPException(status_code=404, detail="Tracked search not found.")
+    if access < needed:
+        raise HTTPException(status_code=403, detail="You may not change this tracked search.")
     return search
+
+
+def _quota_errors(
+    db: Session,
+    settings: Settings,
+    owner_id: int | None,
+    *,
+    added_searches: int = 0,
+    added_requests: int = 0,
+) -> list[Msg]:
+    owner = db.get(User, owner_id) if owner_id is not None else None
+    return quota.check(
+        db, owner, settings, added_searches=added_searches, added_requests=added_requests
+    )
+
+
+def _added_requests(search: Search, new_spec: SearchSpec, settings: Settings) -> int:
+    """Change of the owner's requests per poll if `search` gets `new_spec` (archived: none)."""
+    if search.is_archived:
+        return 0
+    old = quota.search_requests(spec_of(search), settings)
+    return quota.search_requests(new_spec, settings) - old
 
 
 def _ascii_filename(name: str) -> str:
@@ -91,8 +130,7 @@ _SECONDS_PER_REQUEST = 1.0
 def _estimate(spec: SearchSpec, settings: Settings) -> dict:
     """Cost of one poll, so that the user can weigh coverage against requests and time."""
     queries = queries_per_poll(spec)
-    samples_days = provider_class(settings.flight_provider).samples_days
-    requests = queries * requests_per_query(spec) if samples_days else queries
+    requests = quota.search_requests(spec, settings)
     seconds = requests * (settings.scraper_request_delay_seconds + _SECONDS_PER_REQUEST)
     return {
         "routes": len(route_pairs(spec)),
@@ -123,10 +161,14 @@ def _render_form(
     status_code: int = 200,
 ) -> Response:
     countries = set(values["airport_countries"])
+    settings = get_effective_settings(request, db)
+    auth_user = current_user(request)
+    usage = quota.usage(db, db.get(User, auth_user.id), settings) if auth_user else None
     return templates.TemplateResponse(
         request,
         "searches/form.html",
         {
+            "usage": usage,
             "values": values,
             "search": search,
             "errors": errors or [],
@@ -136,9 +178,7 @@ def _render_form(
             "country_names": country_names(db, countries),
             "airport_field_name": airport_field_name,
             "days_per_month_options": _days_per_month_options(values.get("days_per_month", "")),
-            "estimate": (
-                _estimate(spec, get_effective_settings(request, db)) if spec is not None else None
-            ),
+            "estimate": _estimate(spec, settings) if spec is not None else None,
         },
         status_code=status_code,
     )
@@ -180,7 +220,7 @@ def _review_airports(
     )
 
 
-def _overlap_view(new_spec, matches) -> list[dict]:
+def _overlap_view(db: Session, user: AuthUser, new_spec, matches) -> list[dict]:
     """Overlap hints incl. what a merge would change, for the create form."""
     result = []
     for search, kind in matches:
@@ -199,6 +239,7 @@ def _overlap_view(new_spec, matches) -> list[dict]:
                     merged.destinations, merged.country_airports
                 ),
                 "filters_widened": merged.filters != existing.filters,
+                "can_merge": search_access(db, user, search) >= Access.EDIT,
             }
         )
     return result
@@ -216,12 +257,18 @@ def index() -> Response:
 
 
 @router.get("/searches")
-def search_list(request: Request, archived: bool = False, db: Session = Depends(get_db)):
-    all_searches = list_searches(db, archived=archived)
-    trips = list_trips(db, archived=archived)
+def search_list(
+    request: Request,
+    archived: bool = False,
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    all_searches = list_searches(db, archived=archived, visible=visible_searches(user))
+    trips = list_trips(db, archived=archived, visible=visible_trips(user))
     trip_ids = trip_search_ids(db, trips)
     counts = history.observation_counts(db, [s.id for s in all_searches])
     searches = [search for search in all_searches if search.id not in trip_ids]
+    owners = {item.owner_id for item in [*searches, *trips] if item.owner_id is not None}
     return templates.TemplateResponse(
         request,
         "searches/list.html",
@@ -231,6 +278,7 @@ def search_list(request: Request, archived: bool = False, db: Session = Depends(
             "counts": counts,
             "archived": archived,
             "location_text": _location_text,
+            "owner_names": usernames(db, owners),
         },
     )
 
@@ -250,6 +298,7 @@ def create(
     form: FormData = Depends(csrf_form),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
 ):
     parsed = parse_search_form(
         form,
@@ -265,13 +314,30 @@ def create(
         return review
     spec = parsed.data.spec
     if form.get("confirm_overlap") != "1":
-        matches = find_overlapping_searches(db, spec)
+        matches = find_overlapping_searches(db, spec, visible=visible_searches(user))
         if matches:
             return _render_form(
-                request, db, parsed.values, spec=spec, overlaps=_overlap_view(spec, matches)
+                request,
+                db,
+                parsed.values,
+                spec=spec,
+                overlaps=_overlap_view(db, user, spec, matches),
             )
+    quota_errors = _quota_errors(
+        db,
+        settings,
+        user.id,
+        added_searches=1,
+        added_requests=quota.search_requests(spec, settings),
+    )
+    if quota_errors:
+        return _render_form(
+            request, db, parsed.values, spec=spec, errors=quota_errors, status_code=422
+        )
     try:
-        search = create_search(db, parsed.data, max_route_pairs=settings.max_route_pairs_per_search)
+        search = create_search(
+            db, parsed.data, max_route_pairs=settings.max_route_pairs_per_search, owner_id=user.id
+        )
     except SearchValidationError as exc:
         return _render_form(
             request, db, parsed.values, spec=spec, errors=exc.errors, status_code=422
@@ -292,8 +358,9 @@ def merge(
     form: FormData = Depends(csrf_form),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
 ):
-    target = _load(db, search_id)
+    target = _load(db, search_id, user, Access.EDIT)
     trip = get_trip_for_search(db, search_id)
     if trip is not None:
         flash(request, Msg("Trip legs cannot be merged into individually."), "error")
@@ -311,6 +378,12 @@ def merge(
     if target.is_archived:
         flash(request, Msg("Archived tracked searches cannot be extended."), "error")
         return _redirect(f"/searches/{target.id}")
+    merged = merge_specs(spec_of(target), parsed.data.spec)
+    quota_errors = _quota_errors(
+        db, settings, target.owner_id, added_requests=_added_requests(target, merged, settings)
+    )
+    if quota_errors:
+        return _render_form(request, db, parsed.values, errors=quota_errors, status_code=422)
     try:
         merge_into(
             db, target, parsed.data.spec, max_route_pairs=settings.max_route_pairs_per_search
@@ -343,14 +416,20 @@ def detail(
     request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
 ):
-    search = _load(db, search_id)
+    search = _load(db, search_id, user)
+    access = search_access(db, user, search)
     trip = get_trip_for_search(db, search_id)
     spec = spec_of(search)
     today = datetime.now(UTC).date()
-    points = history.price_points(db, search.id, FAKE_DATA_PROVIDERS)
+    # Only prices for the current passengers: others are not comparable (see services/history).
+    passengers = (spec.filters.adults, spec.filters.children)
+    points = history.price_points(db, search.id, FAKE_DATA_PROVIDERS, passengers=passengers)
     upcoming = [p for p in points if p.departure_date >= today]
-    trends = history.flight_trends(upcoming, history.price_series(db, search.id, today))
+    trends = history.flight_trends(
+        upcoming, history.price_series(db, search.id, today, passengers=passengers)
+    )
     locale = current_locale(request)
     chart = flights.chart_data(
         points,
@@ -397,6 +476,14 @@ def detail(
             "observation_count": history.observation_counts(db, [search.id]).get(search.id, 0),
             "jobs": jobs.recent_jobs(db, search.id),
             "revisions": search.revisions,
+            "hidden_passenger_prices": history.other_passenger_prices(
+                db, search.id, passengers, today
+            ),
+            "access": access,
+            "Access": Access,
+            "sharing": sharing_view(db, user, search.owner_id, search_id=search.id)
+            if trip is None and access >= Access.OWN
+            else None,
         },
     )
 
@@ -406,9 +493,9 @@ def edit_form(
     search_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
 ):
-    search = _load(db, search_id)
+    search = _load(db, search_id, user, Access.EDIT)
     trip = get_trip_for_search(db, search_id)
     if trip is not None:
         return _redirect(f"/trips/{trip.id}")
@@ -424,8 +511,9 @@ def edit(
     form: FormData = Depends(csrf_form),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
 ):
-    search = _load(db, search_id)
+    search = _load(db, search_id, user, Access.EDIT)
     trip = get_trip_for_search(db, search_id)
     if trip is not None:
         flash(request, Msg("Trip legs are managed through their Trip."), "error")
@@ -444,6 +532,22 @@ def edit(
     )
     if review is not None:
         return review
+    quota_errors = _quota_errors(
+        db,
+        settings,
+        search.owner_id,
+        added_requests=_added_requests(search, parsed.data.spec, settings),
+    )
+    if quota_errors:
+        return _render_form(
+            request,
+            db,
+            parsed.values,
+            search=search,
+            spec=parsed.data.spec,
+            errors=quota_errors,
+            status_code=422,
+        )
     try:
         changed = update_search(
             db, search, parsed.data, max_route_pairs=settings.max_route_pairs_per_search
@@ -474,8 +578,9 @@ def poll_now(
     form: FormData = Depends(csrf_form),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
 ):
-    search = _load(db, search_id)
+    search = _load(db, search_id, user, Access.EDIT)
     trip = get_trip_for_search(db, search_id)
     if trip is not None:
         if jobs.request_trip_poll(
@@ -505,10 +610,12 @@ def poll_now(
 
 
 @router.get("/searches/{search_id}/export")
-def export_one(search_id: int, db: Session = Depends(get_db)) -> Response:
+def export_one(
+    search_id: int, db: Session = Depends(get_db), user: AuthUser = Depends(require_login)
+) -> Response:
     """Download this Suchabo's data (incl. price history and query log) as JSON, importable
     later via the general import button on Platform Settings."""
-    search = _load(db, search_id)
+    search = _load(db, search_id, user)
     payload = export_search(db, search.id)
     filename = f"plane-and-simple-{_ascii_filename(search.name)}.json"
     return Response(
@@ -519,12 +626,17 @@ def export_one(search_id: int, db: Session = Depends(get_db)) -> Response:
 
 
 @router.get("/searches/{search_id}/flights/{price_id}")
-def flight_detail(search_id: int, price_id: int, request: Request, db: Session = Depends(get_db)):
-    search = _load(db, search_id)
+def flight_detail(
+    search_id: int,
+    price_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    search = _load(db, search_id, user)
     observed = history.observation(db, search.id, price_id)
     if observed is None:
         raise HTTPException(status_code=404, detail="Price not found.")
-    spec = spec_of(search)
     return templates.TemplateResponse(
         request,
         "searches/flight.html",
@@ -535,17 +647,18 @@ def flight_detail(search_id: int, price_id: int, request: Request, db: Session =
             "url": (observed.details or {}).get("url"),
             "history": history.flight_history(db, observed),
             "fake": observed.provider in FAKE_DATA_PROVIDERS,
-            "passengers": spec.filters.adults + spec.filters.children,
+            # The passengers this price was observed for (the Suchabo may have changed since).
+            "passengers": observed.adults + observed.children,
             "round_trip": observed.return_date is not None,
         },
     )
 
 
 _ACTIONS = {
-    "pause": (pause_search, Msg("Tracked search paused.")),
-    "resume": (resume_search, Msg("Tracked search is polled again.")),
-    "archive": (archive_search, Msg("Tracked search archived. All data is kept.")),
-    "restore": (restore_search, Msg("Tracked search restored.")),
+    "pause": (pause_search, Msg("Tracked search paused."), Access.EDIT),
+    "resume": (resume_search, Msg("Tracked search is polled again."), Access.EDIT),
+    "archive": (archive_search, Msg("Tracked search archived. All data is kept."), Access.OWN),
+    "restore": (restore_search, Msg("Tracked search restored."), Access.OWN),
 }
 
 
@@ -555,8 +668,9 @@ def delete_permanently(
     request: Request,
     form: FormData = Depends(csrf_form),
     db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
 ):
-    search = _load(db, search_id)
+    search = _load(db, search_id, user, Access.OWN)
     trip = get_trip_for_search(db, search_id)
     if trip is not None:
         flash(request, Msg("Trip legs cannot be deleted individually."), "error")
@@ -575,6 +689,70 @@ def delete_permanently(
     return _redirect("/searches")
 
 
+@router.post("/searches/{search_id}/shares")
+def add_share(
+    search_id: int,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    search = _load(db, search_id, user, Access.OWN)
+    if get_trip_for_search(db, search_id) is not None:
+        raise HTTPException(status_code=404)
+    try:
+        share = share_with(
+            db,
+            owner_id=search.owner_id,
+            username=str(form.get("username", "")),
+            can_edit=form.get("permission") == "edit",
+            search_id=search.id,
+        )
+    except ShareError as exc:
+        flash(request, exc.message, "error")
+        return _redirect(f"/searches/{search.id}")
+    db.commit()
+    flash(request, Msg('Shared with "{name}".', name=share.user.username), "success")
+    return _redirect(f"/searches/{search.id}")
+
+
+@router.post("/searches/{search_id}/shares/{share_id}/delete")
+def delete_share(
+    search_id: int,
+    share_id: int,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    search = _load(db, search_id, user, Access.OWN)
+    if remove_share(db, share_id, search_id=search.id):
+        db.commit()
+        flash(request, Msg("Access removed."), "success")
+    return _redirect(f"/searches/{search.id}")
+
+
+@router.post("/searches/{search_id}/owner", dependencies=[Depends(require_admin)])
+def change_owner(
+    search_id: int,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    search = _load(db, search_id, user, Access.OWN)
+    if get_trip_for_search(db, search_id) is not None:
+        raise HTTPException(status_code=404)
+    raw = str(form.get("owner_id", ""))
+    owner = db.get(User, int(raw)) if raw.isdigit() else None
+    if owner is None:
+        raise HTTPException(status_code=422, detail="Unknown user.")
+    search.owner_id = owner.id
+    db.commit()
+    flash(request, Msg("Owner changed."), "success")
+    return _redirect(f"/searches/{search.id}")
+
+
 @router.post("/searches/{search_id}/{action}")
 def status_action(
     search_id: int,
@@ -582,15 +760,29 @@ def status_action(
     request: Request,
     form: FormData = Depends(csrf_form),
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
 ):
     if action not in _ACTIONS:
         raise HTTPException(status_code=404)
-    search = _load(db, search_id)
+    handler, message, needed = _ACTIONS[action]
+    search = _load(db, search_id, user, needed)
     trip = get_trip_for_search(db, search_id)
     if trip is not None:
         flash(request, Msg("Trip legs are managed through their Trip."), "error")
         return _redirect(f"/trips/{trip.id}")
-    handler, message = _ACTIONS[action]
+    if action == "restore" and search.is_archived:
+        errors = _quota_errors(
+            db,
+            settings,
+            search.owner_id,
+            added_searches=1,
+            added_requests=quota.search_requests(spec_of(search), settings),
+        )
+        if errors:
+            for error in errors:
+                flash(request, error, "error")
+            return _redirect(f"/searches/{search.id}")
     handler(search)
     db.commit()
     flash(request, message, "success")

@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from flighttracker.domain.currencies import suggest_currencies
 from flighttracker.i18n import translate
 from flighttracker.services.searches import suggest_locations
-from flighttracker.web.deps import current_locale, get_db, require_admin
+from flighttracker.web.deps import current_locale, get_db, require_login
 from flighttracker.web.labels import LOCATION_KIND_LABELS
 
-router = APIRouter(prefix="/api/suggest", dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/api/suggest", dependencies=[Depends(require_login)])
 
 MAX_QUERY_LENGTH = 50
 

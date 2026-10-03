@@ -1,31 +1,17 @@
-import hmac
-import secrets
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse, Response
+from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
 from flighttracker.config import Settings
 from flighttracker.i18n import Msg
-from flighttracker.security.passwords import verify_password
-from flighttracker.web.deps import (
-    SESSION_CSRF,
-    SESSION_USER,
-    csrf_form,
-    current_user,
-    get_settings,
-)
+from flighttracker.services.users import authenticate
+from flighttracker.web.deps import csrf_form, current_user, get_db, get_settings, start_session
 from flighttracker.web.templating import templates
 
 router = APIRouter()
-
-
-def check_credentials(settings: Settings, username: str, password: str) -> bool:
-    # Always verify the password, so response time does not reveal valid usernames.
-    user_ok = hmac.compare_digest(username.encode(), settings.admin_username.encode())
-    password_ok = verify_password(password, settings.admin_password_hash.get_secret_value())
-    return user_ok and password_ok
 
 
 def _client_key(request: Request) -> str:
@@ -44,6 +30,7 @@ def login(
     request: Request,
     form: FormData = Depends(csrf_form),
     settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
 ) -> Response:
     throttle = request.app.state.login_throttle
     key, now = _client_key(request), datetime.now(UTC)
@@ -56,18 +43,17 @@ def login(
         )
     username = str(form.get("username", ""))
     password = str(form.get("password", ""))
-    if not check_credentials(settings, username, password):
+    user = authenticate(db, settings, username, password)
+    if user is None:
         return templates.TemplateResponse(
             request,
             "login.html",
             {"error": Msg("Wrong username or password.")},
             status_code=401,
         )
+    db.commit()
     throttle.reset(key)
-    # New session on login (prevents session fixation).
-    request.session.clear()
-    request.session[SESSION_USER] = settings.admin_username
-    request.session[SESSION_CSRF] = secrets.token_urlsafe(32)
+    start_session(request, user)
     return RedirectResponse("/searches", status_code=303)
 
 

@@ -52,6 +52,8 @@ def _price_to_dict(price: PriceHistory) -> dict:
         "stops": price.stops,
         "price": str(price.price),
         "currency": price.currency,
+        "adults": price.adults,
+        "children": price.children,
         "airline": price.airline,
         "details": price.details,
         "observed_at": _iso(price.observed_at),
@@ -186,7 +188,7 @@ def _find_existing_search(session: Session, entry: dict) -> Search | None:
 
 
 def _get_or_create_search(
-    session: Session, entry: dict, result: ImportResult
+    session: Session, entry: dict, result: ImportResult, owner_id: int | None
 ) -> tuple[Search, int]:
     """Returns the (matched or newly created) Suchabo and the revision id new prices attach to."""
     existing = _find_existing_search(session, entry)
@@ -207,6 +209,7 @@ def _get_or_create_search(
         filters=entry["filters"],
         poll_interval_minutes=entry["poll_interval_minutes"],
         revision_no=1,
+        owner_id=owner_id,
         # Due right away, like a newly created Suchabo; the scheduler skips inactive ones.
         next_poll_at=datetime.now(UTC),
     )
@@ -253,6 +256,7 @@ def _import_trips(
     entries: list[dict],
     searches_by_identity: dict[tuple[str, str | None], Search],
     result: ImportResult,
+    owner_id: int | None,
 ) -> None:
     for entry in entries:
         if not isinstance(entry, dict):
@@ -260,7 +264,7 @@ def _import_trips(
             continue
         try:
             with session.begin_nested():
-                _import_trip(session, entry, searches_by_identity, result)
+                _import_trip(session, entry, searches_by_identity, result, owner_id)
         except _ENTRY_ERRORS as exc:
             result.errors.append(f'Trip "{entry.get("name", "?")}": {_describe(exc)}')
 
@@ -270,6 +274,7 @@ def _import_trip(
     entry: dict,
     searches_by_identity: dict[tuple[str, str | None], Search],
     result: ImportResult,
+    owner_id: int | None,
 ) -> None:
     if _find_existing_trip(session, entry) is not None:
         result.trips_matched += 1
@@ -311,6 +316,7 @@ def _import_trip(
         archived_at=datetime.fromisoformat(entry["archived_at"])
         if entry.get("archived_at")
         else None,
+        owner_id=owner_id,
     )
     if entry.get("created_at"):
         trip.created_at = datetime.fromisoformat(entry["created_at"])
@@ -320,6 +326,7 @@ def _import_trip(
     session.flush()
     for leg, search in resolved_legs:
         search.next_poll_at = None  # legs are polled through their Trip only
+        search.owner_id = trip.owner_id
         session.add(
             TripLeg(
                 trip_id=trip.id,
@@ -412,6 +419,8 @@ def _import_prices(
             select(PriceHistory).where(PriceHistory.search_id == search.id)
         )
     }
+    # Exports from before passengers were stored per price: the Suchabo's passengers.
+    filters = SearchFilters.model_validate(entry["filters"])
     for raw in entry.get("price_history", []):
         key = _price_key(raw)
         if key in seen:
@@ -432,6 +441,8 @@ def _import_prices(
                 stops=raw.get("stops"),
                 price=_price(raw["price"]),
                 currency=raw["currency"],
+                adults=int(raw.get("adults", filters.adults)),
+                children=int(raw.get("children", filters.children)),
                 airline=raw.get("airline"),
                 details=raw.get("details"),
                 observed_at=datetime.fromisoformat(raw["observed_at"]),
@@ -472,8 +483,10 @@ def _import_logs(session: Session, search: Search, entry: dict, result: ImportRe
         result.logs_added += 1
 
 
-def import_payload(session: Session, payload: dict) -> ImportResult:
-    """Adds every new Suchabo/price/log entry from `payload`; never overwrites or deletes."""
+def import_payload(session: Session, payload: dict, *, owner_id: int | None = None) -> ImportResult:
+    """Adds every new Suchabo/price/log entry from `payload`; never overwrites or deletes.
+
+    New Suchabos and Trips belong to `owner_id` (the importing admin)."""
     result = ImportResult()
     if not isinstance(payload, dict) or payload.get("format") not in SUPPORTED_FORMATS:
         result.errors.append("Unrecognised export file (wrong or missing format version).")
@@ -491,7 +504,7 @@ def import_payload(session: Session, payload: dict) -> ImportResult:
             # A savepoint per entry keeps the session usable after a database error, so every
             # broken entry is reported (the caller rolls the whole import back on any error).
             with session.begin_nested():
-                search, revision_id = _get_or_create_search(session, entry, result)
+                search, revision_id = _get_or_create_search(session, entry, result, owner_id)
                 _import_prices(session, search, revision_id, entry, result)
                 _import_logs(session, search, entry, result)
                 session.flush()
@@ -500,5 +513,5 @@ def import_payload(session: Session, payload: dict) -> ImportResult:
             continue
         searches_by_identity[_search_identity(entry["name"], entry.get("created_at"))] = search
     if payload.get("format") >= 2:
-        _import_trips(session, trips, searches_by_identity, result)
+        _import_trips(session, trips, searches_by_identity, result, owner_id)
     return result

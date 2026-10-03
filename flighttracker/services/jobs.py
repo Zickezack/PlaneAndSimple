@@ -1,12 +1,14 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import exists, func, select, text, update
+from sqlalchemy import ColumnElement, exists, func, select, text, update
 from sqlalchemy.orm import Session
 
 from flighttracker.models import (
     FetchJob,
     JobKind,
     JobStatus,
+    QueryLog,
     Search,
     SearchStatus,
     Trip,
@@ -183,6 +185,9 @@ def claim_next_job(session: Session, now: datetime) -> FetchJob | None:
 
 def mark_done(job: FetchJob, quotes_stored: int, now: datetime, warning: str | None = None) -> None:
     """`warning`: error of single failed queries while the rest succeeded."""
+    job.quotes_stored = quotes_stored
+    if job.status is JobStatus.CANCELLED:
+        return
     job.status = JobStatus.DONE
     job.quotes_stored = quotes_stored
     job.finished_at = now
@@ -191,12 +196,16 @@ def mark_done(job: FetchJob, quotes_stored: int, now: datetime, warning: str | N
 
 def release_job(job: FetchJob) -> None:
     """Hand an interrupted job back to the queue without counting the attempt."""
+    if job.status is JobStatus.CANCELLED:
+        return
     job.status = JobStatus.QUEUED
     job.attempts = max(job.attempts - 1, 0)
     job.started_at = None
 
 
 def mark_failed(job: FetchJob, error: str, now: datetime) -> None:
+    if job.status is JobStatus.CANCELLED:
+        return
     job.last_error = error[:MAX_ERROR_LENGTH]
     if job.attempts < MAX_ATTEMPTS:
         job.status = JobStatus.QUEUED
@@ -244,3 +253,60 @@ def recent_jobs(session: Session, search_id: int, limit: int = 10) -> list[Fetch
             .limit(limit)
         )
     )
+
+
+OPEN_STATUSES = (JobStatus.QUEUED, JobStatus.RUNNING)
+CANCELLED_MESSAGE = "Cancelled"
+
+
+def cancel_job(session: Session, job_id: int, now: datetime) -> bool:
+    """Cancel a queued or running poll. A running one stops after its current provider query;
+    what it fetched so far stays stored. False when the job is no longer open."""
+    job = session.scalar(select(FetchJob).where(FetchJob.id == job_id).with_for_update())
+    if job is None or job.status not in OPEN_STATUSES:
+        return False
+    job.status = JobStatus.CANCELLED
+    job.finished_at = now
+    job.last_error = CANCELLED_MESSAGE
+    return True
+
+
+def refresh_status(session: Session, job: FetchJob, *, lock: bool = False) -> JobStatus:
+    """The job's status as stored now – the web may have cancelled it meanwhile.
+
+    `lock`: keep the row locked until commit, so a cancellation cannot slip in between this
+    check and the worker's final status change.
+    """
+    session.refresh(job, attribute_names=["status"], with_for_update=lock or None)
+    return job.status
+
+
+@dataclass(frozen=True)
+class OpenJob:
+    job: FetchJob
+    name: str
+    trip_id: int | None
+    queries_done: int
+
+
+def open_jobs(session: Session, visible: ColumnElement[bool] | None = None) -> list[OpenJob]:
+    """Queued and running polls, running first. `visible`: condition on `Search`."""
+    queries_done = (
+        select(func.count())
+        .where(QueryLog.job_id == FetchJob.id)
+        .correlate(FetchJob)
+        .scalar_subquery()
+    )
+    statement = (
+        select(FetchJob, Search.name, Trip.name, queries_done)
+        .join(Search, Search.id == FetchJob.search_id)
+        .outerjoin(Trip, Trip.id == FetchJob.trip_id)
+        .where(FetchJob.status.in_(OPEN_STATUSES))
+        .order_by(FetchJob.status.desc(), FetchJob.run_after, FetchJob.id)
+    )
+    if visible is not None:
+        statement = statement.where(visible)
+    return [
+        OpenJob(job, trip_name or search_name, job.trip_id, done)
+        for job, search_name, trip_name, done in session.execute(statement)
+    ]

@@ -12,6 +12,7 @@ from flighttracker.models.search import (
 )
 from flighttracker.models.settings import PlatformSetting
 from flighttracker.models.trip import Trip, TripLeg
+from flighttracker.models.user import Share, User, UserRole
 
 __all__ = [
     "Airport",
@@ -30,6 +31,9 @@ __all__ = [
     "SearchLocation",
     "SearchRevision",
     "SearchStatus",
+    "Share",
     "Trip",
     "TripLeg",
+    "User",
+    "UserRole",
 ]

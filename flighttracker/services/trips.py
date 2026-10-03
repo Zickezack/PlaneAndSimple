@@ -3,12 +3,12 @@
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import Session, selectinload
 
 from flighttracker.domain.filters import CabinClass, SearchFilters, TripType
 from flighttracker.domain.locations import LocationRef, expand_to_airports
-from flighttracker.domain.spec import SearchSpec
+from flighttracker.domain.spec import SearchSpec, trip_requests_per_poll
 from flighttracker.domain.trips import (
     LayoverRule,
     TripItinerary,
@@ -132,20 +132,8 @@ def validate_trip(data: TripInput, today: date) -> None:
             raise TripValidationError("Maximum layover cannot be shorter than minimum layover.")
 
 
-def create_trip(session: Session, data: TripInput, *, max_route_pairs: int) -> Trip:
-    """Create the Trip and its ordinary one-way Suchabos as one transaction."""
-    validate_trip(data, datetime.now(UTC).date())
-    now = datetime.now(UTC)
-    trip = Trip(
-        name=data.name.strip(),
-        starts_on=data.starts_on,
-        ends_on=data.ends_on,
-        poll_interval_minutes=data.poll_interval_minutes,
-        next_poll_at=now,
-    )
-    session.add(trip)
-    session.flush()
-
+def _leg_specs(data: TripInput) -> list[SearchSpec]:
+    """The one-way Suchabo of every leg; all legs share cabin, stops and passengers."""
     filters = SearchFilters(
         trip_type=TripType.ONE_WAY,
         cabin_classes=data.cabin_classes,
@@ -156,13 +144,40 @@ def create_trip(session: Session, data: TripInput, *, max_route_pairs: int) -> T
         currency=data.currency,
         days_per_month=1,
     )
-    for position, leg in enumerate(data.legs):
-        spec = SearchSpec(
+    return [
+        SearchSpec(
             origins=frozenset({_location(leg.origin)}),
             destinations=frozenset({_location(leg.destination)}),
             filters=filters,
             country_airports=leg.country_airports,
         )
+        for leg in data.legs
+    ]
+
+
+def estimated_requests(data: TripInput) -> int:
+    """Upper bound of provider requests per poll (for the user quota), before saving."""
+    return trip_requests_per_poll(_leg_specs(data), (data.ends_on - data.starts_on).days + 1)
+
+
+def create_trip(
+    session: Session, data: TripInput, *, max_route_pairs: int, owner_id: int | None = None
+) -> Trip:
+    """Create the Trip and its ordinary one-way Suchabos as one transaction."""
+    validate_trip(data, datetime.now(UTC).date())
+    now = datetime.now(UTC)
+    trip = Trip(
+        name=data.name.strip(),
+        owner_id=owner_id,
+        starts_on=data.starts_on,
+        ends_on=data.ends_on,
+        poll_interval_minutes=data.poll_interval_minutes,
+        next_poll_at=now,
+    )
+    session.add(trip)
+    session.flush()
+
+    for position, (leg, spec) in enumerate(zip(data.legs, _leg_specs(data), strict=True)):
         search = create_search(
             session,
             SearchInput(
@@ -171,6 +186,7 @@ def create_trip(session: Session, data: TripInput, *, max_route_pairs: int) -> T
                 poll_interval_minutes=data.poll_interval_minutes,
             ),
             max_route_pairs=max_route_pairs,
+            owner_id=owner_id,
         )
         # Trip legs are polled only by their parent Trip's coordinated job.
         search.next_poll_at = None
@@ -187,7 +203,10 @@ def create_trip(session: Session, data: TripInput, *, max_route_pairs: int) -> T
     return trip
 
 
-def list_trips(session: Session, *, archived: bool = False) -> list[Trip]:
+def list_trips(
+    session: Session, *, archived: bool = False, visible: ColumnElement[bool] | None = None
+) -> list[Trip]:
+    """`visible`: condition from `services.access.visible_trips` (None = all)."""
     statement = (
         select(Trip)
         .options(selectinload(Trip.legs).selectinload(TripLeg.search))
@@ -196,11 +215,18 @@ def list_trips(session: Session, *, archived: bool = False) -> list[Trip]:
     statement = statement.where(
         Trip.archived_at.is_not(None) if archived else Trip.archived_at.is_(None)
     )
+    if visible is not None:
+        statement = statement.where(visible)
     return list(session.scalars(statement))
 
 
 def trip_search_ids(session: Session, trips: list[Trip]) -> set[int]:
     return {leg.search_id for trip in trips for leg in trip.legs}
+
+
+def _passengers(search: Search) -> tuple[int, int]:
+    filters = SearchFilters.model_validate(search.filters)
+    return filters.adults, filters.children
 
 
 def itineraries_for_trip(
@@ -209,7 +235,9 @@ def itineraries_for_trip(
     points_by_leg = [
         [
             point
-            for point in history.price_points(session, leg.search_id, fake_providers)
+            for point in history.price_points(
+                session, leg.search_id, fake_providers, passengers=_passengers(leg.search)
+            )
             if point.return_date is None
         ]
         for leg in trip.legs
@@ -307,6 +335,8 @@ def store_trip_quotes(
     origin: str,
     destination: str,
     quotes: list,
+    adults: int,
+    children: int,
     error: str | None,
     started_at: datetime,
     duration_ms: int,
@@ -328,6 +358,8 @@ def store_trip_quotes(
                 "stops": quote.stops,
                 "price": quote.price,
                 "currency": quote.currency,
+                "adults": adults,
+                "children": children,
                 "airline": quote.airline,
                 "details": quote.details,
                 "observed_at": quote.observed_at,

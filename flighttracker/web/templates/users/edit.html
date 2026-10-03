@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ user.username }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ user.username }}</h1>
+  <div class="actions">{{ ui.link_button(_("All users"), "/users") }}</div>
+</div>
+<p class="summary">
+  {{ _(labels.ROLE_LABELS[user.role]) }}
+  · {{ _("{n} tracked searches and Trips", n=usage.searches) }}
+  · {{ _("{n} requests per poll", n=usage.requests) }}
+  · {{ _("Last login") }}: {{ user.last_login_at | datetime }}
+</p>
+
+{% if is_env_admin or is_self %}
+<p class="note">{{ _("The admin from .env cannot be changed here.") if is_env_admin else _("You cannot change your own role, status or account.") }}</p>
+{% endif %}
+
+<section class="card">
+  <h2>{{ _("Role, status and limits") }}</h2>
+  <form method="post" action="/users/{{ user.id }}" class="form">
+    {{ ui.csrf_field() }}
+    {% if is_env_admin or is_self %}
+      <input type="hidden" name="role" value="{{ user.role }}">
+      {% if user.is_active %}<input type="hidden" name="is_active" value="1">{% endif %}
+    {% else %}
+    <div class="grid-2">
+      {{ ui.select_field("role", _("Role"), labels.ROLE_LABELS.items() | tr_options, user.role) }}
+      {{ ui.choice_group("is_active", _("Status"), [("1", _("Active – can log in"))], ["1"] if user.is_active else [], multiple=True) }}
+    </div>
+    <p class="hint">{{ _("Deactivating pauses the user's tracked searches and Trips, except those another active user may edit – these keep running until no such editor is left. Reactivating does not resume them.") }}</p>
+    {% endif %}
+    <div class="grid-2">
+      {{ ui.number_field("max_searches", _("Max. tracked searches and Trips"), user.max_searches if user.max_searches is not none else "", min=0, hint=_("Empty: platform default ({n}). Admins have no limit.", n=defaults[0])) }}
+      {{ ui.number_field("max_requests", _("Max. provider requests per poll"), user.max_requests if user.max_requests is not none else "", min=0, hint=_("Empty: platform default ({n}).", n=defaults[1])) }}
+    </div>
+    <div class="actions">{{ ui.button(_("Save")) }}</div>
+  </form>
+</section>
+
+{% if not is_env_admin %}
+<details class="card more">
+  <summary>{{ _("Set a new password") }}</summary>
+  <form method="post" action="/users/{{ user.id }}/password" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("password", _("New password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters. The user is logged out everywhere.")) }}
+    <div class="actions">{{ ui.button(_("Set password"), "secondary") }}</div>
+  </form>
+</details>
+{% endif %}
+
+{% if not is_env_admin and not is_self %}
+<details class="card more danger-zone">
+  <summary>{{ _("Delete user") }}</summary>
+  <p>{{ _("The user's tracked searches and Trips go to the admin from .env. They are paused unless another active user may edit them; their shares stay. Shares with this user are removed.") }}</p>
+  <form method="post" action="/users/{{ user.id }}/delete" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("confirm_name", _("Enter the name to confirm"), autocomplete="off") }}
+    <div class="actions">{{ ui.button(_("Delete user"), "danger") }}</div>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

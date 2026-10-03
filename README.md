@@ -46,6 +46,29 @@ provider must return departure and arrival times to verify connections. Complete
 sum of the separate one-way prices, not a through-ticket fare; self-transfers and separately
 booked connections are not protected.
 
+## Users
+
+The admin from `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`) always works and cannot be
+locked out from the UI. Admins create further users under **Users** (top bar):
+
+- **Users** see and fully edit their own tracked searches and Trips and can share each one with
+  other users, view-only or view-and-edit. Editors can change, pause and poll, but not archive,
+  delete or share. Admins see and manage everything; tracked searches from before user
+  management belong to the admin from `.env` (assigned on its next login).
+- **Deactivating or deleting** a user pauses their tracked searches and Trips – except those
+  another active user may edit, which keep running until no such editor is left. A deleted
+  user's tracked searches and Trips go to the admin from `.env`.
+- **Limits** per user (admins have none), so that API usage cannot run away: at most
+  `MAX_SEARCHES_PER_USER` (10) tracked searches and Trips, and at most `MAX_REQUESTS_PER_USER`
+  (600) provider requests per poll for all of them together – the request budget is what really
+  costs, since one broad search can need more requests than twenty narrow ones. Both are
+  defaults under **Settings → Platform Settings** and can be changed per user.
+- **Settings** shows every user their personal settings (language, time zone, password);
+  Platform Settings, export and import are only shown to admins.
+
+The **Poll Log** lists running and queued polls; whoever may edit a tracked search can cancel
+its poll there (a running poll stops after its current query, prices fetched so far are kept).
+
 ## Production (Docker Compose, reverse proxy with TLS)
 
 One-time setup on the server:
@@ -54,11 +77,12 @@ One-time setup on the server:
 git clone https://github.com/<owner>/planeandsimple.git
 cd planeandsimple
 cp .env.example .env    # fill in POSTGRES_PASSWORD, SECRET_KEY and ADMIN_PASSWORD_HASH (see below)
-scripts/deploy.sh
+bash scripts/deploy.sh
 ```
 
-Generate the secrets with `openssl rand -hex 24` (database password) and `openssl rand -hex 32`
-(session key). The admin password hash needs the app, but no Python on the server:
+Generate the secrets with `openssl rand -hex 24` for `POSTGRES_PASSWORD` and
+`openssl rand -hex 32` for `SECRET_KEY`. The admin password hash (`ADMIN_PASSWORD_HASH`) needs
+the app, but no Python on the server:
 
 ```bash
 docker build -t flighttracker:latest -f docker/Dockerfile --target prod .
@@ -68,7 +92,7 @@ docker run --rm -it flighttracker:latest python -m flighttracker.cli hash-passwo
 If you deploy from a private fork instead, clone over SSH with a read-only GitHub "Deploy key"
 (`ssh-keygen -t ed25519 -f ~/.ssh/planeandsimple -N ""`, add the `.pub` in the repo settings).
 
-Every update: `scripts/deploy.sh` (= `git pull` + `docker compose up -d --build`). Migrations and
+Every update: `bash scripts/deploy.sh` (= `git pull` + `docker compose up -d --build`). Migrations and
 the first airport import run automatically in the `migrate` service.
 
 The web container listens on `127.0.0.1:${WEB_PORT}`. Put a reverse proxy with TLS in front
@@ -90,7 +114,7 @@ Two ways to get the code onto the server; pick whichever you prefer, both use th
 
 Same one-time setup as above. This is the more convenient option if you want a clean history of
 what's deployed – you can check which commit is live (`git log -1`) and roll back with
-`git checkout <sha> && scripts/deploy.sh`.
+`git checkout <sha> && bash scripts/deploy.sh`.
 
 ### Option B: copy the working tree to the server (no Git on the server)
 
@@ -125,7 +149,7 @@ SESSION_COOKIE_SECURE=false
 ```
 
 `WEB_BIND`/`WEB_PORT` control the **published** port in `docker-compose.yml` (`services.web.ports`);
-change them in `.env` any time, no file edits needed, and re-run `scripts/deploy.sh` (or
+change them in `.env` any time, no file edits needed, and re-run `bash scripts/deploy.sh` (or
 `docker compose up -d`) to apply. The `db` service has no published port and is only reachable
 inside the Compose network, by design.
 

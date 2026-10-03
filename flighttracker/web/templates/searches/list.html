@@ -2,13 +2,17 @@
 {% import "_macros.html" as ui with context %}
 {% block title %}{{ _("Archive") if archived else _("Tracked searches") }}{% endblock %}
 {% block content %}
+{#- Whose it is, when it is not the viewer's own (shared with them, or seen as admin). -#}
+{% macro owner_tag(item) -%}
+{% if item.owner_id != current_user.id %} <small class="hint">· {{ owner_names.get(item.owner_id) or _("no owner") }}</small>{% endif %}
+{%- endmacro %}
 <div class="page-header">
   <h1>{{ _("Archived tracked searches") if archived else _("Tracked searches") }}</h1>
   <div class="actions">
     {% if archived %}
       {{ ui.link_button(_("Back to active tracked searches"), "/searches") }}
     {% else %}
-      {{ ui.link_button(_("Export all data"), "/settings/export", "ghost") }}
+      {% if current_user.is_admin %}{{ ui.link_button(_("Export all data"), "/settings/export", "ghost") }}{% endif %}
       {{ ui.link_button(_("Archive"), "/searches?archived=true") }}
       {{ ui.link_button(_("New tracked search"), "/searches/new", "primary") }}
     {% endif %}
@@ -33,7 +37,7 @@
 {% for trip in trips %}
 <details class="trip-group">
   <summary>
-    <strong>{{ trip.name }}</strong>
+    <strong>{{ trip.name }}</strong>{{ owner_tag(trip) }}
     <span class="hint">{{ trip.starts_on | weekday_date }} – {{ trip.ends_on | weekday_date }} · {{ trip.legs | length }} {{ _("legs") }}</span>
   </summary>
   <div class="table-wrap">
@@ -70,7 +74,7 @@
     <tbody>
       {% for s in searches %}
       <tr>
-        <td><a href="/searches/{{ s.id }}">{{ s.name }}</a></td>
+        <td><a href="/searches/{{ s.id }}">{{ s.name }}</a>{{ owner_tag(s) }}</td>
         <td>{{ location_text(s, "origin") }}</td>
         <td>{{ location_text(s, "destination") }}</td>
         <td>{{ ui.status_badge(s) }}</td>

@@ -34,6 +34,10 @@ The code and docs use "Suchabo" for a tracked search.
 | – | – | `price_history.source` | New rows are always `live`; `backfill` only in rows from before migration `0002` |
 | Trip | Trip | `Trip` / `trips` | Bounded planner window; uses the global polling cadence |
 | Trip leg | Teilstrecke | `TripLeg` / `trip_legs` | Ordered link to an ordinary one-way Suchabo; calendar-day stay bounds apply before this leg |
+| User | Benutzer | `User` / `users` | Login with role `admin` or `user`, personal settings and quota overrides |
+| Owner | Besitzer | `searches.owner_id`, `trips.owner_id` | User a Suchabo/Trip belongs to; `NULL` only until the env admin's next login |
+| Sharing | Teilen | `Share` / `shares` | Access of one user to one Suchabo or Trip: view only (`can_edit` false) or view and edit |
+| Cancelled | Abgebrochen | `fetch_jobs.status = 'cancelled'` | Poll stopped from the Poll Log |
 
 ## Diagram
 
@@ -51,18 +55,25 @@ erDiagram
     searches ||--o{ fetch_jobs : "queue"
     trips |o--o{ fetch_jobs : "coordinated poll"
     searches |o..o{ query_log : "search_id (no FK)"
+    users |o--o{ searches : owns
+    users |o--o{ trips : owns
+    users ||--o{ shares : "has access"
+    searches |o--o{ shares : "shared"
+    trips |o--o{ shares : "shared"
 
     countries { char2 code PK; string name; char2 continent }
     airports { char3 iata_code PK; string name; string city; char2 country_code FK; string airport_type; bool has_scheduled_service; bigint passengers }
-    searches { bigint id PK; string name; enum status; jsonb filters; int poll_interval_minutes; int revision_no; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
+    searches { bigint id PK; bigint owner_id FK; string name; enum status; jsonb filters; int poll_interval_minutes; int revision_no; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
     search_locations { bigint id PK; bigint search_id FK; enum role; char3 airport_code FK; char2 country_code FK; char3_array airport_codes }
     search_revisions { bigint id PK; bigint search_id FK; int revision_no; jsonb snapshot }
-    price_history { bigint id PK; bigint search_id FK; bigint search_revision_id FK; enum source; string provider; char3 origin_iata; char3 destination_iata; date departure_date; date return_date; enum cabin_class; smallint stops; numeric price; char3 currency; string airline; jsonb details; timestamptz observed_at; timestamptz fetched_at }
+    price_history { bigint id PK; bigint search_id FK; bigint search_revision_id FK; enum source; string provider; char3 origin_iata; char3 destination_iata; date departure_date; date return_date; enum cabin_class; smallint stops; numeric price; char3 currency; smallint adults; smallint children; string airline; jsonb details; timestamptz observed_at; timestamptz fetched_at }
     fetch_jobs { bigint id PK; bigint search_id FK; bigint trip_id FK; enum kind; enum status; timestamptz run_after; int attempts; int queries_total; int queries_failed; int quotes_stored; text last_error; timestamptz created_at; timestamptz started_at; timestamptz finished_at }
-    trips { bigint id PK; string name; date starts_on; date ends_on; int poll_interval_minutes; enum status; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
+    trips { bigint id PK; bigint owner_id FK; string name; date starts_on; date ends_on; int poll_interval_minutes; enum status; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
     trip_legs { bigint id PK; bigint trip_id FK; bigint search_id FK; int position; int min_layover_days; int max_layover_days }
     query_log { bigint id PK; bigint job_id; bigint search_id; string search_name; string provider; char3 origin_iata; char3 destination_iata; date departure_month; enum cabin_class; enum outcome; int quotes_found; int quotes_stored; text error; jsonb results; timestamptz started_at; int duration_ms; timestamptz logged_at }
     platform_settings { string key PK; text value; timestamptz updated_at }
+    users { bigint id PK; string username; text password_hash; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; int auth_version; timestamptz created_at; timestamptz last_login_at }
+    shares { bigint id PK; bigint search_id FK; bigint trip_id FK; bigint user_id FK; bool can_edit; timestamptz created_at }
 ```
 
 ## Constraints and rules
@@ -103,6 +114,21 @@ erDiagram
   requires that capability (Google Flights and the deterministic mock provider provide it).
 - A displayed complete-option price is the sum of the individual one-way prices. It is not a
   through-ticket fare, and connections may involve separately booked tickets and self-transfers.
+- `users.username` is unique ignoring case (`uq_users_username_lower`). `password_hash` is
+  `NULL` only for the admin from `.env`, whose password lives in `ADMIN_PASSWORD_HASH`.
+  `max_searches` / `max_requests` `NULL` = the Platform Settings defaults; `locale` /
+  `timezone` `NULL` = the platform defaults. `auth_version` is raised on password, role and
+  status changes and ends older sessions.
+- `searches.owner_id` / `trips.owner_id`: rows from before migration `0009` start with `NULL`
+  and are assigned to the env admin on its login. Deleting a user moves their Suchabos and
+  Trips to the env admin (`ON DELETE SET NULL` is only the safety net); existing shares of them
+  stay. Leg Suchabos have their Trip's owner.
+- `shares`: exactly one of `search_id` / `trip_id` (CHECK), one row per target and user
+  (`NULLS NOT DISTINCT`), cascades with the Suchabo, Trip or user. Trip legs are never shared
+  individually.
+- `price_history.adults` / `children`: passengers the price was requested for; prices are only
+  compared within the same passengers. Rows from before migration `0010` took them from their
+  revision's snapshot.
 - Enums are `VARCHAR` + `CHECK` (not native PG enums), so adding values is a simple migration.
 - `countries` / `airports` come from OurAirports (public domain) via
   `python -m flighttracker.cli import-airports` (run automatically by `migrate` until it succeeded
@@ -139,7 +165,12 @@ shows the cheapest point per date (optionally for one stay length); the table li
 
 ## Privacy
 
-The database holds no personal data. The admin login (username and password hash) lives in
-environment variables, not in the database. The only credential that can end up in the database
-is a Travelpayouts token entered under Platform Settings (`platform_settings`, plain text). Once
-user management is introduced, the user tables must be marked here as personal data.
+**Personal data:** `users` (username, scrypt password hash, last login, language and time
+zone) and indirectly `shares`, `searches.owner_id` and `trips.owner_id` (what a user tracks and
+with whom they share it). Deleting a user removes the row and their shares; their Suchabos and
+Trips stay without owner. Usernames are shown to other users only where they share something
+(owner, share list). The JSON export contains no user data.
+
+The env admin's password hash lives in environment variables. The only other credential that can
+end up in the database is a Travelpayouts token entered under Platform Settings
+(`platform_settings`, plain text).

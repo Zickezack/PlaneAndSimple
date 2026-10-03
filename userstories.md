@@ -16,13 +16,12 @@
 1. Second chart: price development over time for chosen departure dates ("when to buy").
 2. Heat-map calendar of the cheapest departure dates (like booking aggregators); ideally fed by
    Google's calendar data (all days of a month in one request) instead of per-day requests.
-3. Price alerts (e.g. notify when a price drops below a threshold).
-4. German country names (OurAirports only provides English names; the German UI shows them in English).
-5. Overlap check must match what is really queried: an empty stay counts as "unlimited" in
+3. German country names (OurAirports only provides English names; the German UI shows them in English).
+4. Overlap check must match what is really queried: an empty stay counts as "unlimited" in
    `domain/coverage.py` but is queried as 7 days only, and "any stops" is treated as covering
    "direct only" although only the cheapest itinerary per day is stored. Today a new Suchabo can
    be reported as "already covered" while its prices are never fetched.
-6. "Poll now" and the scheduler can queue the same Suchabo twice at the same moment
+5. "Poll now" and the scheduler can queue the same Suchabo twice at the same moment
    (`services/jobs.py` checks for an open poll without a lock).
 
 ### Epic Trip Planner
@@ -34,7 +33,21 @@
    poll.
 
 ### Epic Benutzerverwaltung
-1. User management with roles and permissions (replaces the env admin login).
+1. Rename users (today only possible by creating a new user and changing the owner).
+
+### Epic Benachrichtigungen
+1. Mail delivery via SMTP, with Mailpit as the server in the dev stack (and as an optional
+   self-hosted catcher): account mails (welcome mail on creation, self-service password reset
+   with a one-time, expiring link, notice after a password change) and Suchabo messages.
+   Needs an e-mail address per user (personal data, see datamodel.md) and SMTP settings in
+   `.env` / Platform Settings; mails in the user's language.
+2. Price alerts per Suchabo: the user sets a price (per Suchabo, optionally per route or
+   cabin) below which a message is sent; at most one message per flight and price drop, so
+   repeated polls do not spam.
+3. Price digest: daily or weekly mail per user (chosen in the personal settings) with how the
+   prices of their Suchabos changed since the last digest – cheapest per month, biggest drops
+   and rises, new lowest prices – optionally with the price chart as an embedded image (mail
+   clients do not run JavaScript, so it must be rendered server-side, e.g. PNG).
 
 ### Epic AI-gestützte Planung
 1. Optional Ollama-assisted drafting: turn plain-language travel intent into a search or Trip
@@ -45,6 +58,12 @@
    rule-based first version works without AI: compare the current price with the flight's own
    minimum/average and its trend, plus days to departure ("lowest seen", "above average",
    "rising"). AI could later weigh these signals and explain the advice.
+3. AI-written price digest and alerts (builds on Epic Benachrichtigungen 1–3): summarise in
+   plain language what changed and why it matters ("Barcelona in May is 18 % below last
+   year's level, the cheapest it has been in 6 weeks"), point out patterns across Suchabos
+   (weekday effects, routes that move together) and add the "when to book" advice. The numbers
+   always come from the deterministic digest; AI only phrases and prioritises them, and every
+   statement links to the underlying prices.
 
 ## Planned
 
@@ -56,7 +75,7 @@
 2. Database schema with append-only price history, revisions and soft delete (migration `0001`).
 3. Admin login from env (scrypt hash, CSRF, login lockout, security headers).
 4. Suchabos: create, edit (new revision, history kept), pause/resume, archive/restore, delete permanently.
-5. Overlap check when creating: "bereits abgedeckt" or "zu bestehendem Suchabo hinzufügen" (filters are merged).
+4. Overlap check when creating: "bereits abgedeckt" or "zu bestehendem Suchabo hinzufügen" (filters are merged).
 6. Worker: regular polling (new or broadened Suchabos are polled right away), retries.
    The initial backfill was removed – no free source offers historical fares.
 7. Provider adapters: mock, Travelpayouts, Google Flights (fast-flights, with consent cookie;
@@ -92,3 +111,10 @@
    calendar-day stays. Coordinated exact-date polls join only matching airports and feasible
    dates. Complete options require provider flight times; totals are separate fares, not a
    through-ticket price.
+23. User management: database users with roles admin/user (env admin stays as fallback),
+    own and shared (view / view and edit) tracked searches and Trips, per-user limits on
+    tracked searches and provider requests per poll, personal settings (language, time zone,
+    password); Platform Settings for admins only.
+24. Poll Log shows running and queued polls; they can be cancelled.
+25. Prices are stored with their passengers; a changed passenger number is never shown as a
+    price change.

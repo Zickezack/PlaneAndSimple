@@ -30,19 +30,21 @@ def _request_context(request: Request) -> dict:
         return text.render(locale) if isinstance(text, Msg) else translate(text, locale, **params)
 
     base_settings = request.app.state.settings
+    user = current_user(request)
     # Platform Settings may override the active provider; cheap enough to check per request.
     with request.app.state.session_factory() as session:
         flight_provider = effective_settings(session, base_settings).flight_provider
 
     return {
         "csrf_token": ensure_csrf_token(request),
-        "current_user": current_user(request),
+        "current_user": user,
         "flashes": pop_flashes(request),
         "locale": locale,
         "locales": SUPPORTED_LOCALES,
         "_": gettext,
         "provider": provider_class(flight_provider),
-        "timezone": ZoneInfo(base_settings.display_timezone),
+        # Personal time zone (validated when saved), else the platform's.
+        "timezone": ZoneInfo((user and user.timezone) or base_settings.display_timezone),
     }
 
 

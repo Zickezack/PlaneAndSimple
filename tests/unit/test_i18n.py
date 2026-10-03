@@ -60,6 +60,7 @@ def ui_texts() -> set[str]:
         labels.LOCATION_KIND_LABELS,
         labels.JOB_KIND_LABELS,
         labels.JOB_STATUS_LABELS,
+        labels.ROLE_LABELS,
         labels.OUTCOME_LABELS,
         labels.CHART_LABELS,
         labels.DAYS_PER_MONTH_LABELS,

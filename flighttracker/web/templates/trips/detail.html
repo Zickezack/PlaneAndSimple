@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% import "_macros.html" as ui with context %}
-{% block title %}{{ trip.name }}{% endblock %}
+{% block title %}{{ trip.name }}{% if sharing %}{% include "_sharing.html" %}{% endif %}
+{% endblock %}
 {% block content %}
 <div class="page-header">
   <h1>{{ trip.name }}</h1>
   <div class="actions">
-    {{ ui.action_form("/trips/%d/poll" % trip.id, _("Poll trip now"), "primary") }}
+    {% if access >= Access.EDIT %}{{ ui.action_form("/trips/%d/poll" % trip.id, _("Poll trip now"), "primary") }}{% endif %}
     {{ ui.link_button(_("Tracked searches"), "/searches") }}
   </div>
 </div>
@@ -44,4 +45,5 @@
   <p class="empty">{{ _("No complete options yet. The first coordinated poll starts shortly; every leg needs usable departure and arrival times.") }}</p>
   {% endif %}
 </section>
+{% if sharing %}{% include "_sharing.html" %}{% endif %}
 {% endblock %}

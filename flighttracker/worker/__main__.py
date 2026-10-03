@@ -19,7 +19,7 @@ from flighttracker.db.session import create_db_engine, create_session_factory
 from flighttracker.domain.filters import CabinClass, SearchFilters
 from flighttracker.domain.spec import route_pairs
 from flighttracker.domain.trips import LayoverRule, TripLegQuote, arrival_at, departure_at
-from flighttracker.models import FetchJob, SearchRevision, SearchStatus
+from flighttracker.models import FetchJob, JobStatus, SearchRevision, SearchStatus
 from flighttracker.providers.base import FlightPriceProvider, PriceQuery, ProviderError
 from flighttracker.providers.registry import get_provider, provider_config
 from flighttracker.services.ingestion import (
@@ -34,6 +34,7 @@ from flighttracker.services.jobs import (
     claim_next_job,
     mark_done,
     mark_failed,
+    refresh_status,
     release_job,
     requeue_running_jobs,
     requeue_stale_jobs,
@@ -125,9 +126,8 @@ def _process_trip_job(
     for cabin in cabins:
         paths: list[tuple[TripLegQuote, ...]] = []
         for position, leg in enumerate(trip.legs):
-            if should_stop():
-                release_job(job)
-                session.commit()
+            if _should_end(session, job, should_stop):
+                _interrupt(session, job)
                 return
             if position == 0:
                 departure_days = first_dates
@@ -136,9 +136,8 @@ def _process_trip_job(
             following_paths: list[tuple[TripLegQuote, ...]] = []
             for origin, destination in route_pairs(spec_of(leg.search)):
                 for month, days in _month_groups(departure_days).items():
-                    if should_stop():
-                        release_job(job)
-                        session.commit()
+                    if _should_end(session, job, should_stop):
+                        _interrupt(session, job)
                         return
                     query = _trip_query(
                         leg.search, cabin, month, days, origin, destination, currency
@@ -191,6 +190,8 @@ def _process_trip_job(
                         origin=origin,
                         destination=destination,
                         quotes=quotes,
+                        adults=query.adults,
+                        children=query.children,
                         error=error,
                         started_at=started_at,
                         duration_ms=int((time.monotonic() - monotonic_started) * 1000),
@@ -202,6 +203,7 @@ def _process_trip_job(
             if not paths:
                 break
 
+    refresh_status(session, job, lock=True)
     job.queries_total = queries_total
     job.queries_failed = queries_failed
     job.quotes_stored = quotes_stored
@@ -217,6 +219,19 @@ def _process_trip_job(
         mark_done(
             job, quotes_stored, completed_at, warning=query_errors[-1] if query_errors else None
         )
+    session.commit()
+
+
+def _should_end(session: Session, job: FetchJob, should_stop: Callable[[], bool]) -> bool:
+    """Checked between two provider queries: worker stopping, or the poll cancelled in the UI."""
+    return should_stop() or refresh_status(session, job) is JobStatus.CANCELLED
+
+
+def _interrupt(session: Session, job: FetchJob) -> None:
+    """A stopped worker hands the job back to the queue; a cancelled job stays cancelled.
+    Everything fetched so far is already stored and logged."""
+    refresh_status(session, job, lock=True)
+    release_job(job)
     session.commit()
 
 
@@ -251,8 +266,8 @@ def process_next_job(
 ) -> bool:
     """Claim and run one job, committing after every query. Returns False when the queue is empty.
 
-    A stop request between two queries hands the job back to the queue; everything fetched
-    so far is already stored and logged.
+    A stop request between two queries hands the job back to the queue, a cancellation from
+    the Poll Log ends it; everything fetched so far is already stored and logged.
     """
     with session_factory() as session:
         job = claim_next_job(session, clock())
@@ -270,15 +285,17 @@ def process_next_job(
             plan = plan_job(session, job, clock(), currency=currency)
             entries = []
             for query in plan.queries if plan else []:
-                if should_stop():
-                    release_job(job)
-                    session.commit()
-                    log.info("Job %d interrupted after %d queries, requeued", job_id, len(entries))
+                if _should_end(session, job, should_stop):
+                    _interrupt(session, job)
+                    log.info("Job %d %s after %d queries", job_id, job.status, len(entries))
                     return True
                 entries.append(run_query(session, plan, query, provider, now=clock()))
                 session.commit()
+            refresh_status(session, job, lock=True)
             error = finish_job(session, job, entries, clock())
-            if all_queries_failed(job):
+            if job.status is JobStatus.CANCELLED:
+                log.info("Job %d cancelled after %d queries", job_id, len(entries))
+            elif all_queries_failed(job):
                 mark_failed(job, error or "All queries failed", clock())
                 log.warning("Job %d: all %d queries failed: %s", job_id, len(entries), error)
             else:
@@ -295,6 +312,7 @@ def process_next_job(
         except Exception as exc:
             session.rollback()
             job = session.get(FetchJob, job_id)
+            refresh_status(session, job, lock=True)
             # ProviderError messages are written to be safe; anything else only by type name
             # so that unexpected exceptions cannot leak secrets into the database.
             message = str(exc) if isinstance(exc, ProviderError) else type(exc).__name__

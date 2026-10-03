@@ -27,8 +27,9 @@
       </span>
       {% if current_user %}
       <a class="nav-utility-link" href="/log">{{ _("Poll Log") }}</a>
+      {% if current_user.is_admin %}<a class="nav-utility-link" href="/users">{{ _("Users") }}</a>{% endif %}
       <a class="nav-utility-link" href="/settings">{{ _("Settings") }}</a>
-      <form method="post" action="/logout" class="inline-form">
+      <form method="post" action="/logout" class="inline-form" title="{{ _('Logged in as {name}', name=current_user.username) }}">
         {{ ui.csrf_field() }}
         {{ ui.button(_("Log out"), "logout") }}
       </form>

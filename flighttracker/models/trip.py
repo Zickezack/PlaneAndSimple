@@ -46,6 +46,10 @@ class Trip(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Same meaning as `Search.owner_id`; the Trip's leg Suchabos have the same owner.
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
 
     legs: Mapped[list["TripLeg"]] = relationship(
         back_populates="trip", cascade="all, delete-orphan", order_by="TripLeg.position"

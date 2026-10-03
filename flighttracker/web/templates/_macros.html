@@ -117,3 +117,11 @@
 </div>
 {% endif %}
 {%- endmacro %}
+
+
+{#- The user's quota (tracked searches + Trips, provider requests per poll); admins have none. -#}
+{% macro quota_hint(usage) -%}
+{% if usage and usage.max_searches is not none %}
+<p class="hint">{{ _("Your limit: {searches} of {max_searches} tracked searches and Trips, {requests} of {max_requests} provider requests per poll.", searches=usage.searches, max_searches=usage.max_searches, requests=usage.requests, max_requests=usage.max_requests) }}</p>
+{% endif %}
+{%- endmacro %}

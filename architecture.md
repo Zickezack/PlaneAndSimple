@@ -18,7 +18,8 @@ same departure month of the previous year.
 - Micro Services used where applicable i.e. Docker Compose structure.
 - Preferred services (only use if applicable): Jinja for templates, FastAPI for API, PostgreSQL or MariaDB for SQL (or SQLite for lightweight/temporary) with Alembic for migrations, MongoDB for JSON like DB, otherwise use the most commonly used applicable services.
 - At the beginning, the system should be a monorepo, but later on, it can be split into multiple repos if necessary.
-- We use only admin login defined in env file at first, but later on, we can implement a user management system with roles and permissions.
+- Users with two roles (admin, user) live in the database; the admin from the env file always
+  works as a fallback (see "Users and permissions").
 
 ## Services (Docker Compose)
 
@@ -48,6 +49,10 @@ Worker behaviour (single worker process):
   and provider currency. Historical prices keep their recorded currency; there is no conversion.
 - **Poll Log:** `query_log` is global and append-only (menu "Poll Log"), with the Suchabo name as a
   snapshot, so entries survive even a permanent deletion.
+- **Cancelling:** the Poll Log lists queued and running jobs. Cancelling sets the job to
+  `cancelled`; the worker re-reads the status between two queries (and under a row lock before
+  its final status change, so a cancellation is never overwritten) and stops. The query in
+  progress finishes and is stored; the next regular poll is not affected.
 `docker-compose.yml` is the production stack. `.devcontainer/docker-compose.yml` runs the same
 services from the `dev` image stage with the repository bind-mounted; `web` and `worker` run under
 `watchfiles` and restart on every change of the code or `.env` (polling, since bind mounts from
@@ -140,6 +145,33 @@ date. Google Flights currently provides these details; providers without times c
 for Trip creation. The displayed total is the sum of individual one-way fares, **not a through-
 ticket price**. Separate flights may be separately ticketed and self-transfers are not protected.
 
+## Users and permissions
+
+- **Roles:** `admin` sees and manages everything (users, Platform Settings, export/import, all
+  Suchabos and Trips). `user` sees their own Suchabos and Trips and those shared with them;
+  the Settings page shows them only their personal settings (language, time zone, password).
+- **Ownership:** every Suchabo and Trip has an `owner_id`; a Trip's leg Suchabos always have the
+  Trip's owner and are accessed through the Trip. Records from before user management are
+  assigned to the env admin on its login; a deleted user's records go to the env admin too.
+- **Deactivated owners:** `services.users.pause_unattended` pauses active Suchabos and Trips
+  whose owner is deactivated (or being deleted) and that no active user may edit. It runs after
+  every change that can remove the last editor (deactivation, deletion, share removed or
+  reduced to view), so shared-for-edit records keep running exactly as long as someone is left
+  who may edit them.
+- **Sharing:** owner and admins share a Suchabo or Trip with single users, `view` or `edit`.
+  Editors may edit, merge into, pause/resume and poll; archiving, deleting and sharing stay
+  with owner and admins. All checks live in `services/access.py` (`search_access`,
+  `visible_searches`, …); routes call them, a missing right is 404 (not visible) or 403.
+  The overlap check on creation only looks at Suchabos the user can see.
+- **Quota** (`services/quota.py`): per non-admin owner, non-archived Suchabos + Trips
+  (`MAX_SEARCHES_PER_USER`) and provider requests per poll of all of them
+  (`MAX_REQUESTS_PER_USER`, the real cost driver); per-user overrides on the user's admin page.
+  Checked on create, edit, merge and restore; a change that does not grow the usage is always
+  allowed.
+- **Env admin:** `ADMIN_USERNAME` gets a `users` row on its first login, without password hash –
+  its password is always checked against `ADMIN_PASSWORD_HASH`. It cannot be renamed, demoted,
+  deactivated or deleted in the UI; no admin can do that to themselves either.
+
 ## Price history: guarantees and limits
 
 - **Append-only:** `price_history` and `search_revisions` reject every `UPDATE` (DB trigger).
@@ -150,6 +182,11 @@ ticket price**. Separate flights may be separately ticketed and self-transfers a
 - **No backfill:** no free source offers historical fares over months (Travelpayouts only caches
   the last days), so there is no initial backfill. New or broadened Suchabos are polled right
   away; the previous-year comparison fills up through our own tracking.
+- **Passengers:** every price row records the passengers it was requested for (`adults`,
+  `children`). Prices for other passenger numbers are not comparable (Google Flights prices
+  all passengers together), so the detail page, trends, chart and previous-year comparison only
+  use observations for the Suchabo's current passengers and say how many others are hidden. A
+  passenger change counts as broadening: the Suchabo is polled again right away.
 - **Request volume:** a Suchabo costs `routes × cabin classes × months` provider queries per
   poll; for Google Flights each query is `sampled departure dates per month × stay lengths` requests
   (form and detail page show both counts and an estimated duration). A country only expands to its **selected**
@@ -161,7 +198,11 @@ ticket price**. Separate flights may be separately ticketed and self-transfers a
 - No secrets in the repository or image: `.env` is git- and docker-ignored; `alembic.ini`
   contains no URL; migrations contain schema only. The production compose aborts if required
   variables are missing, and the app refuses the `.env.example` placeholder `SECRET_KEY`.
-- Admin login from env (`ADMIN_USERNAME`, scrypt `ADMIN_PASSWORD_HASH`), signed session cookie
+- Logins: users in the database (scrypt hashes, minimum 12 characters) plus the env admin
+  (`ADMIN_USERNAME`, scrypt `ADMIN_PASSWORD_HASH`). Unknown usernames are checked against a
+  dummy hash, so response times do not reveal them. The session stores the user id and the
+  user's `auth_version`, which is raised on password, role and status changes – this ends
+  all other sessions of that user. Signed session cookie
   (HttpOnly, SameSite=Lax, Secure by default), CSRF token on every POST, login lockout after
   5 failures per client IP (in-memory, per process; behind a reverse proxy only correct when
   `FORWARDED_ALLOW_IPS` names the address the proxy connects from), strict CSP, no

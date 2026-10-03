@@ -1,5 +1,6 @@
-"""Platform Settings: admin-only page for data export/import and DB-backed overrides of
-selected `.env` defaults (flight data providers, worker, airport import)."""
+"""Settings: personal settings (language, time zone, password) for every user; for admins
+also Platform Settings – data export/import and DB-backed overrides of selected `.env`
+defaults (flight data providers, worker, airport import, user limits)."""
 
 import json
 
@@ -8,8 +9,10 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData, UploadFile
 
-from flighttracker.i18n import Msg
+from flighttracker.i18n import SUPPORTED_LOCALES, Msg
+from flighttracker.models import User
 from flighttracker.providers.registry import PROVIDERS
+from flighttracker.services import quota
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_transfer import export_all, import_payload
 from flighttracker.services.settings import (
@@ -17,6 +20,7 @@ from flighttracker.services.settings import (
     PROVIDERS_SECTION,
     SEARCHES_SECTION,
     SETTING_FIELDS,
+    USERS_SECTION,
     WORKER_SECTION,
     SettingField,
     SettingValidationError,
@@ -25,13 +29,35 @@ from flighttracker.services.settings import (
     load_overrides,
     set_override,
 )
+from flighttracker.services.users import (
+    UserValidationError,
+    change_own_password,
+    set_preferences,
+)
 from flighttracker.web import labels
-from flighttracker.web.deps import csrf_form, flash, get_db, require_admin
+from flighttracker.web.deps import (
+    SESSION_AUTH_VERSION,
+    SESSION_LOCALE,
+    AuthUser,
+    csrf_form,
+    flash,
+    get_db,
+    get_user,
+    require_admin,
+    require_login,
+)
 from flighttracker.web.templating import templates
 
-router = APIRouter(dependencies=[Depends(require_admin)])
+router = APIRouter(dependencies=[Depends(require_login)])
+admin_only = [Depends(require_admin)]
 
-_SECTIONS = (PROVIDERS_SECTION, SEARCHES_SECTION, WORKER_SECTION, AIRPORT_IMPORT_SECTION)
+_SECTIONS = (
+    PROVIDERS_SECTION,
+    SEARCHES_SECTION,
+    WORKER_SECTION,
+    AIRPORT_IMPORT_SECTION,
+    USERS_SECTION,
+)
 
 
 def _section_fields(section: str) -> list[SettingField]:
@@ -58,27 +84,85 @@ def _redirect() -> RedirectResponse:
 
 
 @router.get("/settings")
-def index(request: Request, db: Session = Depends(get_db)):
+def index(request: Request, db: Session = Depends(get_db), user: User = Depends(get_user)):
     settings = effective_settings(db, request.app.state.settings)
-    overrides = load_overrides(db)
-    sections = [
-        {
-            "key": section,
-            "label": labels.SETTINGS_SECTION_LABELS[section],
-            "fields": [
-                _field_view(field, overrides, settings) for field in _section_fields(section)
-            ],
-        }
-        for section in _SECTIONS
-    ]
+    sections = []
+    if user.is_admin:
+        overrides = load_overrides(db)
+        sections = [
+            {
+                "key": section,
+                "label": labels.SETTINGS_SECTION_LABELS[section],
+                "fields": [
+                    _field_view(field, overrides, settings) for field in _section_fields(section)
+                ],
+            }
+            for section in _SECTIONS
+        ]
     return templates.TemplateResponse(
         request,
         "settings/index.html",
-        {"sections": sections, "provider_options": sorted(PROVIDERS)},
+        {
+            "sections": sections,
+            "provider_options": sorted(PROVIDERS),
+            "user": user,
+            "usage": quota.usage(db, user, settings),
+            "locale_options": list(SUPPORTED_LOCALES.items()),
+            "default_timezone": settings.display_timezone,
+        },
     )
 
 
-@router.post("/settings/section/{section}")
+@router.post("/settings/personal")
+def save_personal(
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_user),
+):
+    locale = str(form.get("locale", ""))
+    try:
+        set_preferences(
+            user,
+            locale=locale or None,
+            timezone=str(form.get("timezone", "")).strip(),
+        )
+    except UserValidationError as exc:
+        for error in exc.errors:
+            flash(request, error, "error")
+        return _redirect()
+    db.commit()
+    if locale:
+        request.session[SESSION_LOCALE] = locale
+    flash(request, Msg("Settings saved."), "success")
+    return _redirect()
+
+
+@router.post("/settings/password")
+def change_password(
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_user),
+):
+    new = str(form.get("new_password", ""))
+    if new != str(form.get("repeat_password", "")):
+        flash(request, Msg("The new passwords do not match."), "error")
+        return _redirect()
+    try:
+        change_own_password(user, str(form.get("current_password", "")), new)
+    except UserValidationError as exc:
+        for error in exc.errors:
+            flash(request, error, "error")
+        return _redirect()
+    db.commit()
+    # Other sessions of this user end; this one continues.
+    request.session[SESSION_AUTH_VERSION] = user.auth_version
+    flash(request, Msg("Password changed. Other sessions were logged out."), "success")
+    return _redirect()
+
+
+@router.post("/settings/section/{section}", dependencies=admin_only)
 def save_section(
     section: str,
     request: Request,
@@ -108,7 +192,7 @@ def save_section(
     return _redirect()
 
 
-@router.post("/settings/airport-import/run")
+@router.post("/settings/airport-import/run", dependencies=admin_only)
 def run_airport_import(
     request: Request, form: FormData = Depends(csrf_form), db: Session = Depends(get_db)
 ):
@@ -136,7 +220,7 @@ def run_airport_import(
     return _redirect()
 
 
-@router.get("/settings/export")
+@router.get("/settings/export", dependencies=admin_only)
 def export_data(db: Session = Depends(get_db)) -> Response:
     payload = export_all(db)
     return Response(
@@ -146,9 +230,12 @@ def export_data(db: Session = Depends(get_db)) -> Response:
     )
 
 
-@router.post("/settings/import")
+@router.post("/settings/import", dependencies=admin_only)
 def import_data(
-    request: Request, form: FormData = Depends(csrf_form), db: Session = Depends(get_db)
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
 ):
     upload = form.get("file")
     if not isinstance(upload, UploadFile) or not upload.filename:
@@ -159,7 +246,7 @@ def import_data(
     except (ValueError, UnicodeDecodeError):
         flash(request, Msg("This file is not valid JSON."), "error")
         return _redirect()
-    result = import_payload(db, payload)
+    result = import_payload(db, payload, owner_id=user.id)
     if result.errors:
         db.rollback()
         flash(request, Msg("Import failed: {errors}", errors="; ".join(result.errors)), "error")

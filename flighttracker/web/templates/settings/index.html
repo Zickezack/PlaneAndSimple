@@ -1,13 +1,49 @@
 {% extends "base.html" %}
 {% import "_macros.html" as ui with context %}
-{% block title %}{{ _("Platform Settings") }}{% endblock %}
+{% block title %}{{ _("Settings") }}{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>{{ _("Platform Settings") }}</h1>
+  <h1>{{ _("Settings") }}</h1>
 </div>
 
 <section class="card">
+  <h2>{{ _("Personal settings") }}</h2>
+  <p>{{ _("Logged in as {name}", name=user.username) }}{% if user.is_admin %} · {{ ui.badge(_("Admin")) }}{% endif %}</p>
+  {{ ui.quota_hint(usage) }}
+  <form method="post" action="/settings/personal" class="form">
+    {{ ui.csrf_field() }}
+    <div class="grid-2">
+      {{ ui.select_field("locale", _("Language"), locale_options, user.locale or locale) }}
+      {{ ui.text_field("timezone", _("Time zone"), user.timezone or "", placeholder=default_timezone, hint=_("For example Europe/Zurich or America/New_York. Empty: {zone} (platform default).", zone=default_timezone)) }}
+    </div>
+    <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
+  </form>
+</section>
+
+<details class="card more">
+  <summary>{{ _("Change password") }}</summary>
+  {% if user.password_hash %}
+  <form method="post" action="/settings/password" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("current_password", _("Current password"), type="password", required=True, autocomplete="current-password") }}
+    <div class="grid-2">
+      {{ ui.text_field("new_password", _("New password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters.")) }}
+      {{ ui.text_field("repeat_password", _("Repeat new password"), type="password", required=True, autocomplete="new-password") }}
+    </div>
+    <div class="actions">{{ ui.button(_("Change password"), "secondary") }}</div>
+  </form>
+  {% else %}
+  <p>{{ _("This account's password is set in .env.") }}</p>
+  {% endif %}
+</details>
+
+{% if user.is_admin %}
+<h2>{{ _("Platform Settings") }}</h2>
+<p class="hint">{{ _("Only visible to admins. They apply to every user.") }} <a href="/users">{{ _("User management") }}</a></p>
+
+<section class="card">
   <h2>{{ _("Export and import") }}</h2>
+  <p class="hint">{{ _("Imported tracked searches and Trips belong to you; assign them to other users on their pages.") }}</p>
   <p class="hint">{{ _("Export every tracked search with its price history and query log, plus every Trip with its ordered legs and layover rules, as one JSON file. Importing only ever adds new data – existing records are never changed or removed, so the same file can safely be imported twice or combined with exports from other servers.") }}</p>
   <div class="actions">
     {{ ui.link_button(_("Export all data"), "/settings/export") }}
@@ -67,8 +103,5 @@
 </details>
 {% endfor %}
 
-<details class="card more">
-  <summary>{{ _("User management") }}</summary>
-  <p>{{ _("Plane and simple currently has a single admin account configured in .env. Multiple users with roles and permissions are a planned feature (see the backlog in userstories.md).") }}</p>
-</details>
+{% endif %}
 {% endblock %}

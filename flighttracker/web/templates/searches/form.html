@@ -5,6 +5,7 @@
 <div class="page-header">
   <h1>{{ _("Edit tracked search") if search else _("New tracked search") }}</h1>
 </div>
+{% if not search %}{{ ui.quota_hint(usage) }}{% endif %}
 
 {{ ui.error_list(errors) }}
 {% if notice %}{{ ui.alert(notice) }}{% endif %}
@@ -23,10 +24,12 @@
         {{ _("covers the same countries.") }}</p>
       <p>{{ _("After merging:") }} <strong>{{ o.merged_origins }} → {{ o.merged_destinations }}</strong>
         {%- if o.filters_widened %} – {{ _("the filters are widened so that both searches are covered") }}{% endif %}.</p>
+      {% if o.can_merge %}
       <div class="actions">
         {{ ui.button(_('Add to "{name}"', name=o.search.name), "primary", form="search-form",
                      formaction="/searches/%d/merge" % o.search.id) }}
       </div>
+      {% endif %}
     {% endif %}
   </div>
   {% endfor %}

@@ -1,0 +1,40 @@
+{#- "Sharing" section of a tracked search or Trip (owner and admins only); data from web/sharing.py. -#}
+{% import "_macros.html" as ui with context %}
+<details class="card more">
+  <summary>{{ _("Sharing") }}</summary>
+  <p>{{ _("Owner") }}: <strong>{{ sharing.owner_name or _("no owner") }}</strong></p>
+  {% if sharing.owner_options is not none %}
+  <form method="post" action="{{ sharing.base_url }}/owner" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.select_field("owner_id", _("Change owner"), sharing.owner_options, sharing.owner_id) }}
+    <div class="actions">{{ ui.button(_("Change owner"), "secondary") }}</div>
+  </form>
+  {% endif %}
+  {% if sharing.shares %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>{{ _("User") }}</th><th>{{ _("Access") }}</th><th></th></tr></thead>
+      <tbody>
+        {% for share in sharing.shares %}
+        <tr>
+          <td>{{ share.user.username }}{% if not share.user.is_active %} <small class="hint">({{ _("deactivated") }})</small>{% endif %}</td>
+          <td>{{ _("View and edit") if share.can_edit else _("View only") }}</td>
+          <td>{{ ui.action_form("%s/shares/%d/delete" % (sharing.base_url, share.id), _("Remove"), "ghost") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">{{ _("Not shared with anybody.") }}</p>
+  {% endif %}
+  <form method="post" action="{{ sharing.base_url }}/shares" class="form">
+    {{ ui.csrf_field() }}
+    <div class="grid-2">
+      {{ ui.text_field("username", _("Share with user"), autocomplete="off", required=True) }}
+      {{ ui.select_field("permission", _("Access"), [("view", _("View only")), ("edit", _("View and edit"))], "view") }}
+    </div>
+    <p class="hint">{{ _("Sharing again with the same user changes their access. Editors can change, pause and poll, but not archive, delete or share.") }}</p>
+    <div class="actions">{{ ui.button(_("Share"), "secondary") }}</div>
+  </form>
+</details>

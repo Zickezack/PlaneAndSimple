@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("User management") }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ _("User management") }}</h1>
+</div>
+<p class="hint">{{ _("Users see and edit their own tracked searches and Trips and those shared with them. Admins see everything and manage the platform.") }}</p>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>{{ _("Username") }}</th><th>{{ _("Role") }}</th><th>{{ _("Status") }}</th><th class="num">{{ _("Tracked searches and Trips") }}</th><th class="num">{{ _("Requests per poll") }}</th><th>{{ _("Last login") }}</th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      {% set use = usage[u.id] %}
+      <tr>
+        <td><a href="/users/{{ u.id }}">{{ u.username }}</a>{% if u.id in env_admin %} <small class="hint">(.env)</small>{% endif %}</td>
+        <td>{{ _(labels.ROLE_LABELS[u.role]) }}</td>
+        <td>{% if u.is_active %}{{ ui.badge(_("Active"), "success") }}{% else %}{{ ui.badge(_("Deactivated"), "muted") }}{% endif %}</td>
+        <td class="num">{{ use.searches }}{% if use.max_searches is not none %} / {{ use.max_searches }}{% endif %}</td>
+        <td class="num">{{ use.requests }}{% if use.max_requests is not none %} / {{ use.max_requests }}{% endif %}</td>
+        <td>{{ u.last_login_at | datetime }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<section class="card">
+  <h2>{{ _("New user") }}</h2>
+  <form method="post" action="/users" class="form">
+    {{ ui.csrf_field() }}
+    <div class="grid-3">
+      {{ ui.text_field("username", _("Username"), required=True, autocomplete="off") }}
+      {{ ui.text_field("password", _("Initial password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters. Users can change it under Settings.")) }}
+      {{ ui.select_field("role", _("Role"), labels.ROLE_LABELS.items() | tr_options, "user") }}
+    </div>
+    <div class="actions">{{ ui.button(_("Create user")) }}</div>
+  </form>
+</section>
+{% endblock %}

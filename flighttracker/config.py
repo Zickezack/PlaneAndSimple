@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Contact (URL or e-mail) sent to Wikidata; passenger numbers are only fetched when set.
     wikidata_contact: str = ""
     default_currency: str = Field(default="CHF", pattern=r"^[A-Z]{3}$")
+    # Quota per (non-admin) user: Suchabos + Trips, and provider requests per poll of all of
+    # them together. The request budget is what actually costs: 600 requests take about
+    # 40 minutes of scraper time per poll with the default 3 s pause.
+    max_searches_per_user: int = Field(default=10, ge=0, le=1000)
+    max_requests_per_user: int = Field(default=600, ge=0, le=1_000_000)
     # Timestamps are stored in UTC and shown in this time zone.
     display_timezone: str = "Europe/Zurich"
 

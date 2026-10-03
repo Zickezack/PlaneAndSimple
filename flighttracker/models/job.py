@@ -16,6 +16,8 @@ class JobStatus(StrEnum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+    # Stopped by a user; a running job ends after its current provider query.
+    CANCELLED = "cancelled"
 
 
 class FetchJob(Base):

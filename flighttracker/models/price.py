@@ -71,6 +71,9 @@ class PriceHistory(Base):
     stops: Mapped[int | None] = mapped_column(SmallInteger)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     currency: Mapped[str] = mapped_column(String(3))
+    # Passengers the price was requested for (Google Flights prices are totals for all of them).
+    adults: Mapped[int] = mapped_column(SmallInteger)
+    children: Mapped[int] = mapped_column(SmallInteger)
     airline: Mapped[str | None] = mapped_column(String(60))
     # Flight details from the provider (flights, times, duration, link) – see datamodel.md.
     details: Mapped[dict | None] = mapped_column(JSONB)

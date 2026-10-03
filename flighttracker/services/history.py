@@ -3,6 +3,11 @@
 A *price point* is the current price for one route, cabin, departure and return date: the
 latest observation (whatever the stops – Google reports the day's cheapest flight, which may
 switch between direct and connecting). Several stay lengths give several points per day.
+
+Prices for different passengers are not comparable (Google Flights prices all passengers
+together), so the readers below take the passengers to show (`passengers=(adults, children)`)
+and ignore observations for other passenger numbers – a changed passenger number never
+shows up as a price change.
 """
 
 from calendar import monthrange
@@ -99,6 +104,8 @@ _PRICE_POINTS = text(
                lead(price) OVER flight AS previous_price
           FROM price_history
          WHERE search_id = :search_id
+           AND (CAST(:adults AS smallint) IS NULL OR adults = :adults)
+           AND (CAST(:children AS smallint) IS NULL OR children = :children)
         WINDOW flight AS (
             PARTITION BY origin_iata, destination_iata, cabin_class, currency,
                          departure_date, return_date
@@ -112,12 +119,29 @@ _PRICE_POINTS = text(
 )
 
 
+Passengers = tuple[int, int]
+
+
 def price_points(
-    session: Session, search_id: int, fake_providers: Collection[str] = ()
+    session: Session,
+    search_id: int,
+    fake_providers: Collection[str] = (),
+    *,
+    passengers: Passengers | None = None,
 ) -> list[PricePoint]:
-    """All price points of a Suchabo (past departures included), sorted by date and price."""
+    """All price points of a Suchabo (past departures included), sorted by date and price.
+
+    `passengers`: only observations for these (adults, children); None = all.
+    """
+    adults, children = passengers if passengers is not None else (None, None)
     rows = session.execute(
-        _PRICE_POINTS, {"search_id": search_id, "fake_providers": list(fake_providers)}
+        _PRICE_POINTS,
+        {
+            "search_id": search_id,
+            "fake_providers": list(fake_providers),
+            "adults": adults,
+            "children": children,
+        },
     )
     points = [
         PricePoint(
@@ -148,8 +172,23 @@ def observation(session: Session, search_id: int, price_id: int) -> PriceHistory
     ).first()
 
 
+def other_passenger_prices(
+    session: Session, search_id: int, passengers: Passengers, since_departure: date
+) -> int:
+    """Observations of upcoming departures recorded for other passenger numbers (hidden)."""
+    adults, children = passengers
+    return session.scalar(
+        select(func.count()).where(
+            PriceHistory.search_id == search_id,
+            PriceHistory.departure_date >= since_departure,
+            (PriceHistory.adults != adults) | (PriceHistory.children != children),
+        )
+    )
+
+
 def flight_history(session: Session, observed: PriceHistory) -> list[PriceHistory]:
-    """Every poll's price for the same route, cabin, currency and flight dates, newest first."""
+    """Every poll's price for the same route, cabin, currency, passengers and flight dates,
+    newest first."""
     return list(
         session.scalars(
             select(PriceHistory)
@@ -159,6 +198,8 @@ def flight_history(session: Session, observed: PriceHistory) -> list[PriceHistor
                 PriceHistory.destination_iata == observed.destination_iata,
                 PriceHistory.cabin_class == observed.cabin_class,
                 PriceHistory.currency == observed.currency,
+                PriceHistory.adults == observed.adults,
+                PriceHistory.children == observed.children,
                 PriceHistory.departure_date == observed.departure_date,
                 PriceHistory.return_date.is_not_distinct_from(observed.return_date),
             )
@@ -215,9 +256,15 @@ def overview_from_points(points: Iterable[PricePoint], today: date) -> list[Mont
 
 
 def monthly_overview(
-    session: Session, search_id: int, today: date, fake_providers: Collection[str] = ()
+    session: Session,
+    search_id: int,
+    today: date,
+    fake_providers: Collection[str] = (),
+    *,
+    passengers: Passengers | None = None,
 ) -> list[MonthlyPriceRow]:
-    return overview_from_points(price_points(session, search_id, fake_providers), today)
+    points = price_points(session, search_id, fake_providers, passengers=passengers)
+    return overview_from_points(points, today)
 
 
 FlightKey = tuple[str, str, str, str, date, date | None]
@@ -247,10 +294,10 @@ def flight_key(point: PricePoint) -> FlightKey:
 
 
 def price_series(
-    session: Session, search_id: int, since_departure: date
+    session: Session, search_id: int, since_departure: date, *, passengers: Passengers | None = None
 ) -> dict[FlightKey, list[PriceObservation]]:
     """Every observed price per flight (oldest first) for departures from `since_departure` on."""
-    rows = session.execute(
+    statement = (
         select(
             PriceHistory.origin_iata,
             PriceHistory.destination_iata,
@@ -264,6 +311,11 @@ def price_series(
         .where(PriceHistory.search_id == search_id, PriceHistory.departure_date >= since_departure)
         .order_by(PriceHistory.observed_at, PriceHistory.id)
     )
+    if passengers is not None:
+        statement = statement.where(
+            PriceHistory.adults == passengers[0], PriceHistory.children == passengers[1]
+        )
+    rows = session.execute(statement)
     series: dict[FlightKey, list[PriceObservation]] = {}
     for origin, destination, cabin, currency, departure, return_date, price, observed_at in rows:
         key = (origin, destination, str(cabin), currency, departure, return_date)

@@ -25,6 +25,7 @@ PROVIDERS_SECTION = "providers"
 SEARCHES_SECTION = "searches"
 WORKER_SECTION = "worker"
 AIRPORT_IMPORT_SECTION = "airport_import"
+USERS_SECTION = "users"
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,8 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("max_route_pairs_per_search", WORKER_SECTION, "int", min=1),
     SettingField("country_default_airports", AIRPORT_IMPORT_SECTION, "int", min=1, max=20),
     SettingField("wikidata_contact", AIRPORT_IMPORT_SECTION, "str"),
+    SettingField("max_searches_per_user", USERS_SECTION, "int", min=0, max=1000),
+    SettingField("max_requests_per_user", USERS_SECTION, "int", min=0, max=1_000_000),
 )
 
 _FIELDS_BY_KEY = {field.key: field for field in SETTING_FIELDS}
