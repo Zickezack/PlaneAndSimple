@@ -68,3 +68,46 @@ def test_missing_times_cannot_claim_a_working_connection():
         )
         == []
     )
+
+
+def test_find_itineraries_returns_the_cheapest_even_beyond_the_limit_in_search_order():
+    # Many combinations from expensive first-leg flights must not crowd out the cheap one.
+    expensive_firsts = [
+        quote("ZRH", "IST", "2027-05-10", f"{6 + i:02d}:00", "2027-05-10", f"{7 + i:02d}:00", "900")
+        for i in range(5)
+    ]
+    cheap_first = quote("ZRH", "IST", "2027-05-10", "05:00", "2027-05-10", "06:00", "50")
+    seconds = [
+        quote(
+            "IST",
+            "JFK",
+            "2027-05-11",
+            f"{8 + i:02d}:00",
+            "2027-05-11",
+            f"{9 + i:02d}:00",
+            str(100 + i),
+        )
+        for i in range(4)
+    ]
+    itineraries = find_itineraries(
+        [expensive_firsts + [cheap_first], seconds],
+        [LayoverRule(1, 1)],
+        date(2027, 5, 10),
+        date(2027, 5, 11),
+        limit=3,
+    )
+    assert [option.total_price for option in itineraries] == [
+        Decimal("150"),
+        Decimal("151"),
+        Decimal("152"),
+    ]
+
+
+def test_find_itineraries_keeps_the_first_found_of_equal_totals():
+    first = quote("ZRH", "IST", "2027-05-10", "08:00", "2027-05-10", "12:00", "100")
+    a = quote("IST", "JFK", "2027-05-11", "08:00", "2027-05-11", "12:00", "100")
+    b = quote("IST", "JFK", "2027-05-11", "09:00", "2027-05-11", "13:00", "100")
+    (only,) = find_itineraries(
+        [[first], [a, b]], [LayoverRule(1, 1)], date(2027, 5, 10), date(2027, 5, 11), limit=1
+    )
+    assert only.legs[1] is a

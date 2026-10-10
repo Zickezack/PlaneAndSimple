@@ -23,10 +23,15 @@ from flighttracker.services.searches import SearchValidationError
 from flighttracker.services.settings import effective_settings
 from flighttracker.services.trips import (
     TripValidationError,
+    archive_trip,
     create_trip,
+    delete_trip_permanently,
     estimated_requests,
     get_trip,
     itineraries_for_trip,
+    pause_trip,
+    restore_trip,
+    resume_trip,
     validate_trip,
 )
 from flighttracker.web.deps import (
@@ -258,4 +263,75 @@ def change_owner(
     set_trip_owner(trip, owner.id)
     db.commit()
     flash(request, Msg("Owner changed."), "success")
+    return RedirectResponse(f"/trips/{trip.id}", status_code=303)
+
+
+@router.post("/trips/{trip_id}/delete")
+def delete_permanently(
+    trip_id: int,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    trip = _load_trip(db, trip_id, user, Access.OWN)
+    if str(form.get("confirm_name", "")).strip() != trip.name:
+        flash(request, Msg("To delete permanently, please enter the exact name."), "error")
+        return RedirectResponse(f"/trips/{trip.id}", status_code=303)
+    name = trip.name
+    delete_trip_permanently(db, trip)
+    db.commit()
+    flash(
+        request,
+        Msg('Trip "{name}" and its legs were deleted permanently.', name=name),
+        "success",
+    )
+    return RedirectResponse("/searches", status_code=303)
+
+
+_ACTIONS = {
+    "pause": (Msg("Trip paused."), Access.EDIT),
+    "resume": (Msg("Trip is polled again."), Access.EDIT),
+    "archive": (Msg("Trip archived. All data is kept."), Access.OWN),
+    "restore": (Msg("Trip restored."), Access.OWN),
+}
+
+
+# Catch-all for the status actions – keep it the last POST route of this module.
+@router.post("/trips/{trip_id}/{action}")
+def status_action(
+    trip_id: int,
+    action: str,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    if action not in _ACTIONS:
+        raise HTTPException(status_code=404)
+    message, needed = _ACTIONS[action]
+    trip = _load_trip(db, trip_id, user, needed)
+    if action == "pause":
+        pause_trip(trip)
+    elif action == "resume":
+        resume_trip(db, trip)
+    elif action == "archive":
+        archive_trip(trip)
+    elif trip.is_archived:
+        settings = effective_settings(db, request.app.state.settings)
+        owner = db.get(User, trip.owner_id) if trip.owner_id else None
+        errors = (
+            quota.check(
+                db, owner, settings, added_searches=1, added_requests=quota.trip_requests(trip)
+            )
+            if owner
+            else []
+        )
+        if errors:
+            for error in errors:
+                flash(request, error, "error")
+            return RedirectResponse(f"/trips/{trip.id}", status_code=303)
+        restore_trip(trip)
+    db.commit()
+    flash(request, message, "success")
     return RedirectResponse(f"/trips/{trip.id}", status_code=303)

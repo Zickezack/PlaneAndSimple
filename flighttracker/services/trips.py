@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from flighttracker.domain.filters import CabinClass, SearchFilters, TripType
@@ -15,11 +15,15 @@ from flighttracker.domain.trips import (
     find_itineraries,
 )
 from flighttracker.models import (
+    FetchJob,
+    JobStatus,
     Search,
+    SearchStatus,
     Trip,
     TripLeg,
 )
 from flighttracker.services import history
+from flighttracker.services.jobs import wake_worker
 from flighttracker.services.searches import SearchInput, create_search
 
 MAX_TRIP_WINDOW_DAYS = 60
@@ -220,9 +224,27 @@ def _passengers(search: Search) -> tuple[int, int]:
     return filters.adults, filters.children
 
 
+def latest_poll_started(session: Session, trip_id: int) -> datetime | None:
+    """Start of the Trip's latest completed poll (None before the first one)."""
+    return session.scalar(
+        select(FetchJob.started_at)
+        .where(FetchJob.trip_id == trip_id, FetchJob.status == JobStatus.DONE)
+        .order_by(FetchJob.finished_at.desc(), FetchJob.id.desc())
+        .limit(1)
+    )
+
+
 def itineraries_for_trip(
-    session: Session, trip: Trip, fake_providers: tuple[str, ...] = ()
+    session: Session,
+    trip: Trip,
+    fake_providers: tuple[str, ...] = (),
+    *,
+    today: date | None = None,
 ) -> list[TripItinerary]:
+    """Current options only: no departures before `today`, and every flight seen in the latest
+    completed poll – an option an older poll found may no longer exist."""
+    today = today or datetime.now(UTC).date()
+    since = latest_poll_started(session, trip.id)
     points_by_leg = [
         [
             point
@@ -230,11 +252,50 @@ def itineraries_for_trip(
                 session, leg.search_id, fake_providers, passengers=_passengers(leg.search)
             )
             if point.return_date is None
+            and point.departure_date >= today
+            and (since is None or point.observed_at >= since)
         ]
         for leg in trip.legs
     ]
     rules = [LayoverRule(leg.min_layover_days, leg.max_layover_days) for leg in trip.legs[1:]]
     return find_itineraries(points_by_leg, rules, trip.starts_on, trip.ends_on)
+
+
+def pause_trip(trip: Trip) -> None:
+    """The Trip and its legs stop polling until resumed."""
+    trip.status = SearchStatus.PAUSED
+    for leg in trip.legs:
+        leg.search.status = SearchStatus.PAUSED
+
+
+def resume_trip(session: Session, trip: Trip, now: datetime | None = None) -> None:
+    trip.status = SearchStatus.ACTIVE
+    trip.next_poll_at = now or datetime.now(UTC)
+    for leg in trip.legs:
+        leg.search.status = SearchStatus.ACTIVE
+    wake_worker(session)
+
+
+def archive_trip(trip: Trip, now: datetime | None = None) -> None:
+    """Soft delete of the Trip and its legs: hidden and no longer polled, all data kept."""
+    archived_at = now or datetime.now(UTC)
+    trip.archived_at = archived_at
+    for leg in trip.legs:
+        leg.search.archived_at = archived_at
+
+
+def restore_trip(trip: Trip) -> None:
+    trip.archived_at = None
+    for leg in trip.legs:
+        leg.search.archived_at = None
+
+
+def delete_trip_permanently(session: Session, trip: Trip) -> None:
+    """Removes the Trip and its leg Suchabos with their whole price history."""
+    leg_search_ids = [leg.search_id for leg in trip.legs]
+    session.delete(trip)
+    session.flush()
+    session.execute(delete(Search).where(Search.id.in_(leg_search_ids)))
 
 
 def get_trip(session: Session, trip_id: int) -> Trip | None:

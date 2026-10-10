@@ -466,5 +466,12 @@
   "cheaper": "günstiger",
   "more expensive": "teurer",
   "From the source's price calendar, without flight details. Days with a dot have flights above – click one to keep it below the chart.": "Aus dem Preiskalender der Datenquelle, ohne Flugdetails. Tage mit Punkt haben Flüge oben – ein Klick hält sie unter dem Chart fest.",
-  "{date}: {price}": "{date}: {price}"
+  "{date}: {price}": "{date}: {price}",
+  "Trip paused.": "Trip pausiert.",
+  "Trip is polled again.": "Trip wird wieder abgefragt.",
+  "Trip archived. All data is kept.": "Trip archiviert. Alle Daten bleiben erhalten.",
+  "Trip restored.": "Trip wiederhergestellt.",
+  "Trip \"{name}\" and its legs were deleted permanently.": "Trip „{name}“ inklusive Teilstrecken und Preis-Historie endgültig gelöscht.",
+  "Archiving hides the Trip and its legs and stops polling; all data is kept.": "Archivieren blendet den Trip und seine Teilstrecken aus und stoppt die Abfragen; alle Daten bleiben erhalten.",
+  "Deletes the Trip and its legs including their entire price history. This cannot be undone. To keep the data, archive it instead.": "Löscht den Trip und seine Teilstrecken samt der ganzen Preishistorie. Das kann nicht rückgängig gemacht werden. Um die Daten zu behalten, archiviere ihn stattdessen."
 }

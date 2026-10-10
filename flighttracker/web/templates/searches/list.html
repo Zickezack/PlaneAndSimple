@@ -37,7 +37,7 @@
 {% for trip in trips %}
 <details class="trip-group">
   <summary>
-    <strong>{{ trip.name }}</strong>{{ owner_tag(trip) }}
+    <strong>{{ trip.name }}</strong>{{ owner_tag(trip) }}{% if trip.is_archived or trip.status != "active" %} {{ ui.status_badge(trip) }}{% endif %}
     <span class="hint">{{ trip.starts_on | weekday_date }} – {{ trip.ends_on | weekday_date }} · {{ trip.legs | length }} {{ _("legs") }}</span>
   </summary>
   <div class="table-wrap">

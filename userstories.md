@@ -2,14 +2,6 @@
 
 ## Backlog
 
-### Epic Trip Planner
-1. Pause, archive and delete Trips (cascading to their leg Suchabos); today a Trip polls until
-   its window ends and its leg Suchabos cannot be changed individually.
-2. Cheapest options first: `find_itineraries` stops after the first 200 combinations and sorts
-   only those, so the cheapest one can be missing (`connect_quotes` likewise stops at 1000 paths).
-3. Show only current options: hide departures in the past and combinations not seen in the latest
-   poll.
-
 ### Epic Benutzerverwaltung
 1. Rename users (today only possible by creating a new user and changing the owner).
 
@@ -103,6 +95,10 @@
 28. German country names in the German UI (labels and suggestions; static list from CLDR).
 29. Overlap check compares what is really queried: stay lengths actually requested, the same stop
     limit and the same sampled departure days; a stricter stop limit is polled right away.
+32. Trips: pause/resume, archive/restore and permanent deletion, cascading to their legs.
+33. Trip options: exactly the cheapest 200 combinations (no longer cut in search order; the worker
+    no longer caps paths at 1000), only current options (no past departures, only flights from the
+    latest poll), and the date of every leg in the options table.
 31. Modular codebase: search routes as a package, worker split by job kind, services one use case
     per module, chart script split into widgets; size rules and a feature map in architecture.md.
 30. "Poll now" and the scheduler can no longer queue the same Suchabo or Trip twice (row lock).

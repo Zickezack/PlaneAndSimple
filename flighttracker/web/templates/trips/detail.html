@@ -3,9 +3,13 @@
 {% block title %}{{ trip.name }}{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>{{ trip.name }}</h1>
+  <h1>{{ trip.name }} {{ ui.status_badge(trip) }}</h1>
   <div class="actions">
-    {% if access >= Access.EDIT %}{{ ui.action_form("/trips/%d/poll" % trip.id, _("Poll trip now"), "primary") }}{% endif %}
+    {% if access >= Access.EDIT and not trip.is_archived %}
+      {% if trip.status == "active" %}{{ ui.action_form("/trips/%d/poll" % trip.id, _("Poll trip now"), "primary") }}{{ ui.action_form("/trips/%d/pause" % trip.id, _("Pause")) }}
+      {% else %}{{ ui.action_form("/trips/%d/resume" % trip.id, _("Resume")) }}{% endif %}
+    {% endif %}
+    {% if access >= Access.OWN and trip.is_archived %}{{ ui.action_form("/trips/%d/restore" % trip.id, _("Restore")) }}{% endif %}
     {{ ui.link_button(_("Tracked searches"), "/searches") }}
   </div>
 </div>
@@ -33,7 +37,7 @@
         <tr{% if itinerary.fake %} class="fake-row"{% endif %}>
           <td>{{ itinerary.legs[0].departure_date | weekday_date }}</td>
           <td>{% for leg in itinerary.legs %}{{ leg.origin }} → {{ leg.destination }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
-          <td>{% for leg in itinerary.legs %}{{ leg.details.departure_time }} – {{ leg.details.arrival_time }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+          <td>{% for leg in itinerary.legs %}{{ leg.departure_date | weekday_date }} · {{ leg.details.departure_time }} – {{ leg.details.arrival_time }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
           <td class="num"><strong>{{ itinerary.total_price | price(itinerary.currency) }}</strong>{% if itinerary.fake %} {{ ui.fake_tag() }}{% endif %}</td>
         </tr>
       {% endfor %}
@@ -45,4 +49,21 @@
   {% endif %}
 </section>
 {% if sharing %}{% include "_sharing.html" %}{% endif %}
+
+{% if access >= Access.OWN %}
+<details class="card more danger-zone">
+  <summary>{{ _("Archive or delete") }}</summary>
+  {% if not trip.is_archived %}
+  <p>{{ _("Archiving hides the Trip and its legs and stops polling; all data is kept.") }}</p>
+  <div class="actions">{{ ui.action_form("/trips/%d/archive" % trip.id, _("Archive")) }}</div>
+  {% endif %}
+  <h2>{{ _("Delete permanently") }}</h2>
+  <p>{{ _("Deletes the Trip and its legs including their entire price history. This cannot be undone. To keep the data, archive it instead.") }}</p>
+  <form method="post" action="/trips/{{ trip.id }}/delete" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("confirm_name", _("Enter the name to confirm"), autocomplete="off") }}
+    <div class="actions">{{ ui.button(_("Delete permanently"), "danger") }}</div>
+  </form>
+</details>
+{% endif %}
 {% endblock %}

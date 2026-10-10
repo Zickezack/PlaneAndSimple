@@ -191,6 +191,16 @@ date. Google Flights currently provides these details; providers without times c
 for Trip creation. The displayed total is the sum of individual one-way fares, **not a through-
 ticket price**. Separate flights may be separately ticketed and self-transfers are not protected.
 
+Options are **exact and current**: `find_itineraries` returns the 200 cheapest combinations
+(legs tried cheapest first, a branch is cut once its price plus the cheapest possible rest cannot
+beat the 200th), and only flights seen in the Trip's latest completed poll and departing today or
+later count. The worker keeps one path per last flight and currency (all a following leg depends
+on) instead of capping paths, so no candidate date is lost.
+
+**Lifecycle:** pause/resume (editors) and archive/restore/delete (owner and admins) act on the
+Trip and its leg Suchabos together (`services/trips.py`); legs cannot be changed on their own.
+Restoring is checked against the owner's quota; deleting asks for the exact name.
+
 ## Users and permissions
 
 - **Roles:** `admin` sees and manages everything (users, Platform Settings, export/import, all

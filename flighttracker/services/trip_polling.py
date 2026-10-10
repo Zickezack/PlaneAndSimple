@@ -99,9 +99,13 @@ def connect_quotes(
     final_leg: bool,
     ends_on: date,
 ) -> tuple[list[TripLegQuote], list[tuple[TripLegQuote, ...]]]:
-    """Keep only quotes that extend a feasible path, returning quotes and extended paths."""
+    """Keep only quotes that extend a feasible path, returning quotes and extended paths.
+
+    Whether a further leg can follow depends only on a path's last quote (arrival) and its
+    currency, so one path per (last quote, currency) is kept – no cap that could drop dates.
+    """
     connected: list[TripLegQuote] = []
-    paths: list[tuple[TripLegQuote, ...]] = []
+    paths: dict[tuple[int, str], tuple[TripLegQuote, ...]] = {}
     for quote in quotes:
         for path in previous_paths:
             if not connection_fits(path[-1], quote, rule):
@@ -114,12 +118,8 @@ def connect_quotes(
                 continue
             if quote not in connected:
                 connected.append(quote)
-            extended = (*path, quote)
-            if extended not in paths:
-                paths.append(extended)
-            if len(paths) >= 1000:
-                return connected, paths
-    return connected, paths
+            paths.setdefault((id(quote), path[0].currency), (*path, quote))
+    return connected, list(paths.values())
 
 
 def store_trip_quotes(

@@ -5,7 +5,15 @@ from sqlalchemy import select
 
 from flighttracker.config import Settings
 from flighttracker.domain.filters import CabinClass, TripType
-from flighttracker.models import FetchJob, PriceHistory, QueryLog
+from flighttracker.models import (
+    FetchJob,
+    JobStatus,
+    PriceHistory,
+    QueryLog,
+    Search,
+    SearchStatus,
+    Trip,
+)
 from flighttracker.providers.mock import MockProvider
 from flighttracker.services.jobs import (
     request_trip_poll,
@@ -17,8 +25,13 @@ from flighttracker.services.trips import (
     TripInput,
     TripLegInput,
     TripValidationError,
+    archive_trip,
     create_trip,
+    delete_trip_permanently,
     itineraries_for_trip,
+    pause_trip,
+    restore_trip,
+    resume_trip,
     validate_trip,
 )
 from flighttracker.worker.loop import process_next_job
@@ -201,3 +214,65 @@ def test_trip_worker_uses_global_currency(db, session_factory):
         db.scalars(select(PriceHistory.currency).where(PriceHistory.search_id == first_search_id))
     )
     assert currencies == {"EUR"}
+
+
+def test_pause_archive_restore_and_delete_cascade_to_the_legs(db):
+    trip = create_trip(db, trip_input(), max_route_pairs=50)
+    db.flush()
+    leg_ids = [leg.search_id for leg in trip.legs]
+
+    pause_trip(trip)
+    assert {leg.search.status for leg in trip.legs} == {SearchStatus.PAUSED}
+    now = datetime.now(UTC)
+    trip.next_poll_at = now - timedelta(minutes=1)
+    db.flush()
+    assert schedule_due_trip_polls(db, now) == 0  # paused Trips are not polled
+    resume_trip(db, trip, now)
+    assert trip.status is SearchStatus.ACTIVE and trip.next_poll_at == now
+    assert {leg.search.status for leg in trip.legs} == {SearchStatus.ACTIVE}
+
+    archive_trip(trip, now)
+    assert trip.is_archived and all(leg.search.is_archived for leg in trip.legs)
+    restore_trip(trip)
+    assert not trip.is_archived and not any(leg.search.is_archived for leg in trip.legs)
+
+    delete_trip_permanently(db, trip)
+    db.flush()
+    assert db.scalar(select(Trip).where(Trip.id == trip.id)) is None
+    assert db.scalars(select(Search).where(Search.id.in_(leg_ids))).all() == []
+
+
+def test_options_only_from_the_latest_poll_and_not_in_the_past(db, session_factory):
+    trip = create_trip(db, trip_input(), max_route_pairs=50)
+    db.commit()
+    first = datetime.now(UTC)
+    assert request_trip_poll(db, trip, first)
+    db.commit()
+    assert process_next_job(session_factory, MockProvider(clock=lambda: first), clock=lambda: first)
+    db.refresh(trip)
+    options = itineraries_for_trip(db, trip)
+    assert options
+
+    # A later poll that finds nothing: the options of the older poll are no longer current.
+    later = first + timedelta(hours=1)
+    job = FetchJob(
+        search_id=trip.legs[0].search_id,
+        trip_id=trip.id,
+        kind="poll",
+        status=JobStatus.DONE,
+        run_after=later,
+        started_at=later,
+        finished_at=later,
+    )
+    db.add(job)
+    db.flush()
+    assert itineraries_for_trip(db, trip) == []
+    db.delete(job)
+    db.flush()
+
+    # Departures before "today" are hidden.
+    departure = options[0].legs[0].departure_date
+    assert all(
+        o.legs[0].departure_date > departure
+        for o in itineraries_for_trip(db, trip, today=departure + timedelta(days=1))
+    )

@@ -52,7 +52,8 @@ scheduler.
 The planner currently requires Google Flights (or the development-only mock provider), because a
 provider must return departure and arrival times to verify connections. Complete options show the
 sum of the separate one-way prices, not a through-ticket fare; self-transfers and separately
-booked connections are not protected.
+booked connections are not protected. Options list the 200 cheapest current combinations (flights from the
+latest poll, no past departures). A Trip can be paused, archived and deleted together with its legs.
 
 ## Users
 
