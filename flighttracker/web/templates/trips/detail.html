@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% import "_macros.html" as ui with context %}
-{% block title %}{{ trip.name }}{% if sharing %}{% include "_sharing.html" %}{% endif %}
-{% endblock %}
+{% block title %}{{ trip.name }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <h1>{{ trip.name }}</h1>

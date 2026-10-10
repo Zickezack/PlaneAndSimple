@@ -449,3 +449,14 @@ class TestPages:
             data={"csrf_token": token, "username": "admin", "permission": "view"},
         )
         assert "is an admin and sees everything already" in response.text
+
+    def test_trip_page_title_holds_only_the_trip_name(self, client, db):
+        alice = add_user(db, "alice")
+        trip = create_trip(db, trip_input(), max_route_pairs=50, owner_id=alice.id)
+        db.commit()
+        login_as(client, "alice")
+        page = client.get(f"/trips/{trip.id}").text
+        title = page.split("<title>", 1)[1].split("</title>", 1)[0]
+        # The sharing form (with the CSRF token) once leaked into the browser tab title.
+        assert " ".join(title.split()) == f"{trip.name} · Plane and simple"
+        assert page.count("<summary>Sharing</summary>") == 1
