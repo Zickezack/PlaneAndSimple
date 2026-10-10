@@ -25,6 +25,22 @@ def catalog(locale: str) -> dict[str, str]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+@cache
+def country_catalog(locale: str) -> dict[str, str]:
+    """Country names by ISO code (`locales/countries.<locale>.json`, generated once from CLDR).
+
+    The English names come from the airport data (OurAirports), which has no translations.
+    """
+    path = LOCALE_DIR / f"countries.{locale}.json"
+    if locale == DEFAULT_LOCALE or not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def country_name(code: str, english_name: str, locale: str) -> str:
+    return country_catalog(locale).get(code, english_name)
+
+
 def translate(text: str, locale: str, **params) -> str:
     """Translated text with `{name}` placeholders filled; unknown texts stay English."""
     template = catalog(locale).get(text, text)

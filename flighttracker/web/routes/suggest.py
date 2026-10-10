@@ -23,7 +23,7 @@ def locations(request: Request, q: str = "", db: Session = Depends(get_db)) -> l
             "label": s.label,
             "kind": translate(LOCATION_KIND_LABELS[s.kind], locale),
         }
-        for s in suggest_locations(db, q[:MAX_QUERY_LENGTH])
+        for s in suggest_locations(db, q[:MAX_QUERY_LENGTH], locale=locale)
     ]
 
 

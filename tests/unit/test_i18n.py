@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from flighttracker.domain.currencies import CURRENCIES
-from flighttracker.i18n import Msg, catalog, translate
+from flighttracker.i18n import Msg, catalog, country_catalog, country_name, translate
 from flighttracker.web import forms, labels
 
 ROOT = Path(__file__).resolve().parents[2] / "flighttracker"
@@ -106,3 +106,12 @@ def test_nested_messages_and_session_roundtrip():
     assert message.render("de") == "Abflug: Unbekannter Flughafen „XXX“."
     simple = Msg('Tracked search "{name}" created. The first poll starts shortly.', name="A")
     assert Msg.from_json(simple.to_json()) == simple
+
+
+def test_german_country_names_cover_iso_codes_and_fall_back_to_english():
+    names = country_catalog("de")
+    assert len(names) >= 249
+    assert all(re.fullmatch(r"[A-Z]{2}", code) and name for code, name in names.items())
+    assert country_name("CH", "Switzerland", "de") == "Schweiz"
+    assert country_name("CH", "Switzerland", "en") == "Switzerland"
+    assert country_name("QQ", "Unknown land", "de") == "Unknown land"

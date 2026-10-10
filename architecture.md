@@ -85,7 +85,9 @@ so browsers pick up CSS/JS changes immediately.
 Write every UI text in English: `{{ _("Text {n}", n=…) }}` in templates, `Msg("Text {n}", n=…)`
 for messages created in Python (validation errors, flash messages – rendered per request), label
 tables in `web/labels.py`. Add the German translation to `flighttracker/locales/de.json` (keyed
-by the English text); `tests/unit/test_i18n.py` fails on missing or stale entries. Logs, CLI
+by the English text); `tests/unit/test_i18n.py` fails on missing or stale entries. Country
+names come from OurAirports in English; German ones are in `flighttracker/locales/countries.de.json`
+(ISO code → name, generated once from CLDR), used for labels and for matching suggestions. Logs, CLI
 output and stored error texts (`fetch_jobs.last_error`) are English only.
 
 **Price chart:** `static/js/price-chart.js` draws the detail page's chart as plain SVG (no

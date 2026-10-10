@@ -175,7 +175,7 @@ def _render_form(
             "overlaps": overlaps or [],
             "notice": notice,
             "airport_options": airport_options(db, countries),
-            "country_names": country_names(db, countries),
+            "country_names": country_names(db, countries, current_locale(request)),
             "airport_field_name": airport_field_name,
             "days_per_month_options": _days_per_month_options(values.get("days_per_month", "")),
             "estimate": _estimate(spec, settings) if spec is not None else None,

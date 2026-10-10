@@ -32,6 +32,7 @@ from flighttracker.services.searches import (
     SearchValidationError,
     airport_options,
     archive_search,
+    country_names,
     create_search,
     current_revision_id,
     delete_search_permanently,
@@ -481,6 +482,15 @@ class TestSuggestions:
     def test_skips_airports_without_scheduled_service(self, db):
         assert "BRN" not in {s.code for s in suggest_locations(db, "BRN")}
         assert suggest_locations(db, "  ") == []
+
+    def test_german_country_names_are_found_and_shown(self, db):
+        (switzerland,) = [s for s in suggest_locations(db, "Schwei", locale="de")]
+        assert (switzerland.code, switzerland.label) == ("CH", "Schweiz")
+        # English names still match in the German UI, labelled in German.
+        assert suggest_locations(db, "Spain", locale="de")[0].label == "Spanien"
+        assert suggest_locations(db, "Spain")[0].label == "Spain"
+        assert country_names(db, {"CH", "ES"}, "de") == {"CH": "Schweiz", "ES": "Spanien"}
+        assert country_names(db, {"CH"}) == {"CH": "Switzerland"}
 
 
 class TestFakeData:

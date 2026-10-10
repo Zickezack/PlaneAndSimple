@@ -10,7 +10,7 @@ from flighttracker.domain.coverage import CoverageKind, find_overlaps, is_covere
 from flighttracker.domain.filters import SearchFilters
 from flighttracker.domain.locations import LocationKind, LocationRef, airport_codes, country_codes
 from flighttracker.domain.spec import SearchSpec, merge_specs, route_pairs
-from flighttracker.i18n import Msg
+from flighttracker.i18n import DEFAULT_LOCALE, Msg, country_catalog, country_name
 from flighttracker.models import (
     Airport,
     Country,
@@ -112,24 +112,41 @@ class LocationSuggestion:
     label: str
 
 
-def suggest_locations(session: Session, query: str, limit: int = 10) -> list[LocationSuggestion]:
+def suggest_locations(
+    session: Session, query: str, limit: int = 10, locale: str = DEFAULT_LOCALE
+) -> list[LocationSuggestion]:
     """Countries and airports (scheduled service) matching a code, name or city.
 
+    Countries match their English name and their name in `locale` and are labelled in `locale`.
     Order: exact code, then matches at the start of code/name/city, then larger airports first.
     """
     term = query.strip()
     if not term:
         return []
-    upper, pattern = term.upper(), f"%{term}%"
-    countries = session.scalars(
-        select(Country)
-        .where(or_(Country.code == upper, Country.name.ilike(pattern)))
-        .order_by(
-            case((Country.code == upper, 0), (Country.name.ilike(f"{term}%"), 1), else_=2),
-            Country.name,
+    upper, pattern, folded = term.upper(), f"%{term}%", term.casefold()
+    localized_matches = [
+        code for code, name in country_catalog(locale).items() if folded in name.casefold()
+    ]
+    matching = session.scalars(
+        select(Country).where(
+            or_(
+                Country.code == upper,
+                Country.name.ilike(pattern),
+                Country.code.in_(localized_matches),
+            )
         )
-        .limit(limit)
     ).all()
+
+    def label(country: Country) -> str:
+        return country_name(country.code, country.name, locale)
+
+    def starts_with_term(country: Country) -> bool:
+        names = (label(country), country.name)
+        return any(name.casefold().startswith(folded) for name in names)
+
+    countries = sorted(
+        matching, key=lambda c: (c.code != upper, not starts_with_term(c), label(c))
+    )[:limit]
     airports = session.scalars(
         select(Airport)
         .where(
@@ -158,7 +175,9 @@ def suggest_locations(session: Session, query: str, limit: int = 10) -> list[Loc
         )
         .limit(limit)
     ).all()
-    suggestions = [LocationSuggestion(c.code, LocationKind.COUNTRY, c.name) for c in countries] + [
+    suggestions = [
+        LocationSuggestion(c.code, LocationKind.COUNTRY, label(c)) for c in countries
+    ] + [
         LocationSuggestion(
             a.iata_code, LocationKind.AIRPORT, f"{a.name}{f', {a.city}' if a.city else ''}"
         )
@@ -169,11 +188,13 @@ def suggest_locations(session: Session, query: str, limit: int = 10) -> list[Loc
     return suggestions[:limit]
 
 
-def country_names(session: Session, codes: set[str]) -> dict[str, str]:
+def country_names(
+    session: Session, codes: set[str], locale: str = DEFAULT_LOCALE
+) -> dict[str, str]:
     if not codes:
         return {}
     rows = session.execute(select(Country.code, Country.name).where(Country.code.in_(codes)))
-    return {code: name for code, name in rows}
+    return {code: country_name(code, name, locale) for code, name in rows}
 
 
 def load_airport_countries(session: Session, codes: set[str]) -> dict[str, str]:

@@ -34,6 +34,7 @@ from flighttracker.services.trips import (
 from flighttracker.web.deps import (
     AuthUser,
     csrf_form,
+    current_locale,
     current_user,
     flash,
     get_db,
@@ -98,7 +99,7 @@ def _render_form(request: Request, db: Session, values: dict, errors: list, noti
             "errors": errors,
             "notice": notice,
             "airport_options": airport_options(db, countries),
-            "country_names": country_names(db, countries),
+            "country_names": country_names(db, countries, current_locale(request)),
             "trip_airport_field_name": trip_airport_field_name,
         },
     )
