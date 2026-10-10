@@ -85,7 +85,7 @@ def build_calendar_queries(
     ]
 
 
-def _accept(quote: PriceQuote, query: PriceQuery) -> bool:
+def accept_quote(quote: PriceQuote, query: PriceQuery) -> bool:
     """Guard against providers that ignore parts of the query."""
     if query.departure_dates is not None and quote.departure_date not in query.departure_dates:
         return False
@@ -273,7 +273,7 @@ def run_query(
         quotes_stored=0,
     )
     try:
-        quotes = [q for q in provider.fetch_current(query) if _accept(q, query)]
+        quotes = [q for q in provider.fetch_current(query) if accept_quote(q, query)]
     except ProviderError as exc:
         entry.outcome = QueryOutcome.FAILED
         entry.error = str(exc)

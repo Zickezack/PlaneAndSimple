@@ -23,7 +23,7 @@ from flighttracker.models import FetchJob, JobStatus, SearchRevision, SearchStat
 from flighttracker.providers.base import FlightPriceProvider, PriceQuery, ProviderError
 from flighttracker.providers.registry import get_provider, provider_config
 from flighttracker.services.ingestion import (
-    _accept,
+    accept_quote,
     all_queries_failed,
     finish_job,
     plan_job,
@@ -150,7 +150,7 @@ def _process_trip_job(
                         quotes = [
                             quote
                             for quote in provider.fetch_current(query)
-                            if _accept(quote, query)
+                            if accept_quote(quote, query)
                             and trip.starts_on <= quote.departure_date <= trip.ends_on
                             and (arrival_at(quote) is not None)
                         ]
