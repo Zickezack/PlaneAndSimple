@@ -2,9 +2,6 @@
 
 ## Backlog
 
-### Epic Architecture
-1. Modularize the code of the app --> Efficiency in AI
-
 ### Epic Trip Planner
 1. Pause, archive and delete Trips (cascading to their leg Suchabos); today a Trip polls until
    its window ends and its leg Suchabos cannot be changed individually.
@@ -106,4 +103,6 @@
 28. German country names in the German UI (labels and suggestions; static list from CLDR).
 29. Overlap check compares what is really queried: stay lengths actually requested, the same stop
     limit and the same sampled departure days; a stricter stop limit is polled right away.
+31. Modular codebase: search routes as a package, worker split by job kind, services one use case
+    per module, chart script split into widgets; size rules and a feature map in architecture.md.
 30. "Poll now" and the scheduler can no longer queue the same Suchabo or Trip twice (row lock).
