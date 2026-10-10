@@ -76,6 +76,40 @@ Where new code goes (dependencies only point downwards):
 | Models | `flighttracker/models/` | SQLAlchemy ORM. Every schema change needs an Alembic migration in `migrations/versions/`. |
 | Domain | `flighttracker/domain/` | Pure logic (filters, location parsing, coverage/merge rules). No DB, network or framework imports – test with plain unit tests. |
 
+**Module size and cut (for humans and AI alike: read few, small, cohesive files):**
+- Aim for at most ~300 lines per Python module and ~400 per JS file. Split by **feature**, not by
+  technical kind, before a file grows past that.
+- A route module serving several sub-features becomes a package `web/routes/<feature>/`. Its
+  `__init__.py` only builds `router` in an explicit order – catch-all routes last (FastAPI
+  matches in registration order; `tests/unit/test_route_order.py` guards the searches package).
+  Helpers shared inside the package live in `_common.py`.
+- Form parsing: one module per feature (`web/forms.py` for Suchabos, `web/trip_forms.py` for
+  Trips); routes only call them and render.
+- Worker: `__main__.py` is only the entry point; `loop.py` (scheduling, dispatch), `wake.py`
+  (LISTEN/NOTIFY), `job_control.py` (stop/cancel checks), one module per job kind
+  (`trip_job.py`). Rules about *what* to query and store live in services (`ingestion.py`,
+  `trip_polling.py`).
+- Services: one use case per module – write side `searches`, `trips`; lookups `locations`;
+  read side `history`, `price_trends`, `month_overview`; polling `ingestion`, `trip_polling`;
+  transfer `data_export`, `data_import`.
+- No imports of another module's `_private` names: a helper a second module needs becomes public.
+- JS: one file per widget, shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
+  classic `defer` scripts loaded via `static_url()` in a fixed order – no ES-module `import`
+  (imported files would skip the `?v=` cache busting).
+
+**Where is what:**
+
+| Feature | Files |
+|---|---|
+| Tracked searches list | `web/routes/searches/listing.py`, `templates/searches/list.html` |
+| Create/edit form | `web/routes/searches/form.py`, `web/forms.py`, `services/searches.py`, `services/locations.py` |
+| Detail page, chart, heat map | `web/routes/searches/detail.py`, `web/flights.py`, `services/history.py`, `services/price_trends.py`, `static/js/price-chart.js` (+ `price-history.js`, `price-calendar.js`, `chart-svg.js`) |
+| Poll now, pause, archive, delete | `web/routes/searches/actions.py`, `services/jobs.py` |
+| Sharing, owners, quotas | `web/routes/searches/shares.py`, `web/sharing.py`, `services/access.py`, `services/quota.py` |
+| Trips | `web/routes/trips.py`, `web/trip_forms.py`, `services/trips.py`, `domain/trips.py` |
+| Polling | `worker/*`, `services/ingestion.py`, `services/trip_polling.py`, `providers/*` |
+| Import/export | `services/data_export.py`, `services/data_import.py` |
+
 **Plane and simple (UI principle):** every page shows the essentials first and folds the rest
 away. Suchabo detail: summary line, "Poll now", chart and a lean flights table; settings, recent
 polls, change history and deletion are `<details>` sections; everything about one flight lives on
