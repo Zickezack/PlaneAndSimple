@@ -18,7 +18,7 @@ from flighttracker.domain.spec import (
 from flighttracker.i18n import Msg, translate
 from flighttracker.models import LocationRole, Search, SearchStatus, User
 from flighttracker.providers.registry import FAKE_DATA_PROVIDERS
-from flighttracker.services import history, jobs, quota
+from flighttracker.services import history, jobs, price_trends, quota
 from flighttracker.services.access import (
     Access,
     ShareError,
@@ -425,8 +425,8 @@ def detail(
     passengers = (spec.filters.adults, spec.filters.children)
     points = history.price_points(db, search.id, FAKE_DATA_PROVIDERS, passengers=passengers)
     upcoming = [p for p in points if p.departure_date >= today]
-    trends = history.flight_trends(
-        upcoming, history.price_series(db, search.id, today, passengers=passengers)
+    trends = price_trends.flight_trends(
+        upcoming, price_trends.price_series(db, search.id, today, passengers=passengers)
     )
     locale = current_locale(request)
     chart = flights.chart_data(
@@ -453,7 +453,7 @@ def detail(
             "poll_interval_minutes": settings.default_poll_interval_minutes,
             "points": upcoming,
             "previous_year": flights.previous_year_lookup(points),
-            "trend_for": lambda p: trends.get(history.flight_key(p)),
+            "trend_for": lambda p: trends.get(price_trends.flight_key(p)),
             "has_fake_prices": any(p.fake for p in upcoming),
             "multiple_cabins": len({p.cabin_class for p in upcoming}) > 1,
             "filter_stays": [

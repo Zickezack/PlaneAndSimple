@@ -25,7 +25,7 @@ from flighttracker.models import (
 )
 from flighttracker.providers.base import FlightPriceProvider, ProviderError
 from flighttracker.providers.mock import MockProvider
-from flighttracker.services import history, jobs
+from flighttracker.services import history, jobs, month_overview
 from flighttracker.services.airport_import import import_needed, upsert_airports
 from flighttracker.services.ingestion import run_fetch_job
 from flighttracker.services.locations import (
@@ -426,7 +426,7 @@ class TestWorker:
             )
         )
         assert sources == {PriceSource.LIVE}
-        overview = history.monthly_overview(db, search.id, NOW.date())
+        overview = month_overview.monthly_overview(db, search.id, NOW.date())
         assert overview
         # Previous-year values only appear once our own tracking is a year old.
         assert all(row.previous_year is None for row in overview)
@@ -500,9 +500,9 @@ class TestFakeData:
     def test_overview_flags_prices_of_fake_providers(self, db):
         search = create(db)
         run_all_jobs(db, MockProvider(clock=lambda: NOW))
-        flagged = history.monthly_overview(db, search.id, NOW.date(), {"mock"})
+        flagged = month_overview.monthly_overview(db, search.id, NOW.date(), {"mock"})
         assert flagged and all(row.fake for row in flagged)
-        unflagged = history.monthly_overview(db, search.id, NOW.date())
+        unflagged = month_overview.monthly_overview(db, search.id, NOW.date())
         assert not any(row.fake for row in unflagged)
 
 
@@ -665,7 +665,9 @@ class TestPricePoints:
             ]
         )
         db.flush()
-        (row,) = history.overview_from_points(history.price_points(db, search.id), NOW.date())
+        (row,) = month_overview.overview_from_points(
+            history.price_points(db, search.id), NOW.date()
+        )
         assert row.current.price == Decimal("250")
         assert row.current.point.departure_date == date(2026, 9, 30)
 

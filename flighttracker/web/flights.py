@@ -6,13 +6,8 @@ from datetime import date, datetime
 
 from markupsafe import Markup
 
-from flighttracker.services.history import (
-    CalendarDay,
-    FlightKey,
-    FlightTrend,
-    PricePoint,
-    flight_key,
-)
+from flighttracker.services.history import CalendarDay, PricePoint
+from flighttracker.services.price_trends import FlightKey, FlightTrend, flight_key
 
 
 def sparkline(values: Sequence, width: int = 84, height: int = 24) -> Markup:

@@ -13,14 +13,8 @@ from flighttracker.services.airport_import import (
     parse_passengers,
     wikidata_user_agent,
 )
-from flighttracker.services.history import (
-    MonthKey,
-    MonthValue,
-    PriceObservation,
-    flight_key,
-    flight_trends,
-    pair_with_previous_year,
-)
+from flighttracker.services.month_overview import MonthKey, MonthValue, pair_with_previous_year
+from flighttracker.services.price_trends import PriceObservation, flight_key, flight_trends
 from flighttracker.web.forms import parse_search_form, values_from_spec
 
 

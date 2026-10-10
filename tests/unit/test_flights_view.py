@@ -1,7 +1,8 @@
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from flighttracker.services.history import FlightTrend, PriceObservation, PricePoint, flight_key
+from flighttracker.services.history import PricePoint
+from flighttracker.services.price_trends import FlightTrend, PriceObservation, flight_key
 from flighttracker.web.flights import (
     chart_data,
     flightradar_url,
