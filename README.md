@@ -3,6 +3,10 @@
 Self-hosted flight price tracker: Suchabos (tracked searches) in a web UI in English or German, a background
 worker that collects prices, and an append-only price history with a previous-year comparison.
 
+![Tracked search from Zurich to Thailand: the price per departure date for three routes, arrows from the first observed to the current price, and the flights of one clicked date with their price changes](docs/screenshots/tracked-search.png)
+
+<sub>Screenshots: the real web UI with invented demo data.</sub>
+
 Design and conventions: [architecture.md](architecture.md) · data model: [datamodel.md](datamodel.md)
 · backlog: [userstories.md](userstories.md).
 
@@ -29,6 +33,8 @@ and start the airport import there, so that countries preselect their largest ai
 passenger numbers. (`WIKIDATA_CONTACT` in `.env` works too, but the CLI only sees it after a
 container rebuild.)
 
+![New tracked search with Greece as destination: its largest airports by passenger numbers are preselected, with the provider requests per poll below](docs/screenshots/new-tracked-search.png)
+
 Tests: `pytest` (integration tests use `TEST_DATABASE_URL`, preset in the devcontainer).
 Lint: `ruff check . && ruff format --check .`
 
@@ -40,6 +46,8 @@ to final-arrival date window (up to 60 days) and min/max layover before each fol
 are checked at the global poll interval. The worker polls the first leg within the window, then queries only candidate dates
 that could connect to a known previous arrival; Trip legs are not polled by the normal monthly
 scheduler.
+
+![Trip with three one-way legs and their stay limits, and the cheapest working options with flight times and the total of the separate legs](docs/screenshots/trip.png)
 
 The planner currently requires Google Flights (or the development-only mock provider), because a
 provider must return departure and arrival times to verify connections. Complete options show the
@@ -66,8 +74,12 @@ locked out from the UI. Admins create further users under **Users** (top bar):
 - **Settings** shows every user their personal settings (language, time zone, password);
   Platform Settings, export and import are only shown to admins.
 
+![User management: role, status, tracked searches and Trips, and provider requests per poll against each user's limits (admins have none)](docs/screenshots/users.png)
+
 The **Poll Log** lists running and queued polls; whoever may edit a tracked search can cancel
 its poll there (a running poll stops after its current query, prices fetched so far are kept).
+
+![Poll Log: one running and two queued polls with Cancel, and the latest provider queries with their results and durations](docs/screenshots/poll-log.png)
 
 ## Production (Docker Compose, reverse proxy with TLS)
 
@@ -162,8 +174,12 @@ inside the Compose network, by design.
   `TRAVELPAYOUTS_TOKEN`.
 - `mock`: fake prices for tests.
 
-There is no historical backfill: no free source offers past fares. The previous-year column
+![Flight details from Google Flights: segments in local time with layover and aircraft, a link to the search on Google Flights, and every poll's price for exactly these dates](docs/screenshots/flight-details.png)
+
+There is no historical backfill: no free source offers past fares. The previous-year comparison
 fills up through the app's own tracking.
+
+![Price chart filtered to one route: the grey line shows the price for the same departure dates one year earlier](docs/screenshots/previous-year.png)
 
 The active provider, worker and airport-import settings above can also be changed at runtime
 from **Settings → Platform Settings** in the web UI (overrides `.env`, no restart needed); that
