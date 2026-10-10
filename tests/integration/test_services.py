@@ -28,12 +28,16 @@ from flighttracker.providers.mock import MockProvider
 from flighttracker.services import history, jobs
 from flighttracker.services.airport_import import import_needed, upsert_airports
 from flighttracker.services.ingestion import run_fetch_job
+from flighttracker.services.locations import (
+    airport_options,
+    country_names,
+    suggest_locations,
+    with_default_airports,
+)
 from flighttracker.services.searches import (
     SearchInput,
     SearchValidationError,
-    airport_options,
     archive_search,
-    country_names,
     create_search,
     current_revision_id,
     delete_search_permanently,
@@ -43,9 +47,7 @@ from flighttracker.services.searches import (
     pause_search,
     restore_search,
     spec_of,
-    suggest_locations,
     update_search,
-    with_default_airports,
 )
 from flighttracker.services.trips import TripInput, TripLegInput, create_trip
 from flighttracker.worker.loop import process_next_job, schedule

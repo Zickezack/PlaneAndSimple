@@ -29,11 +29,10 @@ from flighttracker.services.access import (
     visible_trips,
 )
 from flighttracker.services.data_export import export_search
+from flighttracker.services.locations import airport_options, country_names, with_default_airports
 from flighttracker.services.searches import (
     SearchValidationError,
-    airport_options,
     archive_search,
-    country_names,
     create_search,
     delete_search_permanently,
     find_overlapping_searches,
@@ -45,7 +44,6 @@ from flighttracker.services.searches import (
     resume_search,
     spec_of,
     update_search,
-    with_default_airports,
 )
 from flighttracker.services.trips import (
     get_trip_for_search,

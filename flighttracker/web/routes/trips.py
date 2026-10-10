@@ -19,7 +19,8 @@ from flighttracker.services.access import (
     trip_access,
 )
 from flighttracker.services.jobs import request_trip_poll
-from flighttracker.services.searches import SearchValidationError, airport_options, country_names
+from flighttracker.services.locations import airport_options, country_names
+from flighttracker.services.searches import SearchValidationError
 from flighttracker.services.settings import effective_settings
 from flighttracker.services.trips import (
     TripInput,
