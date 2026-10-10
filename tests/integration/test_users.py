@@ -25,7 +25,7 @@ from flighttracker.services.ingestion import plan_job
 from flighttracker.services.searches import current_revision_id, update_search
 from flighttracker.services.trips import create_trip
 from flighttracker.services.users import create_user
-from flighttracker.worker.__main__ import process_next_job, schedule
+from flighttracker.worker.loop import process_next_job, schedule
 from tests.integration.test_services import NOW, A, create, make_input
 from tests.integration.test_trips import trip_input
 from tests.integration.test_web import csrf, login, make_client, search_form

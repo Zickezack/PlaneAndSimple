@@ -21,7 +21,7 @@ from flighttracker.services.trips import (
     itineraries_for_trip,
     validate_trip,
 )
-from flighttracker.worker.__main__ import process_next_job
+from flighttracker.worker.loop import process_next_job
 
 
 def trip_input():

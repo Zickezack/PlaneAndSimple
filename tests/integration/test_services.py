@@ -48,7 +48,7 @@ from flighttracker.services.searches import (
     with_default_airports,
 )
 from flighttracker.services.trips import TripInput, TripLegInput, create_trip
-from flighttracker.worker.__main__ import process_next_job, schedule
+from flighttracker.worker.loop import process_next_job, schedule
 
 NOW = datetime(2026, 9, 28, 12, tzinfo=UTC)
 A = LocationRef.airport

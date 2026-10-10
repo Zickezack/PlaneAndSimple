@@ -1,7 +1,7 @@
 """Trip Planner use cases built on top of ordinary one-way tracked searches."""
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import Session, selectinload
@@ -12,19 +12,10 @@ from flighttracker.domain.spec import SearchSpec, trip_requests_per_poll
 from flighttracker.domain.trips import (
     LayoverRule,
     TripItinerary,
-    TripLegQuote,
-    arrival_at,
-    connection_fits,
     find_itineraries,
 )
 from flighttracker.models import (
-    FetchJob,
-    PriceHistory,
-    PriceSource,
-    QueryLog,
-    QueryOutcome,
     Search,
-    SearchRevision,
     Trip,
     TripLeg,
 )
@@ -261,148 +252,3 @@ def get_trip_for_search(session: Session, search_id: int) -> Trip | None:
         .where(TripLeg.search_id == search_id)
         .options(selectinload(Trip.legs).selectinload(TripLeg.search))
     )
-
-
-def next_leg_dates(
-    trip: Trip,
-    previous_paths: list[tuple[TripLegQuote, ...]],
-    following_leg: TripLeg,
-    today: date,
-) -> tuple[date, ...]:
-    """Possible departure calendar days based on arrival plus the layover window."""
-    dates: set[date] = set()
-    minimum_days = following_leg.min_layover_days or 0
-    for path in previous_paths:
-        arrival = arrival_at(path[-1])
-        if arrival is None:
-            continue
-        earliest_day = arrival.date() + timedelta(days=minimum_days)
-        latest_day = (
-            arrival.date() + timedelta(days=following_leg.max_layover_days)
-            if following_leg.max_layover_days is not None
-            else trip.ends_on
-        )
-        latest_day = min(latest_day, trip.ends_on)
-        if latest_day < earliest_day:
-            continue
-        day = max(earliest_day, today)
-        while day <= latest_day:
-            dates.add(day)
-            day += timedelta(days=1)
-    return tuple(sorted(dates))
-
-
-def connect_quotes(
-    previous_paths: list[tuple[TripLegQuote, ...]],
-    quotes: list[TripLegQuote],
-    rule: LayoverRule,
-    *,
-    final_leg: bool,
-    ends_on: date,
-) -> tuple[list[TripLegQuote], list[tuple[TripLegQuote, ...]]]:
-    """Keep only quotes that extend a feasible path, returning quotes and extended paths."""
-    connected: list[TripLegQuote] = []
-    paths: list[tuple[TripLegQuote, ...]] = []
-    for quote in quotes:
-        for path in previous_paths:
-            if not connection_fits(path[-1], quote, rule):
-                continue
-            if final_leg:
-                arrival = arrival_at(quote)
-                if arrival is None or arrival.date() > ends_on:
-                    continue
-            if quote.currency != path[0].currency:
-                continue
-            if quote not in connected:
-                connected.append(quote)
-            extended = (*path, quote)
-            if extended not in paths:
-                paths.append(extended)
-            if len(paths) >= 1000:
-                return connected, paths
-    return connected, paths
-
-
-def store_trip_quotes(
-    session: Session,
-    *,
-    job: FetchJob,
-    search: Search,
-    revision: SearchRevision,
-    cabin_class,
-    departure_month: date,
-    provider_name: str,
-    origin: str,
-    destination: str,
-    quotes: list,
-    adults: int,
-    children: int,
-    error: str | None,
-    started_at: datetime,
-    duration_ms: int,
-) -> QueryLog:
-    """Persist a leg query under the parent Trip job, keeping the ordinary log format."""
-    stored = 0
-    if quotes:
-        rows = [
-            {
-                "search_id": search.id,
-                "search_revision_id": revision.id,
-                "source": PriceSource.LIVE,
-                "provider": quote.provider,
-                "origin_iata": quote.origin,
-                "destination_iata": quote.destination,
-                "departure_date": quote.departure_date,
-                "return_date": quote.return_date,
-                "cabin_class": quote.cabin_class,
-                "stops": quote.stops,
-                "price": quote.price,
-                "currency": quote.currency,
-                "adults": adults,
-                "children": children,
-                "airline": quote.airline,
-                "details": quote.details,
-                "observed_at": quote.observed_at,
-            }
-            for quote in quotes
-        ]
-        from sqlalchemy.dialects.postgresql import insert
-
-        stored = len(
-            session.execute(
-                insert(PriceHistory)
-                .values(rows)
-                .on_conflict_do_nothing(constraint="uq_price_history_observation")
-                .returning(PriceHistory.id)
-            ).all()
-        )
-    entry = QueryLog(
-        job_id=job.id,
-        search_id=search.id,
-        search_name=search.name,
-        provider=provider_name,
-        origin_iata=origin,
-        destination_iata=destination,
-        departure_month=departure_month,
-        cabin_class=cabin_class,
-        outcome=QueryOutcome.FAILED if error else QueryOutcome.OK if quotes else QueryOutcome.EMPTY,
-        quotes_found=len(quotes),
-        quotes_stored=stored,
-        error=error,
-        results=[
-            {
-                "date": quote.departure_date.isoformat(),
-                "return": quote.return_date.isoformat() if quote.return_date else None,
-                "price": str(quote.price),
-                "currency": quote.currency,
-                "stops": quote.stops,
-                "details": quote.details,
-            }
-            for quote in quotes
-        ],
-        started_at=started_at,
-        duration_ms=duration_ms,
-    )
-    session.add(entry)
-    session.flush()
-    return entry

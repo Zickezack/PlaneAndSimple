@@ -335,7 +335,7 @@ def test_mock_prices_scale_with_passengers():
 
 
 def test_worker_keeps_its_provider_when_new_settings_are_unusable():
-    from flighttracker.worker.__main__ import refresh_provider
+    from flighttracker.worker.loop import refresh_provider
 
     current = get_provider(_Settings("mock"))
     broken = _Settings("travelpayouts")  # no token
@@ -345,7 +345,7 @@ def test_worker_keeps_its_provider_when_new_settings_are_unusable():
 
 
 def test_worker_rebuilds_its_provider_when_a_provider_setting_changes():
-    from flighttracker.worker.__main__ import refresh_provider
+    from flighttracker.worker.loop import refresh_provider
 
     settings = _Settings("travelpayouts")
     settings.travelpayouts_token = SecretStr("old-token")

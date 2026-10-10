@@ -8,7 +8,7 @@ from flighttracker.models import CalendarObservation, QueryKind, QueryLog
 from flighttracker.providers.mock import MockProvider
 from flighttracker.services import history
 from flighttracker.web.flights import chart_data
-from flighttracker.worker.__main__ import process_next_job, schedule
+from flighttracker.worker.loop import process_next_job, schedule
 from tests.integration.test_services import create
 
 NOW = datetime(2026, 9, 28, 12, tzinfo=UTC)

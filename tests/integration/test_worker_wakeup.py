@@ -5,7 +5,7 @@ import psycopg
 from sqlalchemy.engine import make_url
 
 from flighttracker.services.jobs import WAKE_CHANNEL
-from flighttracker.worker.__main__ import WakeListener
+from flighttracker.worker.wake import WakeListener
 
 
 def test_notify_wakes_the_worker_early(engine):
