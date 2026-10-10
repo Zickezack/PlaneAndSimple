@@ -14,7 +14,8 @@ from flighttracker.models import User
 from flighttracker.providers.registry import PROVIDERS
 from flighttracker.services import quota
 from flighttracker.services.airport_import import import_from_ourairports
-from flighttracker.services.data_transfer import export_all, import_payload
+from flighttracker.services.data_export import export_all
+from flighttracker.services.data_import import import_payload
 from flighttracker.services.settings import (
     AIRPORT_IMPORT_SECTION,
     PROVIDERS_SECTION,

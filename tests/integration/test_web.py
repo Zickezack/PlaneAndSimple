@@ -560,7 +560,7 @@ def test_platform_settings_rejects_invalid_values(client):
 
 
 def test_import_reports_malformed_entries_instead_of_failing(client, db):
-    from flighttracker.services.data_transfer import import_payload
+    from flighttracker.services.data_import import import_payload
 
     token = login(client)
     url = client.post("/searches", data=search_form(token), follow_redirects=False).headers[
