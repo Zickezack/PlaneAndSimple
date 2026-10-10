@@ -1,5 +1,6 @@
 """Presentation of price points: flight summary for tables, tooltips and the price chart."""
 
+import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -264,3 +265,13 @@ def chart_data(
         # Flight detail page of a point: detail_url + point id.
         "detailUrl": detail_url,
     }
+
+
+def script_json(data: dict) -> str:
+    """JSON that is safe inside <script type="application/json"> (no tag can be closed)."""
+    return (
+        json.dumps(data, ensure_ascii=False)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+    )

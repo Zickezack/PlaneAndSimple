@@ -10,7 +10,7 @@ from flighttracker.web.flights import (
     segments,
     summarize,
 )
-from flighttracker.web.routes.searches import _script_json
+from flighttracker.web.flights import script_json as _script_json
 
 NOW = datetime(2026, 9, 29, 12, tzinfo=UTC)
 DETAILS = {
