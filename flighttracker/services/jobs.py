@@ -56,6 +56,13 @@ def has_open_poll(session: Session, search_id: int) -> bool:
     )
 
 
+def _lock_row(session: Session, model: type[Search] | type[Trip], row_id: int) -> None:
+    """Row lock until commit. The scheduler selects with SKIP LOCKED, so it leaves a Suchabo or
+    Trip alone while "poll now" checks for an open poll – and "poll now" waits for a scheduler
+    that got there first. Either way only one job is queued."""
+    session.execute(select(model.id).where(model.id == row_id).with_for_update())
+
+
 def request_poll(
     session: Session,
     search: Search,
@@ -68,6 +75,7 @@ def request_poll(
 
     Returns False when a poll is already queued or running.
     """
+    _lock_row(session, Search, search.id)
     if has_open_poll(session, search.id):
         return False
     enqueue_job(session, search.id, JobKind.POLL, run_after=now)
@@ -146,6 +154,7 @@ def request_trip_poll(
     poll_interval_minutes: int | None = None,
 ) -> bool:
     """Queue a Trip poll now unless the same Trip already has an open job."""
+    _lock_row(session, Trip, trip.id)
     if session.scalar(
         select(
             exists().where(
