@@ -12,13 +12,10 @@
   const data = JSON.parse(dataNode.textContent);
   const labels = data.labels;
   const locale = document.documentElement.lang === "de" ? "de-CH" : "en";
-  const SVG_NS = "http://www.w3.org/2000/svg";
   // Categorical palette, validated (dataviz six checks) on the white card surface.
   // The order is part of the colour-blind safety – never reorder or extend it.
   const COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
   const PREVIOUS_YEAR_COLOR = "#b5b3ab"; // de-emphasis gray: context, not a series to compare
-  const INK = { primary: "#1c2430", muted: "#898781", grid: "#e1e0d9", axis: "#c3c2b7", surface: "#ffffff" };
-  const AXIS_FONT = "11px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
   const MAX_SERIES = COLORS.length;
   const HEIGHT = 300;
   const MARGIN = { top: 24, right: 20, bottom: 36 };
@@ -36,6 +33,11 @@
   const DAY_MS = 86400000;
   const toDate = (iso) => new Date(`${iso}T00:00:00Z`);
   const fill = (template, values) => template.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? "");
+  const { INK, niceScale, textWidth, svg, diamond, element, colorKey } = window.PlaneChart;
+  // What the history chart and the price calendar (own files) need from this page.
+  const ctx = { data, labels, locale, utc, number, formatPrice, toDate, fill, longDate, monthLabel, monthTitle, dayLabel, MARGIN, DAY_MS };
+  const priceGrid = (root, scale, y, left, width) =>
+    window.PlaneChart.priceGrid(root, scale, y, left, width - MARGIN.right, formatPrice);
 
   const filterRow = document.querySelector("[data-price-filters]");
   const viewSwitch = document.querySelector("[data-view-switch]");
@@ -137,56 +139,6 @@
     return { series, previousYear, points };
   }
 
-  function niceScale(low, high) {
-    if (low === high) {
-      low -= 10;
-      high += 10;
-    }
-    const raw = (high - low) / 4;
-    const magnitude = 10 ** Math.floor(Math.log10(raw));
-    const step = [1, 2, 2.5, 5, 10].map((k) => k * magnitude).find((s) => s >= raw);
-    let min = Math.floor(low / step) * step;
-    if (low - min < step * 0.25) min -= step;
-    min = Math.max(0, min);
-    const max = Math.ceil(high / step) * step;
-    const ticks = [];
-    for (let tick = min; tick <= max + step / 2; tick += step) ticks.push(tick);
-    return { min, max, ticks };
-  }
-
-  // The left margin fits the widest price label, so labels are never cut off.
-  const measureContext = document.createElement("canvas").getContext("2d");
-  function textWidth(text) {
-    measureContext.font = AXIS_FONT;
-    return measureContext.measureText(text).width;
-  }
-
-  function svg(name, attributes = {}, parent = null) {
-    const node = document.createElementNS(SVG_NS, name);
-    Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
-    if (parent) parent.append(node);
-    return node;
-  }
-
-  // Pinned points are diamonds with a dark outline: shape, not only colour, marks the selection.
-  function diamond(cx, cy, size, color, parent) {
-    const d = `M${cx},${cy - size}L${cx + size},${cy}L${cx},${cy + size}L${cx - size},${cy}Z`;
-    return svg("path", { d, fill: color, stroke: INK.primary, "stroke-width": 2 }, parent);
-  }
-
-  function element(tag, className, text) {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = text;
-    return node;
-  }
-
-  function colorKey(className, color) {
-    const key = element("span", className);
-    key.style.backgroundColor = color; // CSSOM – allowed by the CSP, unlike inline style attributes
-    return key;
-  }
-
   function renderLegend(series, previousYear) {
     legend.replaceChildren();
     const items = series.length > 1 ? series.map((s) => [s.name, s.color]) : [];
@@ -272,168 +224,12 @@
     return wrap;
   }
 
-  // Recessive chrome: hairline grid, y labels in muted ink, one baseline.
-  function priceGrid(root, scale, y, left, width) {
-    scale.ticks.forEach((tick) => {
-      svg("line", { x1: left, x2: width - MARGIN.right, y1: y(tick), y2: y(tick), stroke: INK.grid, "stroke-width": 1 }, root);
-      svg("text", { x: left - 8, y: y(tick) + 4, "text-anchor": "end", class: "chart-axis" }, root).textContent = formatPrice(tick);
+  const historyChart = (flights) =>
+    window.PlaneChart.historyChart(ctx, flights, { pinned, width: Math.max(selection.clientWidth - 32, 320), colorOf, priceGrid });
+  const renderCalendar = (filter, fareDates) =>
+    window.PlaneChart.renderCalendar(ctx, { calendar, calendarBody }, filter, fareDates, {
+      onPick: (iso) => pinned !== iso && togglePin(iso),
     });
-    svg("line", { x1: left, x2: width - MARGIN.right, y1: y(scale.min), y2: y(scale.min), stroke: INK.axis, "stroke-width": 1 }, root);
-  }
-
-  // Price over time of the pinned date's flights ("when to buy"): x = poll date, a step line
-  // per flight (the price holds until the next poll) in its route colour; further stay lengths
-  // of the same route are dashed.
-  const HISTORY_HEIGHT = 220;
-  const DASHES = ["", "6 4", "2 3", "8 3 2 3"];
-  function historyChart(flights) {
-    const lines = flights
-      .filter((p) => p.seen && p.hist?.length > 1)
-      .sort((a, b) => `${a.o}${a.d}`.localeCompare(`${b.o}${b.d}`) || (a.stay ?? 0) - (b.stay ?? 0));
-    if (!lines.length || !data.seenBase) return null;
-    const base = toDate(data.seenBase).getTime();
-    const times = lines.flatMap((p) => p.seen.map((offset) => base + offset * DAY_MS));
-    let start = Math.min(...times);
-    let end = Math.max(...times);
-    if (start === end) {
-      start -= 3 * DAY_MS;
-      end += 3 * DAY_MS;
-    }
-    const prices = lines.flatMap((p) => p.hist);
-    const scale = niceScale(Math.min(...prices), Math.max(...prices));
-    const width = Math.max(selection.clientWidth - 32, 320);
-    const left = Math.ceil(Math.max(...scale.ticks.map((t) => textWidth(formatPrice(t))))) + 16;
-    const x = (time) => left + ((time - start) / (end - start)) * (width - left - MARGIN.right);
-    const y = (value) => MARGIN.top + ((scale.max - value) / (scale.max - scale.min)) * (HISTORY_HEIGHT - MARGIN.top - MARGIN.bottom);
-    const root = svg("svg", { viewBox: `0 0 ${width} ${HISTORY_HEIGHT}`, width, height: HISTORY_HEIGHT, role: "img", "aria-label": fill(labels.historyChart, { date: longDate.format(toDate(pinned)) }) });
-    priceGrid(root, scale, y, left, width);
-
-    // Weekly ticks for a few weeks of polls, monthly ones for longer histories.
-    const weekly = end - start <= 62 * DAY_MS;
-    const tick = new Date(start);
-    if (weekly) tick.setUTCDate(tick.getUTCDate() + ((8 - tick.getUTCDay()) % 7)); // Mondays
-    else {
-      tick.setUTCDate(1);
-      if (tick.getTime() < start) tick.setUTCMonth(tick.getUTCMonth() + 1);
-    }
-    let lastLabelX = -Infinity;
-    for (; tick.getTime() <= end; weekly ? tick.setUTCDate(tick.getUTCDate() + 7) : tick.setUTCMonth(tick.getUTCMonth() + 1)) {
-      const position = x(tick.getTime());
-      svg("line", { x1: position, x2: position, y1: y(scale.min), y2: y(scale.min) + 5, stroke: INK.axis }, root);
-      if (position - lastLabelX < 56) continue;
-      svg("text", { x: position, y: HISTORY_HEIGHT - 12, "text-anchor": "middle", class: "chart-axis" }, root).textContent = (weekly ? dayLabel : monthLabel).format(tick);
-      lastLabelX = position;
-    }
-
-    const legendList = element("div", "history-legend");
-    const perRoute = new Map();
-    lines.forEach((point) => {
-      const route = `${point.o} → ${point.d}`;
-      const dash = DASHES[(perRoute.get(route) ?? 0) % DASHES.length];
-      perRoute.set(route, (perRoute.get(route) ?? 0) + 1);
-      const color = colorOf(point);
-      const coords = point.seen.map((offset, i) => [x(base + offset * DAY_MS), y(point.hist[i])]);
-      const d = coords.map(([px, py], i) => (i ? `H${px.toFixed(1)}V${py.toFixed(1)}` : `M${px.toFixed(1)},${py.toFixed(1)}`)).join("");
-      const name = [route, point.stay != null ? fill(labels.days, { n: point.stay }) : null].filter(Boolean).join(" · ");
-      const path = svg("path", { d, fill: "none", stroke: color, "stroke-width": 2, "stroke-dasharray": dash, "stroke-linejoin": "round" }, root);
-      svg("title", {}, path).textContent = `${name}: ${formatPrice(point.hist[0])} → ${formatPrice(point.price)}`;
-      const [lastX, lastY] = coords[coords.length - 1];
-      svg("circle", { cx: lastX, cy: lastY, r: 3.5, fill: color, stroke: INK.surface, "stroke-width": 1.5 }, root);
-
-      const key = svg("svg", { width: 22, height: 10, "aria-hidden": "true" });
-      svg("line", { x1: 1, x2: 21, y1: 5, y2: 5, stroke: color, "stroke-width": 2, "stroke-dasharray": dash }, key);
-      const item = element("span", "history-legend-item");
-      item.append(key, element("span", null, name));
-      legendList.append(item);
-    });
-
-    const wrap = element("div", "selection-history");
-    wrap.append(element("strong", null, labels.historyTitle), element("p", "hint", labels.historyHint), legendList, root);
-    return wrap;
-  }
-
-  // Price calendar (heat map): cheapest price per departure day of the filtered routes and
-  // stays. Sequential blue, light = cheaper; step 400 is left out because neither ink nor
-  // white text reaches 4.5:1 on it. The price is printed in every cell (colour is not the
-  // only cue) and the cheapest day gets a ring.
-  const HEAT = ["#cde2fb", "#9ec5f4", "#6da7ec", "#256abf", "#184f95", "#0d366b"];
-  const HEAT_DARK_FROM = 3; // white text from this step on
-  const weekdayNames = [...Array(7)].map((_, i) =>
-    new Intl.DateTimeFormat(locale, { ...utc, weekday: "short" }).format(new Date(Date.UTC(2024, 0, 1 + i))),
-  ); // 1 Jan 2024 is a Monday
-
-  function renderCalendar(filter, fareDates) {
-    if (!calendar) return;
-    const days = new Map();
-    (data.calendar || [])
-      .filter((c) => (!filter.origin || c.o === filter.origin) && (!filter.destination || c.d === filter.destination)
-        && (!filter.cabin || c.cabin === filter.cabin) && (!filter.stay || String(c.stay ?? "") === filter.stay))
-      .forEach((c) => {
-        const known = days.get(c.date);
-        if (!known || c.price < known.price) days.set(c.date, c);
-      });
-    calendar.hidden = days.size === 0;
-    calendarBody.replaceChildren();
-    if (!days.size) return;
-    const prices = [...days.values()].map((c) => c.price);
-    const low = Math.min(...prices);
-    const high = Math.max(...prices);
-    const step = (price) => (high === low ? 0 : Math.min(HEAT.length - 1, Math.floor(((price - low) / (high - low)) * HEAT.length)));
-
-    const legend = element("div", "calendar-legend");
-    legend.append(element("span", null, `${labels.calendarCheaper} ${formatPrice(low)}`));
-    const swatches = element("span", "calendar-swatches");
-    HEAT.forEach((color) => {
-      const swatch = element("span", "calendar-swatch");
-      swatch.style.backgroundColor = color;
-      swatches.append(swatch);
-    });
-    legend.append(swatches, element("span", null, `${formatPrice(high)} ${labels.calendarDearer}`));
-    calendarBody.append(legend, element("p", "hint", labels.calendarHint));
-
-    const months = element("div", "calendar-months");
-    const dates = [...days.keys()].sort();
-    const month = toDate(dates[0]);
-    month.setUTCDate(1);
-    const lastMonth = toDate(dates[dates.length - 1]);
-    for (; month <= lastMonth; month.setUTCMonth(month.getUTCMonth() + 1)) {
-      const block = element("div", "calendar-month");
-      block.append(element("div", "calendar-title", monthTitle.format(month)));
-      const grid = element("div", "calendar-grid");
-      weekdayNames.forEach((name) => grid.append(element("span", "calendar-weekday", name)));
-      const offset = (month.getUTCDay() + 6) % 7; // Monday first
-      for (let i = 0; i < offset; i++) grid.append(element("span", "calendar-blank"));
-      const day = new Date(month);
-      for (; day.getUTCMonth() === month.getUTCMonth(); day.setUTCDate(day.getUTCDate() + 1)) {
-        const iso = day.toISOString().slice(0, 10);
-        const entry = days.get(iso);
-        const cell = element(entry && fareDates.has(iso) ? "button" : "span", "calendar-day");
-        cell.append(element("small", null, String(day.getUTCDate())));
-        if (entry) {
-          const index = step(entry.price);
-          cell.style.backgroundColor = HEAT[index];
-          if (index >= HEAT_DARK_FROM) cell.classList.add("is-dark");
-          if (entry.price === low) cell.classList.add("is-lowest");
-          if (entry.fake) cell.classList.add("is-fake");
-          cell.append(element("span", "calendar-price", number.format(entry.price)));
-          cell.title = fill(labels.calendarDay, { date: longDate.format(toDate(iso)), price: formatPrice(entry.price) });
-          if (fareDates.has(iso)) {
-            cell.type = "button";
-            cell.classList.add("has-flights");
-            cell.addEventListener("click", () => {
-              if (pinned !== iso) togglePin(iso);
-            });
-          }
-        } else {
-          cell.classList.add("is-empty");
-        }
-        grid.append(cell);
-      }
-      block.append(grid);
-      months.append(block);
-    }
-    calendarBody.append(months);
-  }
 
   let view = null; // geometry of the current render, used by the hover and pin layers
 

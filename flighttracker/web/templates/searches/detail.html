@@ -2,6 +2,9 @@
 {% import "_macros.html" as ui with context %}
 {% block title %}{{ search.name }}{% endblock %}
 {% block content %}
+<script src="{{ static_url('js/chart-svg.js') }}" defer></script>
+<script src="{{ static_url('js/price-history.js') }}" defer></script>
+<script src="{{ static_url('js/price-calendar.js') }}" defer></script>
 <script src="{{ static_url('js/price-chart.js') }}" defer></script>
 {% set f = spec.filters %}
 
