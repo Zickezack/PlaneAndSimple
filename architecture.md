@@ -95,7 +95,9 @@ library) from JSON embedded in the page (`web/flights.py` → `<script type="app
 escaped so it cannot close the tag). One line per route in the validated categorical palette
 (colour follows the route); more than 8 routes collapse into one "cheapest of n routes" line;
 previous-year values appear as a gray context line when a single line is shown. A click pins a
-date (diamond markers + a panel with that day's flights and links). The filter row (origin,
+date (diamond markers + a panel with that day's flights and links). The panel also draws that
+date's price over time (x = poll date, a step line per flight, from `hist`/`seen` in the JSON),
+so the user sees when a flight was cheapest. The filter row (origin,
 destination, cabin, stay length, table view) scopes chart, panel and table. The table lists every
 flight (server-rendered, works without JavaScript); the script groups it into "cheapest per
 month" rows that unfold into all departure dates.

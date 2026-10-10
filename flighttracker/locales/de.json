@@ -456,5 +456,8 @@
   "{n} tracked searches and Trips were paused: no active user may edit them any more.": "{n} Suchabos und Trips wurden pausiert: Kein aktiver Benutzer darf sie mehr bearbeiten.",
   "User \"{name}\" deleted. Their tracked searches and Trips now belong to the admin.": "Benutzer „{name}“ gelöscht. Seine Suchabos und Trips gehören jetzt dem Admin.",
   "Deactivating pauses the user's tracked searches and Trips, except those another active user may edit – these keep running until no such editor is left. Reactivating does not resume them.": "Deaktivieren pausiert die Suchabos und Trips des Benutzers, ausser denen, die ein anderer aktiver Benutzer bearbeiten darf – diese laufen weiter, bis kein solcher mehr übrig ist. Erneutes Aktivieren setzt sie nicht fort.",
-  "The user's tracked searches and Trips go to the admin from .env. They are paused unless another active user may edit them; their shares stay. Shares with this user are removed.": "Die Suchabos und Trips des Benutzers gehen an den Admin aus .env. Sie werden pausiert, ausser ein anderer aktiver Benutzer darf sie bearbeiten; ihre Freigaben bleiben. Freigaben für diesen Benutzer werden entfernt."
+  "The user's tracked searches and Trips go to the admin from .env. They are paused unless another active user may edit them; their shares stay. Shares with this user are removed.": "Die Suchabos und Trips des Benutzers gehen an den Admin aus .env. Sie werden pausiert, ausser ein anderer aktiver Benutzer darf sie bearbeiten; ihre Freigaben bleiben. Freigaben für diesen Benutzer werden entfernt.",
+  "Price over time for this date": "Preisverlauf dieses Datums",
+  "One line per flight; every poll's price, so you see when it was cheapest.": "Eine Linie pro Flug mit dem Preis jeder Abfrage – so siehst du, wann er am günstigsten war.",
+  "Price over time of the flights departing on {date}.": "Preisverlauf der Flüge mit Abflug am {date}."
 }

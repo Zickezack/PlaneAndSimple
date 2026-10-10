@@ -79,6 +79,9 @@ CHART_LABELS = {
     "details": "Details",
     "moreDates": "+{n} more dates",
     "fewerDates": "Show less",
+    "historyTitle": "Price over time for this date",
+    "historyHint": "One line per flight; every poll's price, so you see when it was cheapest.",
+    "historyChart": "Price over time of the flights departing on {date}.",
 }
 
 

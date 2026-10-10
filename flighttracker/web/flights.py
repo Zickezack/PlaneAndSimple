@@ -174,7 +174,10 @@ def previous_year_lookup(points: Iterable[PricePoint]) -> Callable[[PricePoint],
 
 
 def _chart_point(
-    point: PricePoint, previous_year: PricePoint | None, trend: FlightTrend | None = None
+    point: PricePoint,
+    previous_year: PricePoint | None,
+    trend: FlightTrend | None = None,
+    seen_base: date | None = None,
 ) -> dict:
     summary = summarize(point)
     return {
@@ -186,6 +189,10 @@ def _chart_point(
         # First observed price and all observed prices (change arrows, sparklines).
         "first": float(trend.first) if trend and trend.change else None,
         "hist": [float(value.price) for value in trend.values] if trend else None,
+        # Poll date of each `hist` price, as days after `seenBase` (price-over-time chart).
+        "seen": [(value.observed_at.date() - seen_base).days for value in trend.values]
+        if trend and seen_base
+        else None,
         "changes": [
             {"period": change.period, "amount": float(change.amount)} for change in trend.changes
         ]
@@ -229,10 +236,14 @@ def chart_data(
     year_before = previous_year_lookup(all_points)
     trends = trends or {}
     upcoming = [p for p in all_points if p.departure_date >= today and p.currency == currency]
+    seen_base = min((trend.values[0].observed_at.date() for trend in trends.values()), default=None)
     return {
         "currency": currency,
         "routes": sorted({f"{p.origin}-{p.destination}" for p in all_points}),
-        "points": [_chart_point(p, year_before(p), trends.get(flight_key(p))) for p in upcoming],
+        "points": [
+            _chart_point(p, year_before(p), trends.get(flight_key(p)), seen_base) for p in upcoming
+        ],
+        "seenBase": seen_base.isoformat() if seen_base else None,
         "labels": dict(labels),
         # Flight detail page of a point: detail_url + point id.
         "detailUrl": detail_url,

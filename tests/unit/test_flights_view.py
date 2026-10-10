@@ -1,7 +1,7 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from flighttracker.services.history import PricePoint
+from flighttracker.services.history import FlightTrend, PriceObservation, PricePoint, flight_key
 from flighttracker.web.flights import (
     chart_data,
     flightradar_url,
@@ -91,6 +91,23 @@ def test_chart_data_upcoming_in_search_currency_with_previous_year():
     )
     assert only["via"] == [{"airport": "DOH", "wait": "33h 30m"}]
     assert data["routes"] == ["ZRH-BKK"]
+
+
+def test_chart_data_has_the_poll_days_of_every_observed_price():
+    current = point()
+    observed = (NOW - timedelta(days=3), NOW - timedelta(days=1), NOW)
+    trend = FlightTrend(
+        current,
+        tuple(
+            PriceObservation(Decimal(price), at)
+            for price, at in zip(("540", "530", "516"), observed, strict=True)
+        ),
+    )
+    data = chart_data([current], date(2026, 9, 29), "CHF", {}, trends={flight_key(current): trend})
+    (only,) = data["points"]
+    assert data["seenBase"] == "2026-09-26"
+    assert (only["hist"], only["seen"]) == ([540.0, 530.0, 516.0], [0, 2, 3])
+    assert chart_data([current], date(2026, 9, 29), "CHF", {})["points"][0]["seen"] is None
 
 
 def test_script_json_cannot_close_the_script_tag():

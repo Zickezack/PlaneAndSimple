@@ -214,6 +214,10 @@ h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
 .selection-item { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .6rem; padding: .4rem 0; border-top: 1px solid var(--border); margin-top: .4rem; }
 .selection-route { font-weight: 500; }
 .selection-link { margin-left: auto; white-space: nowrap; }
+.selection-history { border-top: 1px solid var(--border); margin-top: .4rem; padding-top: .6rem; }
+.selection-history .hint { margin: .15rem 0 .4rem; }
+.history-legend { display: flex; flex-wrap: wrap; gap: .25rem 1.1rem; font-size: .85rem; color: var(--muted); }
+.history-legend-item { display: inline-flex; align-items: center; gap: .35rem; }
 
 /* Flights table: month headers, unfoldable groups, pinned date */
 .flights-table .month-row th { background: var(--bg); font-size: .85rem; text-align: left; padding-top: .6rem; }
