@@ -241,13 +241,33 @@ class TestCoverage:
     @pytest.mark.parametrize(
         ("new", "existing", "covered"),
         [
-            ({"max_stops": 0}, {"max_stops": 1}, True),
+            ({"max_stops": 1}, {"max_stops": 1}, True),
+            # Only the cheapest itinerary within the stop limit is stored.
+            ({"max_stops": 0}, {"max_stops": 1}, False),
+            ({"max_stops": 0}, {"max_stops": None}, False),
             ({"max_stops": None}, {"max_stops": 1}, False),
-            ({"max_stops": 2}, {"max_stops": None}, True),
-            ({"stay_days_min": 5, "stay_days_max": 7}, {}, True),
+            # Stays: what is queried counts – an empty stay is 7 days, not "unlimited".
+            ({"stay_days_min": 5, "stay_days_max": 7}, {}, False),
+            ({}, {"stay_days_min": 5, "stay_days_max": 9}, True),
+            (
+                {"stay_days_min": 5, "stay_days_max": 6},
+                {"stay_days_min": 5, "stay_days_max": 9},
+                True,
+            ),
             ({}, {"stay_days_min": 5}, False),
             ({"stay_days_min": 3}, {"stay_days_min": 5}, False),
+            # 1–30 days are thinned to 8 lengths (1, 5, 9, 13, …); 2 days is never queried.
+            (
+                {"stay_days_min": 2, "stay_days_max": 2},
+                {"stay_days_min": 1, "stay_days_max": 30},
+                False,
+            ),
+            # Sampled departure days: more days are not a superset of fewer.
+            ({"days_per_month": 4}, {"days_per_month": 15}, False),
+            ({"days_per_month": 4}, {"days_per_month": 31}, True),
+            ({"days_per_month": 8}, {"days_per_month": 8}, True),
             ({"months_ahead": 12}, {"months_ahead": 6}, False),
+            ({"months_ahead": 3}, {"months_ahead": 6}, True),
             ({"currency": "EUR"}, {}, False),
         ],
     )

@@ -257,9 +257,23 @@ class TestHistoryIsPreserved:
         assert count(db, SearchRevision, search.id) == 1
 
     def test_narrowing_keeps_poll_schedule(self, db):
-        search = create(db, max_stops=1)
+        search = create(db, months_ahead=6)
         run_all_jobs(db, MockProvider(clock=lambda: NOW))
         next_poll = search.next_poll_at
+        update_search(
+            db,
+            search,
+            make_input([A("ZRH")], [A("BCN")], months_ahead=3),
+            max_route_pairs=50,
+            now=NOW + timedelta(hours=1),
+        )
+        assert search.next_poll_at == next_poll
+
+    def test_stricter_stop_limit_polls_right_away(self, db):
+        # Only the cheapest itinerary with at most one stop was stored, so the cheapest
+        # direct flight is unknown until the next poll.
+        search = create(db, max_stops=1)
+        run_all_jobs(db, MockProvider(clock=lambda: NOW))
         update_search(
             db,
             search,
@@ -267,7 +281,7 @@ class TestHistoryIsPreserved:
             max_route_pairs=50,
             now=NOW + timedelta(hours=1),
         )
-        assert search.next_poll_at == next_poll
+        assert search.next_poll_at == NOW + timedelta(hours=1)
 
     def test_archive_keeps_everything(self, db):
         search = create(db)

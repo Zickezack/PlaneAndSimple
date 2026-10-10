@@ -8,6 +8,8 @@ from flighttracker.domain.filters import SearchFilters
 from flighttracker.domain.locations import countries_of
 from flighttracker.domain.spec import SearchSpec
 
+MAX_DAYS_IN_MONTH = 31
+
 
 class CoverageKind(StrEnum):
     COVERED = "covered"
@@ -20,20 +22,6 @@ class CoverageMatch:
     kind: CoverageKind
 
 
-def _upper_bound_covered(new: int | None, existing: int | None) -> bool:
-    """None = unlimited."""
-    if existing is None:
-        return True
-    return new is not None and new <= existing
-
-
-def _lower_bound_covered(new: int | None, existing: int | None) -> bool:
-    """None = unlimited."""
-    if existing is None:
-        return True
-    return new is not None and new >= existing
-
-
 def is_compatible(new: SearchFilters, existing: SearchFilters) -> bool:
     """Filters that cannot be widened by merging must be identical."""
     return (
@@ -44,15 +32,28 @@ def is_compatible(new: SearchFilters, existing: SearchFilters) -> bool:
     )
 
 
+def _days_covered(new: int, existing: int) -> bool:
+    """Day sampling spreads `days_per_month` evenly over the month, so more days are not a
+    superset of fewer (4 days: 1, 8, 16, 24; 15 days: 1, 3, 5, …). Only the same count or every
+    day of the month is certain to include the new search's departure days."""
+    return new == existing or existing >= MAX_DAYS_IN_MONTH
+
+
 def filters_covered(new: SearchFilters, existing: SearchFilters) -> bool:
+    """True only if the existing Suchabo already fetches every price the new one would.
+
+    Compares what is really queried and stored, not the ranges the user typed: the stay
+    lengths actually requested (an empty stay means 7 days; long ranges are thinned out), and
+    the same stop limit – only the cheapest itinerary within the limit is stored, so "any
+    stops" says nothing about the cheapest direct flight.
+    """
     return (
         is_compatible(new, existing)
         and new.cabin_classes <= existing.cabin_classes
-        and _upper_bound_covered(new.max_stops, existing.max_stops)
+        and new.max_stops == existing.max_stops
         and new.months_ahead <= existing.months_ahead
-        and new.days_per_month <= existing.days_per_month
-        and _lower_bound_covered(new.stay_days_min, existing.stay_days_min)
-        and _upper_bound_covered(new.stay_days_max, existing.stay_days_max)
+        and _days_covered(new.days_per_month, existing.days_per_month)
+        and set(new.stay_lengths) <= set(existing.stay_lengths)
     )
 
 
