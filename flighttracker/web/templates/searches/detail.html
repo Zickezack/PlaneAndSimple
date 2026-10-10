@@ -66,6 +66,10 @@
     <div class="chart-tooltip" data-chart-tooltip role="status" hidden></div>
   </figure>
   <section class="chart-selection" data-chart-selection aria-live="polite" hidden></section>
+  <details class="price-calendar" data-price-calendar open hidden>
+    <summary>{{ _("Price calendar") }} <small class="hint">({{ _("cheapest price of every departure day") }})</small></summary>
+    <div data-price-calendar-body></div>
+  </details>
   <script type="application/json" id="price-chart-data">{{ chart_json | safe }}</script>
 
 

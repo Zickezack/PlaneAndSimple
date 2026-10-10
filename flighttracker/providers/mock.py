@@ -1,10 +1,12 @@
 import hashlib
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from flighttracker.domain.filters import CabinClass, TripType
 from flighttracker.providers.base import (
+    CalendarPrice,
+    CalendarQuery,
     FlightPriceProvider,
     PriceQuery,
     PriceQuote,
@@ -34,9 +36,34 @@ class MockProvider(FlightPriceProvider):
     supports_children = True
     fake_data = True
     supports_connection_times = True
+    calendar_days_per_request = 61
 
     def __init__(self, clock: Callable[[], datetime] = lambda: datetime.now(UTC)):
         self._clock = clock
+
+    def fetch_calendar(self, query: CalendarQuery) -> list[CalendarPrice]:
+        now = self._clock()
+        price_query = PriceQuery(
+            origin=query.origin,
+            destination=query.destination,
+            departure_month=query.first_day.replace(day=1),
+            cabin_class=query.cabin_class,
+            trip_type=TripType.ONE_WAY if query.stay_days is None else TripType.ROUND_TRIP,
+            max_stops=query.max_stops,
+            stay_days_min=query.stay_days,
+            stay_days_max=query.stay_days,
+            adults=query.adults,
+            children=query.children,
+            currency=query.currency,
+        )
+        prices = []
+        day = max(query.first_day, now.date() + timedelta(days=1))
+        while day <= query.last_day:
+            back = day + timedelta(days=query.stay_days) if query.stay_days is not None else None
+            quote = self._quote(price_query, day, back, observed_at=now)
+            prices.append(CalendarPrice(day, back, quote.price, query.currency))
+            day += timedelta(days=1)
+        return prices
 
     def fetch_current(self, query: PriceQuery) -> list[PriceQuote]:
         now = self._clock()

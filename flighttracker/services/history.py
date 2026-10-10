@@ -19,7 +19,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from flighttracker.models import PriceHistory
+from flighttracker.models import CalendarObservation, PriceHistory
 
 
 @dataclass(frozen=True)
@@ -164,6 +164,61 @@ def price_points(
         for r in rows
     ]
     return sorted(points, key=lambda p: (p.departure_date, p.origin, p.destination, p.price))
+
+
+@dataclass(frozen=True)
+class CalendarDay:
+    """Latest price-calendar price of one departure day (and stay) – no flight behind it."""
+
+    origin: str
+    destination: str
+    cabin_class: str
+    currency: str
+    departure_date: date
+    return_date: date | None
+    price: Decimal
+    fake: bool
+
+    @property
+    def stay_days(self) -> int | None:
+        return (self.return_date - self.departure_date).days if self.return_date else None
+
+
+def calendar_days(
+    session: Session,
+    search_id: int,
+    since: date,
+    fake_providers: Collection[str] = (),
+    *,
+    passengers: Passengers,
+) -> list[CalendarDay]:
+    """Latest calendar price per route, cabin, currency and departure/return day from `since`."""
+    c = CalendarObservation
+    key = (c.origin_iata, c.destination_iata, c.cabin_class, c.currency, c.departure_date)
+    rows = session.execute(
+        select(*key, c.return_date, c.price, c.provider)
+        .where(
+            c.search_id == search_id,
+            c.departure_date >= since,
+            c.adults == passengers[0],
+            c.children == passengers[1],
+        )
+        .distinct(*key, c.return_date)
+        .order_by(*key, c.return_date, c.observed_at.desc(), c.id.desc())
+    )
+    return [
+        CalendarDay(
+            origin=r.origin_iata,
+            destination=r.destination_iata,
+            cabin_class=str(r.cabin_class),
+            currency=r.currency,
+            departure_date=r.departure_date,
+            return_date=r.return_date,
+            price=r.price,
+            fake=r.provider in fake_providers,
+        )
+        for r in rows
+    ]
 
 
 def observation(session: Session, search_id: int, price_id: int) -> PriceHistory | None:

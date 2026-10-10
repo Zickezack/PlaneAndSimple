@@ -82,6 +82,11 @@ CHART_LABELS = {
     "historyTitle": "Price over time for this date",
     "historyHint": "One line per flight; every poll's price, so you see when it was cheapest.",
     "historyChart": "Price over time of the flights departing on {date}.",
+    "calendarCheaper": "cheaper",
+    "calendarDearer": "more expensive",
+    "calendarHint": "From the source's price calendar, without flight details. "
+    "Days with a dot have flights above – click one to keep it below the chart.",
+    "calendarDay": "{date}: {price}",
 }
 
 

@@ -15,16 +15,19 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from flighttracker.domain.filters import CabinClass
 from flighttracker.providers.base import (
+    CalendarPrice,
+    CalendarQuery,
     FlightPriceProvider,
     PriceQuery,
     PriceQuote,
     ProviderError,
+    calendar_chunks,
     return_dates,
 )
 
@@ -207,6 +210,135 @@ def fast_flights_search(request: FareRequest) -> list[FareOption]:
         raise ProviderError(f"Google Flights query failed ({type(exc).__name__})") from None
 
 
+# Price calendar: the request behind Google Flights' "Dates" view – the cheapest price of every
+# departure day of up to 61 days in one request. The format is not documented; the codes below
+# follow what the web app sends (as do open-source clients such as "fli").
+CALENDAR_URL = (
+    "https://www.google.com/_/FlightsFrontendUi/data/"
+    "travel.frontend.flights.FlightsFrontendService/GetCalendarGraph"
+)
+CALENDAR_DAYS_PER_REQUEST = 61
+_CALENDAR_SEAT = {
+    CabinClass.ECONOMY: 1,
+    CabinClass.PREMIUM_ECONOMY: 2,
+    CabinClass.BUSINESS: 3,
+    CabinClass.FIRST: 4,
+}
+_CALENDAR_ROUND_TRIP, _CALENDAR_ONE_WAY = 1, 2
+
+CalendarSearchFn = Callable[[str, str], str]
+
+
+def _calendar_stops(max_stops: int | None) -> int:
+    """Google's stop filter: 0 any, 1 non-stop, 2 at most one stop, 3 at most two stops."""
+    if max_stops is None or max_stops >= 3:
+        return 0
+    return max_stops + 1
+
+
+def calendar_request_body(query: CalendarQuery, first_day: date, last_day: date) -> str:
+    """Form body (`f.req=…`) asking for every departure day from `first_day` to `last_day`."""
+
+    def segment(origin: str, destination: str, day: date) -> list:
+        stops = _calendar_stops(query.max_stops)
+        return (
+            [[[[origin, 0]]], [[[destination, 0]]], None, stops, None, None, day.isoformat()]
+            + [None] * 7
+            + [3]
+        )
+
+    round_trip = query.stay_days is not None
+    segments = [segment(query.origin, query.destination, first_day)]
+    if round_trip:
+        back = first_day + timedelta(days=query.stay_days)
+        segments.append(segment(query.destination, query.origin, back))
+    settings = [None, None, _CALENDAR_ROUND_TRIP if round_trip else _CALENDAR_ONE_WAY, None, []]
+    settings += [_CALENDAR_SEAT[query.cabin_class], [query.adults, query.children, 0, 0]]
+    settings += [None] * 6 + [segments, None, None, None, 1]
+    filters = [None, settings, [first_day.isoformat(), last_day.isoformat()]]
+    if round_trip:
+        filters += [None, [query.stay_days, query.stay_days]]
+    inner = json.dumps(filters, separators=(",", ":"))
+    return "f.req=" + quote(json.dumps([None, inner], separators=(",", ":")))
+
+
+def _wrb_payloads(text: str) -> list:
+    """Inner JSON of every "wrb.fr" chunk of a FlightsFrontendService response.
+
+    The body starts with ")]}'"; the chunks follow either as plain JSON or each preceded by a
+    line with its length in bytes (counting the newlines around the chunk).
+    """
+    raw = text.encode().lstrip().removeprefix(b")]}'").lstrip()
+    chunks = []
+    if raw[:1].isdigit():
+        cursor = 0
+        while cursor < len(raw):
+            end = raw.find(b"\n", cursor)
+            if end == -1:
+                break
+            length = max(int(raw[cursor:end]) - 1, 0)
+            chunks.append(raw[end + 1 : end + 1 + length])
+            cursor = end + 1 + length
+    elif raw:
+        chunks.append(raw)
+    payloads = []
+    for chunk in chunks:
+        for row in json.loads(chunk):
+            if isinstance(row, list) and len(row) > 2 and row[0] == "wrb.fr":
+                if isinstance(row[2], str):
+                    payloads.append(json.loads(row[2]))
+    return payloads
+
+
+def parse_calendar(text: str, currency: str) -> list[CalendarPrice]:
+    """Cheapest price per departure day of a GetCalendarGraph response.
+
+    Raises ValueError if the response has no calendar data at all; days without a price are
+    skipped. Prices are totals for all passengers in the requested currency.
+    """
+    payloads = _wrb_payloads(text)
+    if not payloads:
+        raise ValueError("calendar data missing")
+    prices = []
+    for payload in payloads:
+        days = payload[-1] if isinstance(payload, list) and payload else None
+        for day in days if isinstance(days, list) else []:
+            try:
+                price = day[2][0][1]
+                departure = date.fromisoformat(day[0])
+                returning = date.fromisoformat(day[1]) if day[1] else None
+            except (IndexError, TypeError, ValueError):
+                continue
+            if price is not None:
+                prices.append(CalendarPrice(departure, returning, Decimal(price), currency))
+    return prices
+
+
+def google_calendar_search(body: str, currency: str) -> str:
+    """The only place that sends calendar requests (same client and consent cookie as fares)."""
+    try:
+        from primp import Client  # HTTP client of fast-flights (browser impersonation)
+    except ImportError as exc:
+        raise ProviderError("Package fast-flights missing: pip install '.[scraper]'") from exc
+    try:
+        client = Client(impersonate="chrome_145", impersonate_os="macos", referer=True)
+        response = client.post(
+            f"{CALENDAR_URL}?{urlencode({'curr': currency})}",
+            content=body.encode(),
+            headers={
+                "Cookie": CONSENT_COOKIE,
+                "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+            },
+        )
+        text = response.text
+    except Exception as exc:
+        error = f"Google Flights calendar query failed ({type(exc).__name__})"
+        raise ProviderError(error) from None
+    if response.status_code != 200:
+        raise ProviderError(f"Google Flights calendar query failed (HTTP {response.status_code})")
+    return text
+
+
 def sample_days(month: date, count: int, after: date | None = None) -> list[date]:
     """`count` evenly spread departure days within the month, all later than `after`.
 
@@ -232,19 +364,51 @@ class GoogleFlightsProvider(FlightPriceProvider):
     supports_children = True
     samples_days = True
     supports_connection_times = True
+    calendar_days_per_request = CALENDAR_DAYS_PER_REQUEST
 
     def __init__(
         self,
         *,
         request_delay_seconds: float = 3.0,
         search: SearchFn = fast_flights_search,
+        calendar_search: CalendarSearchFn = google_calendar_search,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         sleep: Callable[[float], None] = time.sleep,
     ):
         self._delay = request_delay_seconds
         self._search = search
+        self._calendar_search = calendar_search
         self._clock = clock
         self._sleep = sleep
+
+    def fetch_calendar(self, query: CalendarQuery) -> list[CalendarPrice]:
+        """One request per 61 days; a failed chunk is skipped, all failing raises."""
+        first_day = max(query.first_day, self._clock().date() + timedelta(days=1))
+        chunks = calendar_chunks(first_day, query.last_day, CALENDAR_DAYS_PER_REQUEST)
+        prices: list[CalendarPrice] = []
+        errors: list[ProviderError] = []
+        for start, end in chunks:
+            try:
+                text = self._calendar_search(
+                    calendar_request_body(query, start, end), query.currency
+                )
+                if "<title>Before you continue" in text:
+                    raise ProviderError(
+                        "Google Flights shows its cookie consent page instead of results"
+                    )
+                found = parse_calendar(text, query.currency)
+            except ProviderError as exc:
+                errors.append(exc)
+                continue
+            except ValueError:
+                errors.append(ProviderError("Google Flights calendar has an unexpected format"))
+                continue
+            finally:
+                self._sleep(self._delay)
+            prices.extend(p for p in found if start <= p.departure_date <= end)
+        if chunks and len(errors) == len(chunks):
+            raise errors[-1]
+        return prices
 
     def fetch_current(self, query: PriceQuery) -> list[PriceQuote]:
         """Cheapest fare per sampled day and stay length (one request each).

@@ -43,6 +43,38 @@ class PriceQuote:
     details: dict | None = None
 
 
+@dataclass(frozen=True)
+class CalendarQuery:
+    """Cheapest price per departure day over a date range – one route, cabin and stay length.
+
+    `stay_days` None means one-way. Providers split long ranges into several requests.
+    """
+
+    origin: str
+    destination: str
+    cabin_class: CabinClass
+    first_day: date
+    last_day: date
+    stay_days: int | None
+    max_stops: int | None
+    adults: int
+    currency: str
+    children: int = 0
+
+
+@dataclass(frozen=True)
+class CalendarPrice:
+    """The cheapest price of one departure day (and its return day for round trips).
+
+    Only a price – the source does not say which flight it belongs to.
+    """
+
+    departure_date: date
+    return_date: date | None
+    price: Decimal
+    currency: str
+
+
 class ProviderError(Exception):
     """Raised by adapters for failed requests.
 
@@ -62,10 +94,27 @@ class FlightPriceProvider(ABC):
     samples_days: ClassVar[bool] = False
     # True when quote details include arrival and departure times for connection checks.
     supports_connection_times: ClassVar[bool] = False
+    # Price calendar (heat map): days covered by one request; None = not supported.
+    calendar_days_per_request: ClassVar[int | None] = None
 
     @abstractmethod
     def fetch_current(self, query: PriceQuery) -> list[PriceQuote]:
         """Current prices for departures in `query.departure_month`."""
+
+    def fetch_calendar(self, query: CalendarQuery) -> list[CalendarPrice]:
+        """Cheapest price per departure day (providers with `calendar_days_per_request`)."""
+        raise NotImplementedError(f"{self.name} has no price calendar")
+
+
+def calendar_chunks(first_day: date, last_day: date, days: int) -> list[tuple[date, date]]:
+    """`first_day`..`last_day` split into ranges of at most `days` days."""
+    chunks = []
+    start = first_day
+    while start <= last_day:
+        end = min(start + timedelta(days=days - 1), last_day)
+        chunks.append((start, end))
+        start = end + timedelta(days=1)
+    return chunks
 
 
 def return_dates(query: PriceQuery, departure: date) -> list[date | None]:

@@ -39,6 +39,11 @@ Worker behaviour (single worker process):
 - **Immediate start:** creating, broadening or resuming a Suchabo sends `NOTIFY fetch_jobs`;
   the worker `LISTEN`s and starts at once instead of waiting for `WORKER_TICK_SECONDS`.
   Jobs run one after another, so a new Suchabo waits for a poll that is already running.
+- **Price calendar:** after its fare queries, a poll of a provider with a calendar
+  (`calendar_days_per_request`, Google Flights: 61 days) fetches the cheapest price of every
+  departure day from tomorrow to the end of the last polled month – one query per route, cabin
+  and stay length, split into requests by the provider. Stored in `price_calendar` for the heat
+  map; the requests count towards the user's request budget.
 - **One commit per query:** a poll job consists of provider queries (route × departure month ×
   cabin). Each query stores its prices and a `query_log` entry and is committed on its own.
   A failed query does not fail the job; the job only fails (and is retried) if all queries fail.
@@ -97,7 +102,10 @@ escaped so it cannot close the tag). One line per route in the validated categor
 previous-year values appear as a gray context line when a single line is shown. A click pins a
 date (diamond markers + a panel with that day's flights and links). The panel also draws that
 date's price over time (x = poll date, a step line per flight, from `hist`/`seen` in the JSON),
-so the user sees when a flight was cheapest. The filter row (origin,
+so the user sees when a flight was cheapest. Below, a **price calendar** (heat map) shows the
+cheapest calendar price of every departure day for the same filters (sequential blue, light =
+cheaper, price printed in every cell, cheapest day ringed); days that also have flights in the
+chart can be clicked to pin them. The filter row (origin,
 destination, cabin, stay length, table view) scopes chart, panel and table. The table lists every
 flight (server-rendered, works without JavaScript); the script groups it into "cheapest per
 month" rows that unfold into all departure dates.

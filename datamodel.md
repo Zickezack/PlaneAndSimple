@@ -29,7 +29,8 @@ The code and docs use "Suchabo" for a tracked search.
 | Poll (job) | Abfrage (Job) | `FetchJob` / `fetch_jobs` | `poll` (regular query; the former `backfill` kind was removed) |
 | Archive | Archivieren | `searches.archived_at` | Soft delete; data kept |
 | Delete permanently | Endgültig löschen | `DELETE` cascade | Removes the Suchabo including all history |
-| Log | Protokoll | `QueryLog` / `query_log` | One entry per provider query: `ok` (prices found), `empty` (no flights), `failed` |
+| Log | Protokoll | `QueryLog` / `query_log` | One entry per provider query: `ok` (prices found), `empty` (no flights), `failed`; `kind` `fares` or `calendar` |
+| Price calendar | Preiskalender | `CalendarObservation` / `price_calendar` | Cheapest price per departure day from the provider's calendar view (heat map); no flight behind it |
 | Invented | Erfunden | `price_history.provider` in `FAKE_DATA_PROVIDERS` | Prices from a fake-data provider (`mock`), always marked in red |
 | – | – | `price_history.source` | New rows are always `live`; `backfill` only in rows from before migration `0002` |
 | Trip | Trip | `Trip` / `trips` | Bounded planner window; uses the global polling cadence |
@@ -51,6 +52,7 @@ erDiagram
     countries |o--o{ search_locations : "country_code"
     searches ||--|{ search_revisions : "versions"
     searches ||--o{ price_history : "observations"
+    searches ||--o{ price_calendar : "cheapest per day"
     search_revisions ||--o{ price_history : "recorded under"
     searches ||--o{ fetch_jobs : "queue"
     trips |o--o{ fetch_jobs : "coordinated poll"
@@ -67,10 +69,11 @@ erDiagram
     search_locations { bigint id PK; bigint search_id FK; enum role; char3 airport_code FK; char2 country_code FK; char3_array airport_codes }
     search_revisions { bigint id PK; bigint search_id FK; int revision_no; jsonb snapshot }
     price_history { bigint id PK; bigint search_id FK; bigint search_revision_id FK; enum source; string provider; char3 origin_iata; char3 destination_iata; date departure_date; date return_date; enum cabin_class; smallint stops; numeric price; char3 currency; smallint adults; smallint children; string airline; jsonb details; timestamptz observed_at; timestamptz fetched_at }
+    price_calendar { bigint id PK; bigint search_id FK; string provider; char3 origin_iata; char3 destination_iata; enum cabin_class; date departure_date; date return_date; numeric price; char3 currency; smallint adults; smallint children; timestamptz observed_at }
     fetch_jobs { bigint id PK; bigint search_id FK; bigint trip_id FK; enum kind; enum status; timestamptz run_after; int attempts; int queries_total; int queries_failed; int quotes_stored; text last_error; timestamptz created_at; timestamptz started_at; timestamptz finished_at }
     trips { bigint id PK; bigint owner_id FK; string name; date starts_on; date ends_on; int poll_interval_minutes; enum status; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
     trip_legs { bigint id PK; bigint trip_id FK; bigint search_id FK; int position; int min_layover_days; int max_layover_days }
-    query_log { bigint id PK; bigint job_id; bigint search_id; string search_name; string provider; char3 origin_iata; char3 destination_iata; date departure_month; enum cabin_class; enum outcome; int quotes_found; int quotes_stored; text error; jsonb results; timestamptz started_at; int duration_ms; timestamptz logged_at }
+    query_log { bigint id PK; bigint job_id; bigint search_id; string search_name; string provider; enum kind; char3 origin_iata; char3 destination_iata; date departure_month; enum cabin_class; enum outcome; int quotes_found; int quotes_stored; text error; jsonb results; timestamptz started_at; int duration_ms; timestamptz logged_at }
     platform_settings { string key PK; text value; timestamptz updated_at }
     users { bigint id PK; string username; text password_hash; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; int auth_version; timestamptz created_at; timestamptz last_login_at }
     shares { bigint id PK; bigint search_id FK; bigint trip_id FK; bigint user_id FK; bool can_edit; timestamptz created_at }
@@ -93,6 +96,12 @@ erDiagram
 - `query_log` is append-only too and has **no foreign keys** on purpose: it is a global,
   persistent log that outlives jobs and permanently deleted Suchabos (name kept as snapshot).
   `results` repeats the prices a query found (see below); it contains no personal data.
+- `price_calendar` is append-only as well and kept apart from `price_history` on purpose: a
+  calendar price has no flight (no stops, airline or times), so it only feeds the heat map and
+  never the chart, the flights table or the overlap rules. The latest observation per route,
+  cabin, currency, departure and return day counts; passengers are filtered like prices.
+  Calendar requests are logged with `query_log.kind = 'calendar'` (`departure_month` = month of
+  the first day, no `results`) and neither resume nor count towards the job's counters.
 - `price_history` and `search_revisions` are **append-only** (trigger `forbid_update()`).
   Every price row carries its own route, dates, cabin and stops, so it stays valid when the
   Suchabo changes. Duplicates are ignored via `uq_price_history_observation`.

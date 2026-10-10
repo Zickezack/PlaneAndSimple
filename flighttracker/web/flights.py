@@ -6,7 +6,13 @@ from datetime import date, datetime
 
 from markupsafe import Markup
 
-from flighttracker.services.history import FlightKey, FlightTrend, PricePoint, flight_key
+from flighttracker.services.history import (
+    CalendarDay,
+    FlightKey,
+    FlightTrend,
+    PricePoint,
+    flight_key,
+)
 
 
 def sparkline(values: Sequence, width: int = 84, height: int = 24) -> Markup:
@@ -226,6 +232,7 @@ def chart_data(
     labels: Mapping[str, str],
     detail_url: str = "",
     trends: Mapping[FlightKey, FlightTrend] | None = None,
+    calendar: Iterable[CalendarDay] = (),
 ) -> dict:
     """JSON for static/js/price-chart.js: upcoming points in the Suchabo's currency.
 
@@ -244,6 +251,20 @@ def chart_data(
             _chart_point(p, year_before(p), trends.get(flight_key(p)), seen_base) for p in upcoming
         ],
         "seenBase": seen_base.isoformat() if seen_base else None,
+        # Price calendar (heat map): cheapest price per departure day, without flight details.
+        "calendar": [
+            {
+                "o": day.origin,
+                "d": day.destination,
+                "cabin": day.cabin_class,
+                "date": day.departure_date.isoformat(),
+                "stay": day.stay_days,
+                "price": float(day.price),
+                "fake": day.fake,
+            }
+            for day in calendar
+            if day.departure_date >= today and day.currency == currency
+        ],
         "labels": dict(labels),
         # Flight detail page of a point: detail_url + point id.
         "detailUrl": detail_url,

@@ -459,5 +459,12 @@
   "The user's tracked searches and Trips go to the admin from .env. They are paused unless another active user may edit them; their shares stay. Shares with this user are removed.": "Die Suchabos und Trips des Benutzers gehen an den Admin aus .env. Sie werden pausiert, ausser ein anderer aktiver Benutzer darf sie bearbeiten; ihre Freigaben bleiben. Freigaben für diesen Benutzer werden entfernt.",
   "Price over time for this date": "Preisverlauf dieses Datums",
   "One line per flight; every poll's price, so you see when it was cheapest.": "Eine Linie pro Flug mit dem Preis jeder Abfrage – so siehst du, wann er am günstigsten war.",
-  "Price over time of the flights departing on {date}.": "Preisverlauf der Flüge mit Abflug am {date}."
+  "Price over time of the flights departing on {date}.": "Preisverlauf der Flüge mit Abflug am {date}.",
+  "price calendar": "Preiskalender",
+  "Price calendar": "Preiskalender",
+  "cheapest price of every departure day": "günstigster Preis jedes Abflugtags",
+  "cheaper": "günstiger",
+  "more expensive": "teurer",
+  "From the source's price calendar, without flight details. Days with a dot have flights above – click one to keep it below the chart.": "Aus dem Preiskalender der Datenquelle, ohne Flugdetails. Tage mit Punkt haben Flüge oben – ein Klick hält sie unter dem Chart fest.",
+  "{date}: {price}": "{date}: {price}"
 }

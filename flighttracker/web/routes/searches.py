@@ -438,6 +438,9 @@ def detail(
         {key: translate(text, locale) for key, text in CHART_LABELS.items()},
         detail_url=f"/searches/{search.id}/flights/",
         trends=trends,
+        calendar=history.calendar_days(
+            db, search.id, today, FAKE_DATA_PROVIDERS, passengers=passengers
+        ),
     )
     return templates.TemplateResponse(
         request,

@@ -59,7 +59,7 @@
           {% else %}{{ e.search_name }} <small class="hint">({{ _("deleted") }})</small>{% endif %}
         </td>
         <td>{{ e.origin_iata }} → {{ e.destination_iata }}</td>
-        <td>{{ e.departure_month | month }}</td>
+        <td>{{ e.departure_month | month }}{% if e.kind == "calendar" %} <small class="hint">{{ _("price calendar") }}</small>{% endif %}</td>
         <td>{{ _(labels.CABIN_LABELS[e.cabin_class]) }}</td>
         <td>
           {% if e.outcome == "ok" and e.results %}

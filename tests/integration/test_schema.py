@@ -94,7 +94,7 @@ def test_trigger_function_exists(connection):
     count = connection.execute(
         text("SELECT count(*) FROM pg_trigger WHERE tgname LIKE 'trg_%_append_only'")
     ).scalar_one()
-    assert count == 3  # price_history, search_revisions, query_log
+    assert count == 4  # price_history, search_revisions, query_log, price_calendar
 
 
 def test_passenger_backfill_takes_passengers_from_the_revision(connection):

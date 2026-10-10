@@ -5,6 +5,8 @@ from datetime import date
 from flighttracker.domain.filters import SearchFilters
 from flighttracker.domain.locations import LocationRef, country_codes, expand_to_airports
 
+MAX_DAYS_PER_MONTH = 31
+
 
 @dataclass(frozen=True)
 class SearchSpec:
@@ -48,10 +50,25 @@ def requests_per_query(spec: SearchSpec) -> int:
     return spec.filters.days_per_month * max(len(spec.filters.stay_lengths), 1)
 
 
-def requests_per_poll(spec: SearchSpec, *, samples_days: bool) -> int:
-    """Provider requests of one poll; providers that do not sample days need one per query."""
+def calendar_requests_per_poll(spec: SearchSpec, days_per_request: int) -> int:
+    """Upper bound of price-calendar requests: one per route, cabin and stay length for every
+    `days_per_request` days of the polled months."""
+    chunks = -(-spec.filters.months_ahead * MAX_DAYS_PER_MONTH // days_per_request)
+    stays = max(len(spec.filters.stay_lengths), 1)
+    return len(route_pairs(spec)) * len(spec.filters.cabin_classes) * stays * chunks
+
+
+def requests_per_poll(
+    spec: SearchSpec, *, samples_days: bool, calendar_days: int | None = None
+) -> int:
+    """Provider requests of one poll; providers that do not sample days need one per query.
+
+    `calendar_days`: days per price-calendar request, if the provider has a calendar.
+    """
     queries = queries_per_poll(spec)
-    return queries * requests_per_query(spec) if samples_days else queries
+    fares = queries * requests_per_query(spec) if samples_days else queries
+    calendar = calendar_requests_per_poll(spec, calendar_days) if calendar_days else 0
+    return fares + calendar
 
 
 def trip_requests_per_poll(leg_specs: list[SearchSpec], window_days: int) -> int:

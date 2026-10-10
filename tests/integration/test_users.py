@@ -306,11 +306,12 @@ class TestQuota:
     def test_request_budget_counts_routes_months_and_dates(self, db):
         alice = add_user(db, "alice", max_requests=50)
         settings = _settings(flight_provider="google_flights")
-        # 1 route × 3 months × 4 sampled dates × 1 stay length = 12 requests per poll.
+        # Fares: 1 route × 3 months × 4 sampled dates × 1 stay length = 12 requests per poll;
+        # price calendar: 1 route × 1 stay length × 2 requests (61 days each for 3 months) = 2.
         own_search(db, alice, months_ahead=3)
-        assert quota.usage(db, alice, settings).requests == 12
-        assert quota.check(db, alice, settings, added_searches=1, added_requests=38) == []
-        assert quota.check(db, alice, settings, added_searches=1, added_requests=39)
+        assert quota.usage(db, alice, settings).requests == 14
+        assert quota.check(db, alice, settings, added_searches=1, added_requests=36) == []
+        assert quota.check(db, alice, settings, added_searches=1, added_requests=37)
 
     def test_admins_and_changes_that_shrink_usage_are_never_blocked(self, db):
         admin = add_user(db, "boss", role=UserRole.ADMIN)

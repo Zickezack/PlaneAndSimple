@@ -1,8 +1,9 @@
 import logging
 import time
+from calendar import monthrange
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
-from datetime import date, datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -10,14 +11,23 @@ from sqlalchemy.orm import Session
 
 from flighttracker.domain.spec import SearchSpec, departure_months, route_pairs
 from flighttracker.models import (
+    CalendarObservation,
     FetchJob,
     PriceHistory,
     PriceSource,
+    QueryKind,
     QueryLog,
     QueryOutcome,
     SearchStatus,
 )
-from flighttracker.providers.base import FlightPriceProvider, PriceQuery, PriceQuote, ProviderError
+from flighttracker.providers.base import (
+    CalendarPrice,
+    CalendarQuery,
+    FlightPriceProvider,
+    PriceQuery,
+    PriceQuote,
+    ProviderError,
+)
 from flighttracker.services.searches import current_revision_id, get_search, spec_of
 
 log = logging.getLogger(__name__)
@@ -45,6 +55,33 @@ def build_queries(
         for origin, destination in route_pairs(spec)
         for cabin in sorted(filters.cabin_classes)
         for month in departure_months(filters.months_ahead, today)
+    ]
+
+
+def build_calendar_queries(
+    spec: SearchSpec, today: date, *, currency: str | None = None
+) -> list[CalendarQuery]:
+    """Price calendar of every route, cabin and stay length, from tomorrow to the end of the
+    last polled month (the provider splits it into requests)."""
+    filters = spec.filters
+    last_month = departure_months(filters.months_ahead, today)[-1]
+    last_day = last_month.replace(day=monthrange(last_month.year, last_month.month)[1])
+    return [
+        CalendarQuery(
+            origin=origin,
+            destination=destination,
+            cabin_class=cabin,
+            first_day=today + timedelta(days=1),
+            last_day=last_day,
+            stay_days=stay,
+            max_stops=filters.max_stops,
+            adults=filters.adults,
+            children=filters.children,
+            currency=currency or filters.currency,
+        )
+        for origin, destination in route_pairs(spec)
+        for cabin in sorted(filters.cabin_classes)
+        for stay in filters.stay_lengths or [None]
     ]
 
 
@@ -107,6 +144,43 @@ def store_quotes(
     return len(session.execute(statement).all())
 
 
+def store_calendar(
+    session: Session,
+    *,
+    search_id: int,
+    provider: str,
+    query: CalendarQuery,
+    prices: Iterable[CalendarPrice],
+    observed_at: datetime,
+) -> int:
+    rows = [
+        {
+            "search_id": search_id,
+            "provider": provider,
+            "origin_iata": query.origin,
+            "destination_iata": query.destination,
+            "cabin_class": query.cabin_class,
+            "departure_date": price.departure_date,
+            "return_date": price.return_date,
+            "price": price.price,
+            "currency": price.currency,
+            "adults": query.adults,
+            "children": query.children,
+            "observed_at": observed_at,
+        }
+        for price in prices
+    ]
+    if not rows:
+        return 0
+    statement = (
+        insert(CalendarObservation)
+        .values(rows)
+        .on_conflict_do_nothing(constraint="uq_price_calendar_observation")
+        .returning(CalendarObservation.id)
+    )
+    return len(session.execute(statement).all())
+
+
 @dataclass(frozen=True)
 class JobPlan:
     """The provider queries of one poll job, resolved when the job starts."""
@@ -116,10 +190,16 @@ class JobPlan:
     search_name: str
     revision_id: int
     queries: list[PriceQuery]
+    calendar_queries: list[CalendarQuery] = field(default_factory=list)
 
 
 def _job_entries(session: Session, job_id: int) -> list[QueryLog]:
-    return list(session.scalars(select(QueryLog).where(QueryLog.job_id == job_id)))
+    """The job's fare queries – calendar requests neither resume nor count towards the job."""
+    return list(
+        session.scalars(
+            select(QueryLog).where(QueryLog.job_id == job_id, QueryLog.kind == QueryKind.FARES)
+        )
+    )
 
 
 def _query_key(origin: str, destination: str, month: date, cabin: str) -> tuple:
@@ -127,7 +207,12 @@ def _query_key(origin: str, destination: str, month: date, cabin: str) -> tuple:
 
 
 def plan_job(
-    session: Session, job: FetchJob, now: datetime, *, currency: str | None = None
+    session: Session,
+    job: FetchJob,
+    now: datetime,
+    *,
+    currency: str | None = None,
+    calendar: bool = False,
 ) -> JobPlan | None:
     """None when there is nothing to do (Suchabo deleted, archived or paused meanwhile).
 
@@ -147,12 +232,16 @@ def plan_job(
         for q in build_queries(spec_of(search), now.date(), currency=currency)
         if _query_key(q.origin, q.destination, q.departure_month, q.cabin_class) not in done
     ]
+    spec = spec_of(search)
     return JobPlan(
         job_id=job.id,
         search_id=search.id,
         search_name=search.name,
         revision_id=current_revision_id(session, search),
         queries=queries,
+        calendar_queries=build_calendar_queries(spec, now.date(), currency=currency)
+        if calendar
+        else [],
     )
 
 
@@ -218,6 +307,53 @@ def run_query(
     return entry
 
 
+def run_calendar_query(
+    session: Session,
+    plan: JobPlan,
+    query: CalendarQuery,
+    provider: FlightPriceProvider,
+    *,
+    now: datetime,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> QueryLog:
+    """One price-calendar query (heat map); a `ProviderError` only fails this entry."""
+    started = monotonic()
+    entry = QueryLog(
+        job_id=plan.job_id,
+        search_id=plan.search_id,
+        search_name=plan.search_name,
+        provider=provider.name,
+        kind=QueryKind.CALENDAR,
+        origin_iata=query.origin,
+        destination_iata=query.destination,
+        departure_month=query.first_day.replace(day=1),
+        cabin_class=query.cabin_class,
+        started_at=now,
+        quotes_found=0,
+        quotes_stored=0,
+    )
+    try:
+        prices = [p for p in provider.fetch_calendar(query) if p.currency == query.currency]
+    except ProviderError as exc:
+        entry.outcome = QueryOutcome.FAILED
+        entry.error = str(exc)
+    else:
+        entry.quotes_found = len(prices)
+        entry.quotes_stored = store_calendar(
+            session,
+            search_id=plan.search_id,
+            provider=provider.name,
+            query=query,
+            prices=prices,
+            observed_at=now,
+        )
+        entry.outcome = QueryOutcome.OK if prices else QueryOutcome.EMPTY
+    entry.duration_ms = int((monotonic() - started) * 1000)
+    session.add(entry)
+    session.flush()
+    return entry
+
+
 def finish_job(
     session: Session, job: FetchJob, entries: list[QueryLog], now: datetime
 ) -> str | None:
@@ -228,7 +364,8 @@ def finish_job(
     Returns the last error message if any query failed (all failed → the job is retried).
     """
     latest: dict[tuple, QueryLog] = {}
-    for entry in sorted({*_job_entries(session, job.id), *entries}, key=lambda e: e.id):
+    fares = [e for e in entries if e.kind is QueryKind.FARES]
+    for entry in sorted({*_job_entries(session, job.id), *fares}, key=lambda e: e.id):
         key = _query_key(
             entry.origin_iata, entry.destination_iata, entry.departure_month, entry.cabin_class
         )
@@ -255,10 +392,12 @@ def run_fetch_job(
 
     Returns the number of new price rows.
     """
-    plan = plan_job(session, job, now)
+    plan = plan_job(session, job, now, calendar=provider.calendar_days_per_request is not None)
     if plan is None:
         return 0
     entries = [run_query(session, plan, query, provider, now=now) for query in plan.queries]
+    for query in plan.calendar_queries:
+        run_calendar_query(session, plan, query, provider, now=now)
     error = finish_job(session, job, entries, now)
     if all_queries_failed(job):
         raise ProviderError(error or "All queries failed")

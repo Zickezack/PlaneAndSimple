@@ -5,25 +5,6 @@
 ### Epic Architecture
 1. Modularize the code of the app --> Efficiency in AI
 
-### Epic Deployment
-1. Optional automation of `scripts/deploy.sh` (e.g. GitHub Actions via SSH on push to `main`;
-   `dev` → staging).
-2. Secret scanning (gitleaks) as pre-commit hook and in CI.
-3. Container hardening in `docker-compose.yml`: `security_opt: [no-new-privileges:true]`,
-   `cap_drop: [ALL]`, read-only root filesystem where possible.
-
-### Epic Suchabos & Auswertung
-1. Second chart: price development over time for chosen departure dates ("when to buy").
-2. Heat-map calendar of the cheapest departure dates (like booking aggregators); ideally fed by
-   Google's calendar data (all days of a month in one request) instead of per-day requests.
-3. German country names (OurAirports only provides English names; the German UI shows them in English).
-4. Overlap check must match what is really queried: an empty stay counts as "unlimited" in
-   `domain/coverage.py` but is queried as 7 days only, and "any stops" is treated as covering
-   "direct only" although only the cheapest itinerary per day is stored. Today a new Suchabo can
-   be reported as "already covered" while its prices are never fetched.
-5. "Poll now" and the scheduler can queue the same Suchabo twice at the same moment
-   (`services/jobs.py` checks for an open poll without a lock).
-
 ### Epic Trip Planner
 1. Pause, archive and delete Trips (cascading to their leg Suchabos); today a Trip polls until
    its window ends and its leg Suchabos cannot be changed individually.
@@ -118,3 +99,11 @@
 24. Poll Log shows running and queued polls; they can be cancelled.
 25. Prices are stored with their passengers; a changed passenger number is never shown as a
     price change.
+26. Pinned departure date: price over time of its flights (step line per route and stay) – "when
+    to buy".
+27. Price calendar (heat map) of the cheapest price per departure day, read from Google's
+    calendar view (61 days per request); days with flights can be pinned from the calendar.
+28. German country names in the German UI (labels and suggestions; static list from CLDR).
+29. Overlap check compares what is really queried: stay lengths actually requested, the same stop
+    limit and the same sampled departure days; a stricter stop limit is polled right away.
+30. "Poll now" and the scheduler can no longer queue the same Suchabo or Trip twice (row lock).

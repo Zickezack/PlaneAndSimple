@@ -1,7 +1,8 @@
 from flighttracker.models.base import Base
+from flighttracker.models.calendar import CalendarObservation
 from flighttracker.models.geo import Airport, Country
 from flighttracker.models.job import FetchJob, JobKind, JobStatus
-from flighttracker.models.log import QueryLog, QueryOutcome
+from flighttracker.models.log import QueryKind, QueryLog, QueryOutcome
 from flighttracker.models.price import PriceHistory, PriceSource
 from flighttracker.models.search import (
     LocationRole,
@@ -17,6 +18,7 @@ from flighttracker.models.user import Share, User, UserRole
 __all__ = [
     "Airport",
     "Base",
+    "CalendarObservation",
     "Country",
     "FetchJob",
     "JobKind",
@@ -25,6 +27,7 @@ __all__ = [
     "PlatformSetting",
     "PriceHistory",
     "PriceSource",
+    "QueryKind",
     "QueryLog",
     "QueryOutcome",
     "Search",

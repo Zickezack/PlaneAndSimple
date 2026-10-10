@@ -16,6 +16,7 @@ from flighttracker.models import (
     JobStatus,
     PriceHistory,
     PriceSource,
+    QueryKind,
     QueryLog,
     QueryOutcome,
     Search,
@@ -565,10 +566,12 @@ class TestQueryLog:
         stored_before = count(db, PriceHistory, search.id)
         assert stored_before > 0
 
-        # Resumed: only the missing third month runs; counters cover both runs.
+        # Resumed: only the missing third month runs, then the price calendar; the job
+        # counters cover the fares of both runs.
         assert process_next_job(session_factory, provider, clock=lambda: NOW)
         db.refresh(job)
-        assert count(db, QueryLog, search.id) == 3
+        kinds = db.scalars(select(QueryLog.kind).where(QueryLog.search_id == search.id)).all()
+        assert sorted(kinds) == [QueryKind.CALENDAR, *[QueryKind.FARES] * 3]
         assert (job.status, job.queries_total, job.queries_failed) == (JobStatus.DONE, 3, 0)
         assert job.quotes_stored == count(db, PriceHistory, search.id) > stored_before
 

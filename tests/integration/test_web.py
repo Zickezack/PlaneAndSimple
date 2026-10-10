@@ -136,7 +136,8 @@ def test_create_search_with_overlap_hint_and_detail(client):
     assert detail.status_code == 200
     assert "Schweiz → Spanien" in detail.text
     assert "CH (GVA, ZRH)" in detail.text
-    assert "6 routes · 18 queries · 18 requests" in detail.text
+    # 18 fare queries (one request each with mock) + price calendar: 6 routes × 2 requests.
+    assert "6 routes · 18 queries · 30 requests" in detail.text
     assert "No prices yet" in detail.text
 
     hint = client.post("/searches", data=search_form(token))

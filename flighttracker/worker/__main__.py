@@ -27,6 +27,7 @@ from flighttracker.services.ingestion import (
     all_queries_failed,
     finish_job,
     plan_job,
+    run_calendar_query,
     run_query,
 )
 from flighttracker.services.jobs import (
@@ -282,7 +283,13 @@ def process_next_job(
                 _process_trip_job(session, job, provider, clock, should_stop, currency)
                 log.info("Trip job %d completed", job_id)
                 return True
-            plan = plan_job(session, job, clock(), currency=currency)
+            plan = plan_job(
+                session,
+                job,
+                clock(),
+                currency=currency,
+                calendar=provider.calendar_days_per_request is not None,
+            )
             entries = []
             for query in plan.queries if plan else []:
                 if _should_end(session, job, should_stop):
@@ -290,6 +297,14 @@ def process_next_job(
                     log.info("Job %d %s after %d queries", job_id, job.status, len(entries))
                     return True
                 entries.append(run_query(session, plan, query, provider, now=clock()))
+                session.commit()
+            # Price calendar (heat map) after the fares, so a failure here never delays them.
+            for query in plan.calendar_queries if plan else []:
+                if _should_end(session, job, should_stop):
+                    _interrupt(session, job)
+                    log.info("Job %d %s during the price calendar", job_id, job.status)
+                    return True
+                run_calendar_query(session, plan, query, provider, now=clock())
                 session.commit()
             refresh_status(session, job, lock=True)
             error = finish_job(session, job, entries, clock())

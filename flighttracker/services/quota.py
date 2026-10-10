@@ -32,12 +32,11 @@ class Usage:
     max_requests: int | None
 
 
-def _samples_days(settings: Settings) -> bool:
-    return provider_class(settings.flight_provider).samples_days
-
-
 def search_requests(spec: SearchSpec, settings: Settings) -> int:
-    return requests_per_poll(spec, samples_days=_samples_days(settings))
+    provider = provider_class(settings.flight_provider)
+    return requests_per_poll(
+        spec, samples_days=provider.samples_days, calendar_days=provider.calendar_days_per_request
+    )
 
 
 def trip_requests(trip: Trip) -> int:

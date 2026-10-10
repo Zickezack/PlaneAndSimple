@@ -9,6 +9,11 @@ from flighttracker.domain.filters import CabinClass
 from flighttracker.models.base import Base, str_enum
 
 
+class QueryKind(StrEnum):
+    FARES = "fares"  # prices with their flights for sampled days (price_history)
+    CALENDAR = "calendar"  # cheapest price per day of a date range (price_calendar)
+
+
 class QueryOutcome(StrEnum):
     OK = "ok"  # prices found
     EMPTY = "empty"  # the source answered, but had no (matching) flights
@@ -37,6 +42,9 @@ class QueryLog(Base):
     destination_iata: Mapped[str] = mapped_column(String(3))
     departure_month: Mapped[date] = mapped_column(Date)
     cabin_class: Mapped[CabinClass] = mapped_column(str_enum(CabinClass, "cabin_class"))
+    kind: Mapped[QueryKind] = mapped_column(
+        str_enum(QueryKind, "query_kind"), default=QueryKind.FARES, server_default="fares"
+    )
     outcome: Mapped[QueryOutcome] = mapped_column(str_enum(QueryOutcome, "query_outcome"))
     quotes_found: Mapped[int] = mapped_column(Integer, default=0)
     quotes_stored: Mapped[int] = mapped_column(Integer, default=0)
