@@ -3,12 +3,29 @@
 Self-hosted flight price tracker: Suchabos (tracked searches) in a web UI in English or German, a background
 worker that collects prices, and an append-only price history with a previous-year comparison.
 
-![Tracked search from Zurich to Thailand: the price per departure date for three routes, arrows from the first observed to the current price, and the flights of one clicked date with their price changes](docs/screenshots/tracked-search.png)
+![Tracked search from Zurich to Thailand: the price per departure date for three routes, with arrows from the first observed to the current price and one pinned date](docs/screenshots/tracked-search.png)
 
 <sub>Screenshots: the real web UI with invented demo data.</sub>
 
 Design and conventions: [architecture.md](architecture.md) · data model: [datamodel.md](datamodel.md)
 · backlog: [userstories.md](userstories.md).
+
+## Features
+
+- **Tracked searches** from and to airports or whole countries (largest airports preselected),
+  round trip or one-way, stay lengths, cabins, passengers, direct-only.
+- **Price chart** per departure date with price changes and the previous year; a clicked date
+  lists its flights (1 day / 1 week / 1 month changes) and how their price developed –
+  *when to buy*.
+- **Price calendar** (heat map): the cheapest price of every departure day.
+- **Flight details** with segments, layovers, Flightradar24 and Google Flights links.
+- **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
+- **[Users](#users)** with sharing, per-user limits and a Poll Log.
+- English and German UI; JSON export/import; append-only history; self-hosted with Docker.
+
+![A clicked departure date: its six flights with sparklines and price changes, and their price over time as step lines](docs/screenshots/price-over-time.png)
+
+![Price calendar: the cheapest price of every departure day from October to March, Christmas darkest, the cheapest day ringed](docs/screenshots/price-calendar.png)
 
 ## Quick start (devcontainer)
 
