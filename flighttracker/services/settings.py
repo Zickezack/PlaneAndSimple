@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from flighttracker.config import Settings
 from flighttracker.models import PlatformSetting
 
-Kind = Literal["str", "int", "float", "secret", "currency"]
+Kind = Literal["str", "int", "float", "bool", "secret", "currency"]
 
 # Sections shown on the Platform Settings page, in this order.
 PROVIDERS_SECTION = "providers"
@@ -42,6 +42,7 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("travelpayouts_token", PROVIDERS_SECTION, "secret"),
     SettingField("scraper_days_per_month", PROVIDERS_SECTION, "int", min=1, max=31),
     SettingField("scraper_request_delay_seconds", PROVIDERS_SECTION, "float", min=0, max=60),
+    SettingField("scraper_return_flights", PROVIDERS_SECTION, "bool"),
     SettingField("default_currency", SEARCHES_SECTION, "currency"),
     SettingField("default_poll_interval_minutes", SEARCHES_SECTION, "int", min=15, max=43200),
     SettingField("worker_tick_seconds", WORKER_SECTION, "int", min=1, max=3600),
@@ -69,6 +70,10 @@ def _parse(field: SettingField, raw: str) -> object:
         return raw
     if field.kind == "str":
         return raw
+    if field.kind == "bool":
+        if raw.lower() not in ("true", "false"):
+            raise SettingValidationError("Choose on or off.")
+        return raw.lower() == "true"
     try:
         value: float = int(raw) if field.kind == "int" else float(raw)
     except ValueError as exc:

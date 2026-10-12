@@ -102,3 +102,8 @@
 31. Modular codebase: search routes as a package, worker split by job kind, services one use case
     per module, chart script split into widgets; size rules and a feature map in architecture.md.
 30. "Poll now" and the scheduler can no longer queue the same Suchabo or Trip twice (row lock).
+34. Google Flights: every result sorted by price (Google's result list instead of the first ~10
+    "best" flights of the page, which often missed the cheapest; retried on Google's error
+    response, the page as fallback); optional return flights (Platform Setting, one more request
+    per round-trip price, counted in the request budget); the tracked search page hides prices
+    the latest poll no longer found (e.g. a departure day that is no longer sampled).

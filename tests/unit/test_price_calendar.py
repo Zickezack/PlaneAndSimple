@@ -7,7 +7,7 @@ from urllib.parse import unquote
 
 import pytest
 
-from flighttracker.domain.filters import CabinClass, SearchFilters
+from flighttracker.domain.filters import CabinClass, SearchFilters, TripType
 from flighttracker.domain.locations import LocationRef
 from flighttracker.domain.spec import SearchSpec, calendar_requests_per_poll, requests_per_poll
 from flighttracker.providers.base import CalendarQuery, ProviderError, calendar_chunks
@@ -166,3 +166,19 @@ def test_calendar_requests_count_towards_the_poll():
     assert calendar_requests_per_poll(spec, 61) == 16
     assert requests_per_poll(spec, samples_days=True, calendar_days=61) == 2 * 6 * 4 * 2 + 16
     assert requests_per_poll(spec, samples_days=True) == 96
+
+
+def test_return_flights_double_the_fare_requests_of_round_trips():
+    def spec(trip_type):
+        return SearchSpec(
+            frozenset({LocationRef.airport("ZRH")}),
+            frozenset({LocationRef.airport("BKK")}),
+            SearchFilters(months_ahead=2, days_per_month=4, trip_type=trip_type),
+        )
+
+    round_trip, one_way = spec(TripType.ROUND_TRIP), spec(TripType.ONE_WAY)
+    assert requests_per_poll(round_trip, samples_days=True, return_flights=True) == 2 * 2 * 4
+    assert requests_per_poll(
+        round_trip, samples_days=True, calendar_days=61, return_flights=True
+    ) == (2 * 2 * 4 + calendar_requests_per_poll(round_trip, 61))
+    assert requests_per_poll(one_way, samples_days=True, return_flights=True) == 2 * 4

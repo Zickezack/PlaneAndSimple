@@ -35,7 +35,10 @@ class Usage:
 def search_requests(spec: SearchSpec, settings: Settings) -> int:
     provider = provider_class(settings.flight_provider)
     return requests_per_poll(
-        spec, samples_days=provider.samples_days, calendar_days=provider.calendar_days_per_request
+        spec,
+        samples_days=provider.samples_days,
+        calendar_days=provider.calendar_days_per_request,
+        return_flights=provider.supports_return_flights and settings.scraper_return_flights,
     )
 
 

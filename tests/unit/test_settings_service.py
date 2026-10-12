@@ -51,3 +51,10 @@ def test_validate_rejects_unusable_request_delay(raw):
     # `time.sleep(inf)` raises OverflowError, which would fail every poll job.
     with pytest.raises(SettingValidationError):
         validate("scraper_request_delay_seconds", raw)
+
+
+def test_validate_bool():
+    assert validate("scraper_return_flights", "true") is True
+    assert validate("scraper_return_flights", "False") is False
+    with pytest.raises(SettingValidationError):
+        validate("scraper_return_flights", "yes please")

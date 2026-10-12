@@ -20,9 +20,7 @@
   </dl>
 </section>
 
-<section class="card">
-  <h2>{{ _("Outbound flight") }}</h2>
-  {% if segments %}
+{% macro segment_table(segments) %}
   <div class="table-wrap">
     <table class="table">
       <thead><tr><th>{{ _("Flight") }}</th><th>{{ _("Route") }}</th><th>{{ _("Departure") }}</th><th>{{ _("Arrival") }}</th><th>{{ _("Duration") }}</th><th>{{ _("Aircraft") }}</th></tr></thead>
@@ -41,8 +39,17 @@
       </tbody>
     </table>
   </div>
+{% endmacro %}
+<section class="card">
+  <h2>{{ _("Outbound flight") }}</h2>
+  {% if segments %}
+  {{ segment_table(segments) }}
+  {% if return_segments %}
+  <h2>{{ _("Return flight") }}</h2>
+  {{ segment_table(return_segments) }}
+  {% endif %}
   <p class="hint">{{ _("Local times of the airports. Flight numbers link to Flightradar24 (route, aircraft and punctuality of past flights).") }}
-    {% if round_trip %}{{ _("The price covers the round trip; the return flight is chosen on Google Flights.") }}{% endif %}</p>
+    {% if round_trip and not return_segments %}{{ _("The price covers the round trip; the return flight is chosen on Google Flights.") }}{% endif %}</p>
   {% else %}
   <p class="empty">{{ _("The data source delivered no flight details for this price.") }}{% if observed.airline %} {{ observed.airline }}{% endif %}</p>
   {% endif %}

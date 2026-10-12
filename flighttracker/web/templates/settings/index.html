@@ -75,6 +75,15 @@
         </select>
         <small class="hint">{{ _(field.hint) }}</small>
       </div>
+      {% elif field.is_bool %}
+      <div class="field">
+        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <select class="input" id="f-{{ field.key }}" name="{{ field.key }}">
+          <option value="false"{% if not field.value %} selected{% endif %}>{{ _("Off") }}</option>
+          <option value="true"{% if field.value %} selected{% endif %}>{{ _("On") }}</option>
+        </select>
+        <small class="hint">{{ _(field.hint) }}</small>
+      </div>
       {% elif field.is_secret %}
       <div class="field">
         <label for="f-{{ field.key }}">{{ _(field.label) }}</label>

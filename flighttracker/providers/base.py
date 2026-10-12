@@ -96,6 +96,9 @@ class FlightPriceProvider(ABC):
     supports_connection_times: ClassVar[bool] = False
     # Price calendar (heat map): days covered by one request; None = not supported.
     calendar_days_per_request: ClassVar[int | None] = None
+    # True: can load the return flight of a round trip (one more request per round-trip quote,
+    # platform setting `scraper_return_flights`).
+    supports_return_flights: ClassVar[bool] = False
 
     @abstractmethod
     def fetch_current(self, query: PriceQuery) -> list[PriceQuote]:

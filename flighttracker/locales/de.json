@@ -473,5 +473,11 @@
   "Trip restored.": "Trip wiederhergestellt.",
   "Trip \"{name}\" and its legs were deleted permanently.": "Trip „{name}“ inklusive Teilstrecken und Preis-Historie endgültig gelöscht.",
   "Archiving hides the Trip and its legs and stops polling; all data is kept.": "Archivieren blendet den Trip und seine Teilstrecken aus und stoppt die Abfragen; alle Daten bleiben erhalten.",
-  "Deletes the Trip and its legs including their entire price history. This cannot be undone. To keep the data, archive it instead.": "Löscht den Trip und seine Teilstrecken samt der ganzen Preishistorie. Das kann nicht rückgängig gemacht werden. Um die Daten zu behalten, archiviere ihn stattdessen."
+  "Deletes the Trip and its legs including their entire price history. This cannot be undone. To keep the data, archive it instead.": "Löscht den Trip und seine Teilstrecken samt der ganzen Preishistorie. Das kann nicht rückgängig gemacht werden. Um die Daten zu behalten, archiviere ihn stattdessen.",
+  "{n} older prices are not shown – the latest poll no longer found these dates.": "{n} ältere Preise werden nicht angezeigt – die letzte Abfrage hat diese Daten nicht mehr gefunden.",
+  "Load return flights": "Rückflüge laden",
+  "Google Flights lists a round trip by its outbound flight. On: one more request per round-trip price loads its return flight (shown on the flight page) – doubles the requests of round-trip tracked searches.": "Google Flights listet Hin- und Rückflüge nach dem Hinflug. Ein: eine zusätzliche Abfrage pro Hin-und-Rückflug-Preis lädt den Rückflug (auf der Flugseite angezeigt) – verdoppelt die Abfragen von Suchabos mit Rückflug.",
+  "Off": "Aus",
+  "On": "Ein",
+  "Return flight": "Rückflug"
 }

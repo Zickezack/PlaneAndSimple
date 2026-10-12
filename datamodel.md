@@ -149,7 +149,9 @@ erDiagram
 
 JSONB written by providers that know the flight (currently Google Flights; `NULL` otherwise and
 for rows before migration `0004`). It describes the **outbound** itinerary as shown by the
-source; for round trips the price covers the whole trip, the return flight is chosen on the
+source; for round trips the price covers the whole trip. With the Platform Setting "Load return
+flights" a round trip also has `return` (same fields as the outbound, without `url`) and the
+price is the total of exactly this combination; otherwise the return flight is chosen on the
 source's site. All fields are optional:
 
 ```json
@@ -161,7 +163,8 @@ source's site. All fields are optional:
                 "departure_date": "2026-11-12", "departure_time": "15:10",
                 "arrival_date": "2026-11-12", "arrival_time": "22:50",
                 "duration_min": 340, "aircraft": "Airbus A350"}],
-  "url": "https://www.google.com/travel/flights?tfs=…"
+  "url": "https://www.google.com/travel/flights?tfs=…",
+  "return": {"airlines": ["Qatar Airways"], "departure_time": "08:15", "segments": […]}
 }
 ```
 
@@ -169,6 +172,10 @@ source's site. All fields are optional:
 departure and return date = the latest observation (whatever the stops); `previous_price` is the
 same flight dates at the poll before. Several stay lengths give several points per day. The chart
 shows the cheapest point per date (optionally for one stay length); the table lists all points.
+Upcoming points count only while they are current: if the Suchabo's latest completed poll asked
+for their route, month and cabin without returning their dates (from `query_log.results`, e.g. a
+departure day of the current month that is no longer sampled), they are hidden and counted in a
+hint.
 
 `query_log.results` lists what a query found: `[{"date", "return", "price", "currency", "stops"}]`.
 

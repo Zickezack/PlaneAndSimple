@@ -120,7 +120,7 @@ class SegmentView:
 
 
 def segments(details: dict | None) -> list[SegmentView]:
-    """Segments of the outbound itinerary for the flight detail page."""
+    """Segments of an itinerary (outbound, or the return flight if loaded) for the flight page."""
     items = (details or {}).get("segments") or []
     result = []
     for index, segment in enumerate(items):

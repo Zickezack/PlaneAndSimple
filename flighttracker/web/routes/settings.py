@@ -74,6 +74,7 @@ def _field_view(field: SettingField, overrides: dict, settings) -> dict:
         "hint": labels.SETTINGS_FIELD_HINTS[field.key],
         "is_secret": is_secret,
         "is_choice": field.key == "flight_provider",
+        "is_bool": field.kind == "bool",
         "is_overridden": field.key in overrides,
         "value": "" if is_secret else value,
         "has_value": bool(value.get_secret_value()) if is_secret and value else False,

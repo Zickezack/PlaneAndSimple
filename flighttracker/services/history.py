@@ -18,7 +18,15 @@ from decimal import Decimal
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from flighttracker.models import CalendarObservation, PriceHistory
+from flighttracker.models import (
+    CalendarObservation,
+    FetchJob,
+    JobStatus,
+    PriceHistory,
+    QueryKind,
+    QueryLog,
+    QueryOutcome,
+)
 
 
 @dataclass(frozen=True)
@@ -178,6 +186,54 @@ def calendar_days(
         )
         for r in rows
     ]
+
+
+SeenDates = dict[tuple[str, str, date, str], set[tuple[str, str | None]]]
+
+
+def latest_poll_dates(session: Session, search_id: int) -> SeenDates:
+    """What the latest completed poll found: per (route, departure month, cabin) the departure
+    and return dates it returned. Queries that failed in that poll are left out (unknown)."""
+    job_id = session.scalar(
+        select(FetchJob.id)
+        .where(
+            FetchJob.search_id == search_id,
+            FetchJob.trip_id.is_(None),
+            FetchJob.status == JobStatus.DONE,
+        )
+        .order_by(FetchJob.finished_at.desc(), FetchJob.id.desc())
+        .limit(1)
+    )
+    if job_id is None:
+        return {}
+    entries = session.scalars(
+        select(QueryLog).where(
+            QueryLog.job_id == job_id,
+            QueryLog.kind == QueryKind.FARES,
+            QueryLog.outcome != QueryOutcome.FAILED,
+            QueryLog.results.is_not(None),
+        )
+    )
+    seen: SeenDates = {}
+    for entry in entries:
+        key = (
+            entry.origin_iata,
+            entry.destination_iata,
+            entry.departure_month,
+            str(entry.cabin_class),
+        )
+        seen.setdefault(key, set()).update((r["date"], r.get("return")) for r in entry.results)
+    return seen
+
+
+def is_current(point: PricePoint, seen: SeenDates) -> bool:
+    """A price is current unless the latest poll asked for its route and month and no longer
+    returned its dates – e.g. a day that is no longer sampled keeps its last, outdated price."""
+    dates = seen.get((point.origin, point.destination, point.month, str(point.cabin_class)))
+    if dates is None:
+        return True
+    returning = point.return_date.isoformat() if point.return_date else None
+    return (point.departure_date.isoformat(), returning) in dates
 
 
 def observation(session: Session, search_id: int, price_id: int) -> PriceHistory | None:

@@ -13,8 +13,13 @@ from flighttracker.providers.google_flights import (
     FareRequest,
     GoogleFlightsProvider,
     fast_flights_search,
+    google_flights_search,
+    google_return_search,
     parse_fares,
+    parse_shopping,
     sample_days,
+    selected_legs,
+    shopping_request_body,
 )
 from flighttracker.providers.mock import MockProvider
 from flighttracker.providers.registry import (
@@ -301,12 +306,186 @@ class TestGoogleFlights:
         assert all(q.departure_date > NOW.date() for q in quotes)
 
 
+def shopping_response(rows) -> str:
+    """GetShoppingResults framing: `)]}'`, then length-prefixed chunks with "wrb.fr" rows."""
+    inner = json.dumps([None, None, [rows], None])
+    chunk = json.dumps([["wrb.fr", None, inner, None, None, None, "generic"]])
+    return f")]}}'\n\n{len(chunk) + 2}\n{chunk}\n"
+
+
+ERROR_RESPONSE = (
+    ")]}'\n\n"
+    '[["wrb.fr",null,null,null,null,[13,null,[["type.googleapis.com/travel.frontend.flights.'
+    'ErrorResponse",[]]]]]]\n'
+)
+
+
+def _row(price, airline, *flights, day=12):
+    segments = []
+    for number, origin, destination in flights:
+        values = [None] * 23
+        values[3], values[6] = origin, destination
+        values[20] = values[21] = [2026, 11, day]
+        values[22] = [airline, number]
+        segments.append(values)
+    itinerary = [None, [airline], segments, None, None, [10, 5], None, [2026, 11, day], [18], 600]
+    return [itinerary, [[None, price]]]
+
+
+ROUND_TRIP = FareRequest(
+    "ZRH", "BKK", date(2026, 11, 12), date(2026, 11, 26), "business", 2, "CHF", 1, children=1
+)
+
+
+class TestGoogleResultList:
+    def test_request_asks_for_every_result_sorted_by_price(self):
+        from urllib.parse import unquote
+
+        body = unquote(shopping_request_body(ROUND_TRIP).removeprefix("f.req="))
+        filters = json.loads(json.loads(body)[1])
+        settings = filters[1]
+        assert filters[2:] == [2, 1, 0, 1]  # sorted by price, all results
+        assert (settings[2], settings[5], settings[6]) == (1, 3, [2, 1, 0, 0])
+        outbound, back = settings[13]
+        assert (outbound[0], outbound[1], outbound[3], outbound[6]) == (
+            [[["ZRH", 0]]],
+            [[["BKK", 0]]],
+            2,  # at most one stop
+            "2026-11-12",
+        )
+        assert (outbound[8], outbound[14], back[6], back[14]) == (None, 3, "2026-11-26", 1)
+
+    def test_return_request_names_the_outbound_flights(self):
+        from urllib.parse import unquote
+
+        legs = [
+            ("ZRH", "2026-11-12", "AUH", "EY", "140"),
+            ("AUH", "2026-11-13", "BKK", "EY", "400"),
+        ]
+        body = unquote(shopping_request_body(ROUND_TRIP, legs).removeprefix("f.req="))
+        outbound = json.loads(json.loads(body)[1])[1][13][0]
+        assert outbound[8] == [
+            ["ZRH", "2026-11-12", "AUH", None, "EY", "140"],
+            ["AUH", "2026-11-13", "BKK", None, "EY", "400"],
+        ]
+
+    def test_parses_rows_like_the_page(self):
+        rows = [_row(980, "EY", ("140", "ZRH", "AUH"), ("400", "AUH", "BKK")), [[None], [[None]]]]
+        (fare,) = parse_shopping(shopping_response(rows))
+        assert (fare.price, fare.stops, fare.airline) == (980, 1, "EY")
+        assert [s["flight"] for s in fare.details["segments"]] == ["EY 140", "EY 400"]
+        assert selected_legs(fare.details) == [
+            ("ZRH", "2026-11-12", "AUH", "EY", "140"),
+            ("AUH", "2026-11-12", "BKK", "EY", "400"),
+        ]
+        assert selected_legs({"segments": [{"flight": None, "from": "ZRH", "to": "BKK"}]}) is None
+        with pytest.raises(ValueError):
+            parse_shopping(ERROR_RESPONSE)
+        with pytest.raises(ValueError):
+            parse_shopping(shopping_response([[None, [[None, 5]]]]))  # no itinerary
+
+    def test_retries_error_responses_and_links_the_search(self):
+        answers = iter([ERROR_RESPONSE, shopping_response([_row(980, "EY", ("1", "ZRH", "BKK"))])])
+        waits = []
+        (fare,) = google_flights_search(
+            ROUND_TRIP, post=lambda body, currency: next(answers), sleep=waits.append
+        )
+        assert fare.price == 980 and waits == [4.0]
+        assert fare.details["url"].startswith("https://www.google.com/travel/flights?tfs=")
+
+    def test_reads_the_page_when_the_result_list_keeps_failing(self):
+        page = [FareOption(1200, 0, "LX")]
+        waits = []
+        assert (
+            google_flights_search(
+                ROUND_TRIP,
+                post=lambda body, currency: ERROR_RESPONSE,
+                sleep=waits.append,
+                fallback=lambda request: page,
+            )
+            == page
+        )
+        assert waits == [4.0, 8.0, 12.0]
+
+        def broken(body, currency):
+            raise ProviderError("HTTP 500")
+
+        assert google_flights_search(ROUND_TRIP, post=broken, fallback=lambda r: page) == page
+
+    def test_return_search_has_no_page_fallback(self):
+        with pytest.raises(ProviderError, match="unexpected format"):
+            google_return_search(
+                ROUND_TRIP, [], post=lambda body, currency: ERROR_RESPONSE, sleep=lambda _: None
+            )
+
+
+class TestReturnFlights:
+    OUTBOUND = FareOption(
+        980,
+        1,
+        "EY",
+        {
+            "airlines": ["Etihad"],
+            "segments": [
+                {"flight": "EY 140", "from": "ZRH", "to": "AUH", "departure_date": "2026-11-12"},
+                {"flight": "EY 400", "from": "AUH", "to": "BKK", "departure_date": "2026-11-13"},
+            ],
+            "url": "https://www.google.com/travel/flights?tfs=x",
+        },
+    )
+
+    def provider(self, returns, *, enabled=True, calls=None):
+        def return_search(request, legs):
+            if calls is not None:
+                calls.append(legs)
+            if isinstance(returns, Exception):
+                raise returns
+            return returns
+
+        return GoogleFlightsProvider(
+            return_flights=enabled,
+            search=lambda request: [self.OUTBOUND],
+            return_search=return_search,
+            clock=lambda: NOW,
+            sleep=lambda _: None,
+        )
+
+    def test_stores_the_cheapest_allowed_return_flight(self):
+        back = [
+            FareOption(1010, 0, "EY", {"segments": [{"flight": "EY 405"}], "url": "u"}),
+            FareOption(990, 1, "EY", {"segments": [{"flight": "EY 401"}, {"flight": "EY 7"}]}),
+            FareOption(900, 2, "XX", {"segments": []}),  # too many stops
+        ]
+        calls = []
+        (quote,) = self.provider(back, calls=calls).fetch_current(
+            query(days_per_month=1, max_stops=1)
+        )
+        assert calls[0][0] == ("ZRH", "2026-11-12", "AUH", "EY", "140")
+        assert quote.price == Decimal(990)  # the total of exactly this combination
+        assert quote.details["return"] == {"segments": [{"flight": "EY 401"}, {"flight": "EY 7"}]}
+        assert quote.details["url"] == self.OUTBOUND.details["url"]
+
+    def test_keeps_the_outbound_price_without_a_return_flight(self):
+        for returns in ([], ProviderError("down")):
+            (quote,) = self.provider(returns).fetch_current(query(days_per_month=1))
+            assert quote.price == Decimal(980) and "return" not in quote.details
+
+    def test_off_by_default_and_never_for_one_way(self):
+        calls = []
+        self.provider([], enabled=False, calls=calls).fetch_current(query(days_per_month=1))
+        self.provider([], calls=calls).fetch_current(
+            query(days_per_month=1, trip_type=TripType.ONE_WAY)
+        )
+        assert calls == []
+
+
 class _Settings:
     def __init__(self, provider):
         self.flight_provider = provider
         self.travelpayouts_token = None
         self.scraper_days_per_month = 4
         self.scraper_request_delay_seconds = 0
+        self.scraper_return_flights = False
 
 
 def test_registry_rejects_unknown_provider():

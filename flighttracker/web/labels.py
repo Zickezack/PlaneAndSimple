@@ -107,6 +107,7 @@ SETTINGS_FIELD_LABELS = {
     "travelpayouts_token": "Travelpayouts token",
     "scraper_days_per_month": "Default departure dates sampled per month",
     "scraper_request_delay_seconds": "Pause between scraper requests (seconds)",
+    "scraper_return_flights": "Load return flights",
     "default_currency": "Global currency",
     "default_poll_interval_minutes": "Global poll interval (minutes)",
     "worker_tick_seconds": "Worker tick interval (seconds)",
@@ -125,6 +126,11 @@ SETTINGS_FIELD_HINTS = {
         "Suggested default when creating a new tracked search; each one can change it."
     ),
     "scraper_request_delay_seconds": "Pause between Google Flights requests, to stay polite.",
+    "scraper_return_flights": (
+        "Google Flights lists a round trip by its outbound flight. On: one more request per "
+        "round-trip price loads its return flight (shown on the flight page) – doubles the "
+        "requests of round-trip tracked searches."
+    ),
     "default_currency": (
         "Currency requested from the provider for every search and Trip. Stored prices keep "
         "the currency they were observed in."

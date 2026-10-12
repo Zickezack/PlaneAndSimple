@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 from flighttracker.config import Settings
 from flighttracker.domain.filters import CabinClass
 from flighttracker.models import (
+    FetchJob,
+    JobStatus,
     PriceHistory,
     PriceSource,
     QueryLog,
@@ -424,6 +426,60 @@ def _seed_price(db, search_id, *, details=None, price="123.00", observed_at=None
     return row
 
 
+def test_detail_page_hides_prices_the_latest_poll_no_longer_found(client, db):
+    token = login(client)
+    url = client.post("/searches", data=search_form(token), follow_redirects=False).headers[
+        "location"
+    ]
+    search_id = int(url.rsplit("/", 1)[1])
+    stale = _seed_price(db, search_id, observed_at=datetime.now(UTC) - timedelta(days=3))
+    link = f'href="/searches/{search_id}/flights/{stale.id}"'
+    assert link in client.get(url).text  # no completed poll yet: nothing to compare with
+
+    def poll(found):
+        now = datetime.now(UTC)
+        job = FetchJob(
+            search_id=search_id,
+            kind="poll",
+            status=JobStatus.DONE,
+            run_after=now,
+            started_at=now,
+            finished_at=now,
+        )
+        db.add(job)
+        db.flush()
+        db.add(
+            QueryLog(
+                job_id=job.id,
+                search_id=search_id,
+                search_name="Zürich → Barcelona",
+                provider="google_flights",
+                origin_iata="ZRH",
+                destination_iata="BCN",
+                departure_month=stale.departure_date.replace(day=1),
+                cabin_class=CabinClass.ECONOMY,
+                outcome=QueryOutcome.OK,
+                quotes_found=1,
+                quotes_stored=1,
+                results=[{"date": found[0], "return": found[1], "price": "99", "stops": 0}],
+                started_at=now,
+                duration_ms=1000,
+            )
+        )
+        db.commit()
+
+    # The latest poll asked for this month but found other dates: the old price is outdated.
+    poll(("2099-01-03", "2099-01-10"))
+    page = client.get(url).text
+    assert link not in page
+    assert "1 older prices are not shown" in page
+
+    # Found again by a later poll: current again.
+    poll((stale.departure_date.isoformat(), stale.return_date.isoformat()))
+    page = client.get(url).text
+    assert link in page and "older prices are not shown" not in page
+
+
 def test_flight_detail_page_with_segments_and_price_history(client, db):
     token = login(client)
     url = client.post("/searches", data=search_form(token), follow_redirects=False).headers[
@@ -462,6 +518,13 @@ def test_flight_detail_page_with_segments_and_price_history(client, db):
     assert "Layover in FRA: 1h 05m" in page
     assert "https://www.google.com/travel/flights?tfs=abc" in page
     assert "150.00 CHF" in page and "123.00 CHF" in page  # both polls of these dates
+    assert "Return flight" not in page and "the return flight is chosen on Google" in page
+
+    back = {"segments": [{"flight": "LX 1953", "from": "BCN", "to": "ZRH"}]}
+    returning = _seed_price(db, search_id, details=details | {"return": back})
+    page = client.get(f"/searches/{search_id}/flights/{returning.id}").text
+    assert "Return flight" in page and "lx1953" in page
+    assert "the return flight is chosen on Google" not in page
     assert client.get(f"/searches/{search_id}/flights/999999").status_code == 404
 
 
@@ -514,6 +577,28 @@ def test_platform_settings_override_switches_provider_without_restart(client):
     # The provider banner on every page now reflects the override, with no restart.
     assert "invents all prices" not in client.get("/searches").text
     assert 'value="travelpayouts" selected' in client.get("/settings").text
+
+
+def test_return_flights_setting_counts_its_requests(client, db):
+    from flighttracker.services import quota
+    from flighttracker.services.searches import spec_of
+    from flighttracker.services.settings import effective_settings
+
+    token = login(client)
+    url = client.post("/searches", data=search_form(token), follow_redirects=False).headers[
+        "location"
+    ]
+    spec = spec_of(db.get(Search, int(url.rsplit("/", 1)[1])))
+    data = {"csrf_token": token, "flight_provider": "google_flights"}
+    client.post("/settings/section/providers", data=data)
+    db.expire_all()
+    before = quota.search_requests(spec, effective_settings(db, client.app.state.settings))
+    client.post("/settings/section/providers", data=data | {"scraper_return_flights": "true"})
+    assert '<option value="true" selected>On</option>' in client.get("/settings").text
+    db.expire_all()
+    settings = effective_settings(db, client.app.state.settings)
+    assert settings.scraper_return_flights is True
+    assert quota.search_requests(spec, settings) > before
 
 
 def test_global_currency_and_poll_interval_override_search_form_values(client, db):

@@ -3,9 +3,12 @@
 Live fares, no history. Scraping may break whenever Google changes its page and is a
 Terms-of-Service grey area – keep request rates low and treat this adapter as best effort.
 
-fast-flights builds the query URL and provides the HTTP client; the result page is read by
-our own `parse_fares`. From European IP addresses Google first shows a cookie consent page
-instead of the results, so requests carry a consent cookie (rejecting all optional cookies).
+Fares come from the request behind Google's result list ("GetShoppingResults"), sorted by
+price with every result – the result page alone only holds the first ~10 "best" flights and
+often misses the cheapest. If that request fails, the result page is read instead
+(`parse_fares`). fast-flights builds the page URL and provides the HTTP client. From European
+IP addresses Google first shows a cookie consent page instead of the results, so requests
+carry a consent cookie (rejecting all optional cookies).
 """
 
 import calendar
@@ -67,6 +70,9 @@ class FareRequest:
 
 
 SearchFn = Callable[[FareRequest], list[FareOption]]
+# A flight of a chosen outbound itinerary: from, date, to, airline code, flight number.
+SelectedLeg = tuple[str, str, str, str, str]
+ReturnSearchFn = Callable[[FareRequest, list[SelectedLeg]], list[FareOption]]
 
 _RESULTS_SCRIPT = re.compile(r'<script[^>]*class="ds:1"[^>]*>(.*?)</script>', re.S)
 
@@ -143,10 +149,14 @@ def parse_fares(html: str) -> list[FareOption]:
     data = match.group(1).split("data:", 1)[1].rsplit(",", 1)[0]
     if data.endswith("errorHasStatus: true"):
         return []  # Google's "no flights found"
-    payload = json.loads(data)
+    return _fare_options(json.loads(data))
+
+
+def _fare_options(payload: list) -> list[FareOption]:
+    """Priced itineraries of the result page data or a GetShoppingResults response."""
     options = []
     # payload[2]: "best flights", payload[3]: "other flights"; each [entries, ...] or None.
-    for group in (payload[2], payload[3]):
+    for group in (_at(2, payload), _at(3, payload)):
         for entry in (group[0] or []) if group else []:
             price = _price(entry)
             if price is None:
@@ -164,11 +174,18 @@ def parse_fares(html: str) -> list[FareOption]:
     return options
 
 
-def fast_flights_search(request: FareRequest) -> list[FareOption]:
+def _client():
+    try:
+        from primp import Client  # HTTP client of fast-flights (browser impersonation)
+    except ImportError as exc:
+        raise ProviderError("Package fast-flights missing: pip install '.[scraper]'") from exc
+    return Client(impersonate="chrome_145", impersonate_os="macos", referer=True)
+
+
+def _page_query(request: FareRequest):
     """The only place that touches the `fast-flights` API (pinned in pyproject.toml)."""
     try:
         from fast_flights import FlightQuery, Passengers, create_query
-        from primp import Client  # HTTP client of fast-flights (browser impersonation)
     except ImportError as exc:
         raise ProviderError("Package fast-flights missing: pip install '.[scraper]'") from exc
 
@@ -187,7 +204,7 @@ def fast_flights_search(request: FareRequest) -> list[FareOption]:
                 to_airport=request.origin,
             )
         )
-    query = create_query(
+    return create_query(
         flights=legs,
         seat=request.seat,
         trip="round-trip" if request.return_date is not None else "one-way",
@@ -195,15 +212,22 @@ def fast_flights_search(request: FareRequest) -> list[FareOption]:
         currency=request.currency,
         max_stops=request.max_stops,
     )
+
+
+def _with_url(options: list[FareOption], request: FareRequest) -> list[FareOption]:
+    """Link to exactly this search on Google Flights (for checking and booking)."""
+    url = f"{URL}?{urlencode(_page_query(request).params())}"
+    return [replace(o, details={**o.details, "url": url}) if o.details else o for o in options]
+
+
+def fast_flights_search(request: FareRequest) -> list[FareOption]:
+    """Fares from the result page (only the flights it shows without "more flights")."""
+    query = _page_query(request)
     try:
-        client = Client(impersonate="chrome_145", impersonate_os="macos", referer=True)
-        html = client.get(URL, params=query.params(), headers={"Cookie": CONSENT_COOKIE}).text
+        html = _client().get(URL, params=query.params(), headers={"Cookie": CONSENT_COOKIE}).text
         if "<title>Before you continue" in html:
             raise ProviderError("Google Flights shows its cookie consent page instead of results")
-        options = parse_fares(html)
-        # Link to exactly this search on Google Flights (for checking and booking).
-        url = f"{URL}?{urlencode(query.params())}"
-        return [replace(o, details={**o.details, "url": url}) if o.details else o for o in options]
+        return _with_url(parse_fares(html), request)
     except ProviderError:
         raise
     except Exception as exc:
@@ -314,16 +338,12 @@ def parse_calendar(text: str, currency: str) -> list[CalendarPrice]:
     return prices
 
 
-def google_calendar_search(body: str, currency: str) -> str:
-    """The only place that sends calendar requests (same client and consent cookie as fares)."""
+def _frontend_post(url: str, body: str, currency: str, what: str) -> str:
+    """POST to a FlightsFrontendService endpoint (same client and consent cookie as the page)."""
+    client = _client()
     try:
-        from primp import Client  # HTTP client of fast-flights (browser impersonation)
-    except ImportError as exc:
-        raise ProviderError("Package fast-flights missing: pip install '.[scraper]'") from exc
-    try:
-        client = Client(impersonate="chrome_145", impersonate_os="macos", referer=True)
         response = client.post(
-            f"{CALENDAR_URL}?{urlencode({'curr': currency})}",
+            f"{url}?{urlencode({'curr': currency})}",
             content=body.encode(),
             headers={
                 "Cookie": CONSENT_COOKIE,
@@ -332,11 +352,154 @@ def google_calendar_search(body: str, currency: str) -> str:
         )
         text = response.text
     except Exception as exc:
-        error = f"Google Flights calendar query failed ({type(exc).__name__})"
-        raise ProviderError(error) from None
+        raise ProviderError(f"Google Flights {what} failed ({type(exc).__name__})") from None
     if response.status_code != 200:
-        raise ProviderError(f"Google Flights calendar query failed (HTTP {response.status_code})")
+        raise ProviderError(f"Google Flights {what} failed (HTTP {response.status_code})")
+    if "<title>Before you continue" in text:
+        raise ProviderError("Google Flights shows its cookie consent page instead of results")
     return text
+
+
+def google_calendar_search(body: str, currency: str) -> str:
+    """The only place that sends calendar requests."""
+    return _frontend_post(CALENDAR_URL, body, currency, "calendar query")
+
+
+# Result list: the request behind Google Flights' list of flights, asked for every result
+# sorted by price. A round trip lists outbound flights with the cheapest round-trip total;
+# the return flights of one outbound flight need a second request that names it.
+SHOPPING_URL = (
+    "https://www.google.com/_/FlightsFrontendUi/data/"
+    "travel.frontend.flights.FlightsFrontendService/GetShoppingResults"
+)
+_SHOPPING_SEAT = {"economy": 1, "premium-economy": 2, "business": 3, "first": 4}
+_SORT_BY_PRICE = 2
+_OUTBOUND_SEGMENT, _RETURN_SEGMENT = 3, 1
+# Google answers dense requests now and then with an error; it works again a little later.
+SHOPPING_RETRY_SECONDS = (4.0, 8.0, 12.0)
+
+ShoppingPostFn = Callable[[str, str], str]
+
+
+def shopping_request_body(request: FareRequest, outbound: list[SelectedLeg] | None = None) -> str:
+    """Form body (`f.req=…`) for every itinerary sorted by price; with `outbound`, the return
+    flights of exactly these outbound flights."""
+    stops = _calendar_stops(request.max_stops)
+
+    def segment(origin: str, destination: str, day: date, kind: int, selected=None) -> list:
+        return (
+            [[[[origin, 0]]], [[[destination, 0]]], None, stops, None, None, day.isoformat()]
+            + [None, selected]
+            + [None] * 5
+            + [kind]
+        )
+
+    selected = (
+        [
+            [origin, day, destination, None, airline, number]
+            for origin, day, destination, airline, number in outbound
+        ]
+        if outbound
+        else None
+    )
+    segments = [
+        segment(request.origin, request.destination, request.departure, _OUTBOUND_SEGMENT, selected)
+    ]
+    if request.return_date is not None:
+        segments.append(
+            segment(request.destination, request.origin, request.return_date, _RETURN_SEGMENT)
+        )
+    round_trip = request.return_date is not None
+    settings = [None, None, _CALENDAR_ROUND_TRIP if round_trip else _CALENDAR_ONE_WAY, None, []]
+    settings += [_SHOPPING_SEAT[request.seat], [request.adults, request.children, 0, 0]]
+    settings += [None] * 6 + [segments, None, None, None, 1] + [None] * 10 + [0]
+    filters = [[], settings, _SORT_BY_PRICE, 1, 0, 1]
+    inner = json.dumps(filters, separators=(",", ":"))
+    return "f.req=" + quote(json.dumps([None, inner], separators=(",", ":")))
+
+
+def parse_shopping(text: str) -> list[FareOption]:
+    """Priced itineraries of a GetShoppingResults response; ValueError if it has none at all
+    (Google's intermittent error response)."""
+    payloads = _wrb_payloads(text)
+    if not payloads:
+        raise ValueError("result data missing")
+    try:
+        return _fare_options(payloads[0])
+    except (IndexError, TypeError) as exc:
+        raise ValueError("unexpected result data") from exc
+
+
+def selected_legs(details: dict | None) -> list[SelectedLeg] | None:
+    """The flights of an itinerary in the form a return-flight request names them."""
+    legs = []
+    for segment in (details or {}).get("segments") or []:
+        airline, _, number = (segment.get("flight") or "").partition(" ")
+        if not (number and segment.get("from") and segment.get("to")):
+            return None
+        day = segment.get("departure_date")
+        if not day:
+            return None
+        legs.append((segment["from"], day, segment["to"], airline, number))
+    return legs or None
+
+
+def google_shopping_post(body: str, currency: str) -> str:
+    """The only place that sends result-list requests."""
+    return _frontend_post(SHOPPING_URL, body, currency, "query")
+
+
+def shopping_results(
+    body: str,
+    currency: str,
+    *,
+    post: ShoppingPostFn = google_shopping_post,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[FareOption]:
+    """One result-list request, retried while Google answers with its error response."""
+    for wait in (*SHOPPING_RETRY_SECONDS, None):
+        try:
+            return parse_shopping(post(body, currency))
+        except ValueError:
+            if wait is None:
+                raise ProviderError("Google Flights result list has an unexpected format") from None
+            sleep(wait)
+    raise AssertionError("unreachable")
+
+
+def google_flights_search(
+    request: FareRequest,
+    *,
+    post: ShoppingPostFn = google_shopping_post,
+    sleep: Callable[[float], None] = time.sleep,
+    fallback: SearchFn | None = None,
+) -> list[FareOption]:
+    """Every result sorted by price; the result page if the result list keeps failing."""
+    try:
+        options = shopping_results(
+            shopping_request_body(request), request.currency, post=post, sleep=sleep
+        )
+    except ProviderError as exc:
+        log.info(
+            "%s→%s: result list failed (%s), reading the page",
+            request.origin,
+            request.destination,
+            exc,
+        )
+        return (fallback or fast_flights_search)(request)
+    return _with_url(options, request)
+
+
+def google_return_search(
+    request: FareRequest,
+    outbound: list[SelectedLeg],
+    *,
+    post: ShoppingPostFn = google_shopping_post,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[FareOption]:
+    """Return flights for the given outbound flights; prices are round-trip totals."""
+    body = shopping_request_body(request, outbound)
+    return shopping_results(body, request.currency, post=post, sleep=sleep)
 
 
 def sample_days(month: date, count: int, after: date | None = None) -> list[date]:
@@ -365,21 +528,55 @@ class GoogleFlightsProvider(FlightPriceProvider):
     samples_days = True
     supports_connection_times = True
     calendar_days_per_request = CALENDAR_DAYS_PER_REQUEST
+    supports_return_flights = True
 
     def __init__(
         self,
         *,
         request_delay_seconds: float = 3.0,
-        search: SearchFn = fast_flights_search,
+        return_flights: bool = False,
+        search: SearchFn = google_flights_search,
+        return_search: ReturnSearchFn = google_return_search,
         calendar_search: CalendarSearchFn = google_calendar_search,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         sleep: Callable[[float], None] = time.sleep,
     ):
         self._delay = request_delay_seconds
+        self._return_flights = return_flights
         self._search = search
+        self._return_search = return_search
         self._calendar_search = calendar_search
         self._clock = clock
         self._sleep = sleep
+
+    def _allowed(self, options: list[FareOption], query: PriceQuery) -> list[FareOption]:
+        return [o for o in options if query.max_stops is None or o.stops <= query.max_stops]
+
+    def _with_return(
+        self, request: FareRequest, outbound: FareOption, query: PriceQuery
+    ) -> FareOption:
+        """The cheapest return flight of this outbound flight (one more request).
+
+        Its price is the round-trip total of exactly this combination. Without a usable
+        answer the outbound option stays as it is – it already carries the round-trip total.
+        """
+        legs = selected_legs(outbound.details)
+        if legs is None:
+            return outbound
+        try:
+            options = self._allowed(self._return_search(request, legs), query)
+        except ProviderError as exc:
+            log.warning("%s→%s return flights skipped: %s", query.origin, query.destination, exc)
+            return outbound
+        finally:
+            self._sleep(self._delay)
+        if not options:
+            return outbound
+        back = min(options, key=lambda o: o.price)
+        details = dict(outbound.details or {})
+        if back.details:
+            details["return"] = {k: v for k, v in back.details.items() if k != "url"}
+        return replace(outbound, price=back.price, details=details)
 
     def fetch_calendar(self, query: CalendarQuery) -> list[CalendarPrice]:
         """One request per 61 days; a failed chunk is skipped, all failing raises."""
@@ -425,20 +622,19 @@ class GoogleFlightsProvider(FlightPriceProvider):
         requests = [(day, ret) for day in days for ret in return_dates(query, day)]
         errors: list[ProviderError] = []
         for departure, return_date in requests:
+            request = FareRequest(
+                origin=query.origin,
+                destination=query.destination,
+                departure=departure,
+                return_date=return_date,
+                seat=_SEAT[query.cabin_class],
+                adults=query.adults,
+                currency=query.currency,
+                max_stops=query.max_stops,
+                children=query.children,
+            )
             try:
-                options = self._search(
-                    FareRequest(
-                        origin=query.origin,
-                        destination=query.destination,
-                        departure=departure,
-                        return_date=return_date,
-                        seat=_SEAT[query.cabin_class],
-                        adults=query.adults,
-                        currency=query.currency,
-                        max_stops=query.max_stops,
-                        children=query.children,
-                    )
-                )
+                options = self._search(request)
             except ProviderError as exc:
                 log.warning(
                     "%s→%s on %s skipped: %s", query.origin, query.destination, departure, exc
@@ -447,10 +643,12 @@ class GoogleFlightsProvider(FlightPriceProvider):
                 continue
             finally:
                 self._sleep(self._delay)
-            allowed = [o for o in options if query.max_stops is None or o.stops <= query.max_stops]
+            allowed = self._allowed(options, query)
             if not allowed:
                 continue
             cheapest = min(allowed, key=lambda o: o.price)
+            if self._return_flights and return_date is not None:
+                cheapest = self._with_return(request, cheapest, query)
             quotes.append(
                 PriceQuote(
                     provider=self.name,

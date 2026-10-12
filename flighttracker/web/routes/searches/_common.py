@@ -65,8 +65,9 @@ def redirect(url: str) -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
 
 
-# Rough time per scraper request on top of the configured pause (measured: ~1 s).
-_SECONDS_PER_REQUEST = 1.0
+# Rough time per scraper request on top of the configured pause: ~2 s for Google's result
+# list, plus its occasional retries after an error response (4 s and more).
+_SECONDS_PER_REQUEST = 4.0
 
 
 def estimate(spec: SearchSpec, settings: Settings) -> dict:

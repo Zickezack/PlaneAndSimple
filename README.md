@@ -187,9 +187,11 @@ inside the Compose network, by design.
 
 - `google_flights` (default in `.env.example` and Compose; without any `FLIGHT_PROVIDER` the app
   falls back to `mock`): real live fares from Google Flights, **no account or token**.
-  Best effort – it scrapes the page and may break when Google changes it.
-  Each poll also reads Google's price calendar (cheapest price of every departure day, 61 days
-  per request) for the heat map on the tracked search page.
+  Best effort – it reads Google's result list (every flight sorted by price) and may break when
+  Google changes it. Each poll also reads Google's price calendar (cheapest price of every
+  departure day, 61 days per request) for the heat map on the tracked search page. Optionally
+  (**Settings → Platform Settings → Load return flights**) one more request per round-trip price
+  loads its return flight.
 - `travelpayouts`: cached Aviasales prices, needs a free token from travelpayouts.com →
   `TRAVELPAYOUTS_TOKEN`.
 - `mock`: fake prices for tests.

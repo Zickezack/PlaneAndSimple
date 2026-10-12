@@ -64,7 +64,11 @@ def detail(
     today = datetime.now(UTC).date()
     # Only prices for the current passengers: others are not comparable (see services/history).
     passengers = (spec.filters.adults, spec.filters.children)
-    points = history.price_points(db, search.id, FAKE_DATA_PROVIDERS, passengers=passengers)
+    observed = history.price_points(db, search.id, FAKE_DATA_PROVIDERS, passengers=passengers)
+    # Upcoming prices only if the latest poll still found them (past ones feed the previous year).
+    seen = history.latest_poll_dates(db, search.id)
+    points = [p for p in observed if p.departure_date < today or history.is_current(p, seen)]
+    outdated = len(observed) - len(points)
     upcoming = [p for p in points if p.departure_date >= today]
     trends = price_trends.flight_trends(
         upcoming, price_trends.price_series(db, search.id, today, passengers=passengers)
@@ -118,6 +122,7 @@ def detail(
             "observation_count": history.observation_counts(db, [search.id]).get(search.id, 0),
             "jobs": jobs.recent_jobs(db, search.id),
             "revisions": search.revisions,
+            "outdated_prices": outdated,
             "hidden_passenger_prices": history.other_passenger_prices(
                 db, search.id, passengers, today
             ),
@@ -165,6 +170,7 @@ def flight_detail(
             "search": search,
             "observed": observed,
             "segments": flights.segments(observed.details),
+            "return_segments": flights.segments((observed.details or {}).get("return")),
             "url": (observed.details or {}).get("url"),
             "history": history.flight_history(db, observed),
             "fake": observed.provider in FAKE_DATA_PROVIDERS,
