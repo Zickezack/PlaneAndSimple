@@ -39,11 +39,18 @@ Worker behaviour (single worker process):
 - **Immediate start:** creating, broadening or resuming a Suchabo sends `NOTIFY fetch_jobs`;
   the worker `LISTEN`s and starts at once instead of waiting for `WORKER_TICK_SECONDS`.
   Jobs run one after another, so a new Suchabo waits for a poll that is already running.
-- **Price calendar:** after its fare queries, a poll of a provider with a calendar
-  (`calendar_days_per_request`, Google Flights: 61 days) fetches the cheapest price of every
-  departure day from tomorrow to the end of the last polled month – one query per route, cabin
-  and stay length, split into requests by the provider. Stored in `price_calendar` for the heat
-  map; the requests count towards the user's request budget.
+- **Price calendar first, then the fares:** a poll of a provider with a calendar
+  (`calendar_days_per_request`, Google Flights: 61 days) first fetches the cheapest price of
+  every departure day from tomorrow to the end of the last polled month – one query per route,
+  cabin and stay length, split into requests by the provider; stored in `price_calendar`, the
+  requests count towards the user's request budget.
+- **Which departure days:** for a provider that queries single days *and* has a calendar
+  (Google Flights), each fare query asks for half evenly spread days (the same every poll – a
+  continuous price history and previous-year comparison) and half the cheapest days of the
+  calendar, over the stay lengths asked for (`domain/sampling.choose_days`,
+  `services/day_selection.py`). Same number of requests as pure spreading; without calendar
+  prices for a month its days stay evenly spread. 1 day per month is the cheapest one, every
+  day stays every day.
 - **One commit per query:** a poll job consists of provider queries (route × departure month ×
   cabin). Each query stores its prices and a `query_log` entry and is committed on its own.
   A failed query does not fail the job; the job only fails (and is retried) if all queries fail.
@@ -90,7 +97,7 @@ Where new code goes (dependencies only point downwards):
   (`trip_job.py`). Rules about *what* to query and store live in services (`ingestion.py`,
   `trip_polling.py`).
 - Services: one use case per module – write side `searches`, `trips`; lookups `locations`;
-  read side `history`, `price_trends`, `month_overview`, `capacity`; polling `ingestion`, `trip_polling`;
+  read side `history`, `price_trends`, `month_overview`, `capacity`; polling `ingestion`, `day_selection`, `trip_polling`;
   transfer `data_export`, `data_import`.
 - No imports of another module's `_private` names: a helper a second module needs becomes public.
 - JS: one file per widget, shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
@@ -108,7 +115,7 @@ Where new code goes (dependencies only point downwards):
 | Sharing, owners, quotas | `web/routes/searches/shares.py`, `web/sharing.py`, `services/access.py`, `services/quota.py` |
 | Worker load (Platform Settings) | `services/capacity.py`, `web/routes/settings.py`, `templates/settings/index.html` |
 | Trips | `web/routes/trips.py`, `web/trip_forms.py`, `services/trips.py`, `domain/trips.py` |
-| Polling | `worker/*`, `services/ingestion.py`, `services/trip_polling.py`, `providers/*` |
+| Polling | `worker/*`, `services/ingestion.py`, `services/day_selection.py`, `domain/sampling.py`, `services/trip_polling.py`, `providers/*` (Google Flights: package `providers/google_flights/` – `results` list, `page` fallback, `price_calendar`, `provider`) |
 | Import/export | `services/data_export.py`, `services/data_import.py` |
 
 **Plane and simple (UI principle):** every page shows the essentials first and folds the rest
@@ -139,8 +146,9 @@ date (diamond markers + a panel with that day's flights and links). The panel al
 date's price over time (x = poll date, a step line per flight, from `hist`/`seen` in the JSON),
 so the user sees when a flight was cheapest. Below, a **price calendar** (heat map) shows the
 cheapest calendar price of every departure day for the same filters (sequential blue, light =
-cheaper, price printed in every cell, cheapest day ringed); days that also have flights in the
-chart can be clicked to pin them. The filter row (origin,
+cheaper, price printed in every cell, cheapest day ringed), folded away by default – the
+chart already shows the cheapest calendar days with their flights; days that also have flights
+in the chart can be clicked to pin them. The filter row (origin,
 destination, cabin, stay length, table view) scopes chart, panel and table. The table lists every
 flight (server-rendered, works without JavaScript); the script groups it into "cheapest per
 month" rows that unfold into all departure dates.
@@ -246,7 +254,7 @@ legs, then polled again) ask for the exact name.
   use observations for the Suchabo's current passengers and say how many others are hidden. A
   passenger change counts as broadening: the Suchabo is polled again right away.
 - **Request volume:** a Suchabo costs `routes × cabin classes × months` provider queries per
-  poll; for Google Flights each query is `sampled departure dates per month × stay lengths` requests
+  poll; for Google Flights each query is `departure dates per month × stay lengths` requests
   (form and detail page show both counts and an estimated duration). A country only expands to its **selected**
   airports: the `COUNTRY_DEFAULT_AIRPORTS` largest (Wikidata passenger numbers) are preselected
   and shown as checkboxes before saving; routes are capped by `MAX_ROUTE_PAIRS_PER_SEARCH`.

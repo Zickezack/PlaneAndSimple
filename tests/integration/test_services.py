@@ -556,7 +556,8 @@ class TestQueryLog:
         search = create(db, months_ahead=3)
         db.commit()
         schedule(session_factory, clock=lambda: NOW)
-        answers = iter([False, False, True])  # stop after two queries (September, October)
+        # Stop after the price calendar (first) and two fare queries (September, October).
+        answers = iter([False, False, False, True])
         provider = MockProvider(clock=lambda: NOW)
         assert process_next_job(
             session_factory, provider, clock=lambda: NOW, should_stop=lambda: next(answers)
@@ -564,16 +565,16 @@ class TestQueryLog:
         job = db.scalars(select(FetchJob).where(FetchJob.search_id == search.id)).one()
         db.refresh(job)
         assert (job.status, job.attempts) == (JobStatus.QUEUED, 0)
-        assert count(db, QueryLog, search.id) == 2
+        assert count(db, QueryLog, search.id) == 3
         stored_before = count(db, PriceHistory, search.id)
         assert stored_before > 0
 
-        # Resumed: only the missing third month runs, then the price calendar; the job
-        # counters cover the fares of both runs.
+        # Resumed: the price calendar again (it chooses the days), then only the missing third
+        # month; the job counters cover the fares of both runs.
         assert process_next_job(session_factory, provider, clock=lambda: NOW)
         db.refresh(job)
         kinds = db.scalars(select(QueryLog.kind).where(QueryLog.search_id == search.id)).all()
-        assert sorted(kinds) == [QueryKind.CALENDAR, *[QueryKind.FARES] * 3]
+        assert sorted(kinds) == [*[QueryKind.CALENDAR] * 2, *[QueryKind.FARES] * 3]
         assert (job.status, job.queries_total, job.queries_failed) == (JobStatus.DONE, 3, 0)
         assert job.quotes_stored == count(db, PriceHistory, search.id) > stored_before
 

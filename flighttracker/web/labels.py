@@ -33,9 +33,9 @@ STOPS_OPTIONS = [
 ]
 LOCATION_KIND_LABELS = {LocationKind.COUNTRY: "Country", LocationKind.AIRPORT: "Airport"}
 DAYS_PER_MONTH_LABELS = {
-    4: "4 (about weekly)",
-    8: "8 (about twice a week)",
-    15: "15 (every other day)",
+    4: "4 (2 fixed, 2 cheapest)",
+    8: "8 (4 fixed, 4 cheapest)",
+    15: "15 (7 fixed, 8 cheapest)",
     31: "Every day",
 }
 STATUS_LABELS = {SearchStatus.ACTIVE: "Active", SearchStatus.PAUSED: "Paused"}

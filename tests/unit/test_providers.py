@@ -7,6 +7,7 @@ import pytest
 from pydantic import SecretStr
 
 from flighttracker.domain.filters import CabinClass, TripType
+from flighttracker.domain.sampling import sample_days
 from flighttracker.providers.base import PriceQuery, ProviderError
 from flighttracker.providers.google_flights import (
     FareOption,
@@ -17,7 +18,6 @@ from flighttracker.providers.google_flights import (
     google_return_search,
     parse_fares,
     parse_shopping,
-    sample_days,
     selected_legs,
     shopping_request_body,
 )

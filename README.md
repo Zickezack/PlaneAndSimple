@@ -17,7 +17,8 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
 - **Price chart** per departure date with price changes and the previous year; a clicked date
   lists its flights (1 day / 1 week / 1 month changes) and how their price developed –
   *when to buy*.
-- **Price calendar** (heat map): the cheapest price of every departure day.
+- **Price calendar** (heat map): the cheapest price of every departure day – it also picks
+  half of the departure days a poll queries, so the chart shows the really cheap days.
 - **Flight details** with segments, layovers, Flightradar24 and Google Flights links.
 - **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
 - **[Users](#users)** with sharing, per-user limits and a Poll Log.
@@ -191,8 +192,10 @@ inside the Compose network, by design.
 - `google_flights` (default in `.env.example` and Compose; without any `FLIGHT_PROVIDER` the app
   falls back to `mock`): real live fares from Google Flights, **no account or token**.
   Best effort – it reads Google's result list (every flight sorted by price) and may break when
-  Google changes it. Each poll also reads Google's price calendar (cheapest price of every
-  departure day, 61 days per request) for the heat map on the tracked search page. Per tracked
+  Google changes it. Each poll first reads Google's price calendar (cheapest price of every
+  departure day, 61 days per request): it fills the heat map and chooses half of the departure
+  days the poll queries – the cheapest ones; the other half stays evenly spread for a continuous
+  price history. Per tracked
   search (**More options → Load return flights**; preset under Platform Settings) one more
   request per round-trip price loads its return flight. **Archive or delete → Clear price
   history** removes prices collected so far, e.g. after such a change.

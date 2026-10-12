@@ -16,6 +16,7 @@ from flighttracker.db.session import create_db_engine, create_session_factory
 from flighttracker.models import FetchJob, JobStatus
 from flighttracker.providers.base import FlightPriceProvider, ProviderError
 from flighttracker.providers.registry import get_provider, provider_config
+from flighttracker.services.day_selection import uses_calendar_days, with_calendar_days
 from flighttracker.services.ingestion import (
     all_queries_failed,
     finish_job,
@@ -101,21 +102,24 @@ def process_next_job(
                 currency=currency,
                 calendar=provider.calendar_days_per_request is not None,
             )
-            entries = []
-            for query in plan.queries if plan else []:
-                if should_end(session, job, should_stop):
-                    interrupt(session, job)
-                    log.info("Job %d %s after %d queries", job_id, job.status, len(entries))
-                    return True
-                entries.append(run_query(session, plan, query, provider, now=clock()))
-                session.commit()
-            # Price calendar (heat map) after the fares, so a failure here never delays them.
+            # Price calendar first: it chooses the cheapest departure days for the fares.
             for query in plan.calendar_queries if plan else []:
                 if should_end(session, job, should_stop):
                     interrupt(session, job)
                     log.info("Job %d %s during the price calendar", job_id, job.status)
                     return True
                 run_calendar_query(session, plan, query, provider, now=clock())
+                session.commit()
+            queries = plan.queries if plan else []
+            if plan and uses_calendar_days(provider):
+                queries = with_calendar_days(session, plan.search_id, queries, clock().date())
+            entries = []
+            for query in queries:
+                if should_end(session, job, should_stop):
+                    interrupt(session, job)
+                    log.info("Job %d %s after %d queries", job_id, job.status, len(entries))
+                    return True
+                entries.append(run_query(session, plan, query, provider, now=clock()))
                 session.commit()
             refresh_status(session, job, lock=True)
             error = finish_job(session, job, entries, clock())

@@ -104,7 +104,7 @@
     <div class="grid-2">
       {{ ui.select_field("max_stops", _("Stops"), labels.STOPS_OPTIONS | tr_options, values.max_stops) }}
       {{ ui.select_field("days_per_month", _("Departure dates sampled per month"), days_per_month_options | tr_options, values.days_per_month,
-        hint=_("How many departure dates are sampled per month; this affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests (about 2 min), every day = 186 requests (about 12 min). Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.")) }}
+        hint=_("How many departure dates are queried per month: half of them evenly spread (the same every poll, for a continuous price history), the other half the cheapest days of Google's price calendar. This affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests, every day = 186 requests. Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.")) }}
     </div>
     <div class="field">
       <label class="choice"><input type="checkbox" name="return_flights" value="1"{% if values.return_flights %} checked{% endif %}> <span>{{ _("Load return flights") }}</span></label>

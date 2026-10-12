@@ -39,6 +39,15 @@ def _days_covered(new: int, existing: int) -> bool:
     return new == existing or existing >= MAX_DAYS_IN_MONTH
 
 
+def _stays_covered(new: SearchFilters, existing: SearchFilters) -> bool:
+    """Half of the sampled days are the cheapest of the price calendar over all stay lengths
+    asked for, so other stay lengths can pick other days – only identical stay lengths are
+    certain to query the same days, unless every day is queried anyway."""
+    if existing.days_per_month >= MAX_DAYS_IN_MONTH:
+        return set(new.stay_lengths) <= set(existing.stay_lengths)
+    return set(new.stay_lengths) == set(existing.stay_lengths)
+
+
 def filters_covered(new: SearchFilters, existing: SearchFilters) -> bool:
     """True only if the existing Suchabo already fetches every price the new one would.
 
@@ -53,7 +62,7 @@ def filters_covered(new: SearchFilters, existing: SearchFilters) -> bool:
         and new.max_stops == existing.max_stops
         and new.months_ahead <= existing.months_ahead
         and _days_covered(new.days_per_month, existing.days_per_month)
-        and set(new.stay_lengths) <= set(existing.stay_lengths)
+        and _stays_covered(new, existing)
         and (existing.return_flights or not new.return_flights)
     )
 

@@ -28,6 +28,7 @@ from flighttracker.providers.base import (
     PriceQuote,
     ProviderError,
 )
+from flighttracker.services.day_selection import uses_calendar_days, with_calendar_days
 from flighttracker.services.searches import current_revision_id, get_search, spec_of
 
 log = logging.getLogger(__name__)
@@ -396,9 +397,12 @@ def run_fetch_job(
     plan = plan_job(session, job, now, calendar=provider.calendar_days_per_request is not None)
     if plan is None:
         return 0
-    entries = [run_query(session, plan, query, provider, now=now) for query in plan.queries]
     for query in plan.calendar_queries:
         run_calendar_query(session, plan, query, provider, now=now)
+    queries = plan.queries
+    if uses_calendar_days(provider):
+        queries = with_calendar_days(session, plan.search_id, queries, now.date())
+    entries = [run_query(session, plan, query, provider, now=now) for query in queries]
     error = finish_job(session, job, entries, now)
     if all_queries_failed(job):
         raise ProviderError(error or "All queries failed")

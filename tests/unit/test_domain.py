@@ -251,9 +251,16 @@ class TestCoverage:
             ({"max_stops": None}, {"max_stops": 1}, False),
             # Stays: what is queried counts – an empty stay is 7 days, not "unlimited".
             ({"stay_days_min": 5, "stay_days_max": 7}, {}, False),
-            ({}, {"stay_days_min": 5, "stay_days_max": 9}, True),
+            # Fewer stay lengths can pick other cheapest days – unless every day is queried.
+            ({}, {"stay_days_min": 5, "stay_days_max": 9}, False),
+            ({}, {"stay_days_min": 5, "stay_days_max": 9, "days_per_month": 31}, True),
             (
-                {"stay_days_min": 5, "stay_days_max": 6},
+                {"stay_days_min": 5, "stay_days_max": 6, "days_per_month": 31},
+                {"stay_days_min": 5, "stay_days_max": 9, "days_per_month": 31},
+                True,
+            ),
+            (
+                {"stay_days_min": 5, "stay_days_max": 9},
                 {"stay_days_min": 5, "stay_days_max": 9},
                 True,
             ),

@@ -113,3 +113,6 @@
 36. Worker load for admins (Platform Settings): duration of one round of polls (measured from
     the latest polls, extrapolated for new ones) against the poll interval, reserve in time and
     requests, waiting polls, and each Suchabo's and Trip's share.
+37. Calendar-driven departure days: each poll reads the price calendar first and queries half
+    evenly spread and half the cheapest calendar days per month (same number of requests); the
+    heat map is folded away by default. Google Flights adapter split into a package.

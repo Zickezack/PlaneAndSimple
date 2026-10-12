@@ -12,6 +12,7 @@ from flighttracker.models import (
     JobStatus,
     PriceHistory,
     PriceSource,
+    QueryKind,
     QueryLog,
     Search,
     SearchStatus,
@@ -369,7 +370,9 @@ class TestCancelPolls:
         )
         db.refresh(job)
         assert job.status is JobStatus.CANCELLED
-        logged = db.scalars(select(QueryLog).where(QueryLog.job_id == job.id)).all()
+        logged = db.scalars(
+            select(QueryLog).where(QueryLog.job_id == job.id, QueryLog.kind == QueryKind.FARES)
+        ).all()
         assert len(logged) == 1  # the query in progress finished and was kept
 
 

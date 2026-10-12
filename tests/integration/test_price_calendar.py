@@ -53,3 +53,35 @@ def test_worker_stores_the_calendar_and_the_page_shows_the_latest_day_prices(db,
         "price": data["calendar"][0]["price"],
         "fake": True,
     }
+
+
+class SingleDaysProvider(MockProvider):
+    """Like Google Flights: asks for single departure days and has a price calendar."""
+
+    samples_days = True
+
+
+def test_fares_ask_for_fixed_and_the_cheapest_calendar_days(db, session_factory):
+    search = create(db, months_ahead=2, stay_days_min=7, stay_days_max=7, days_per_month=4)
+    db.commit()
+    schedule(session_factory, clock=lambda: NOW)
+    provider = SingleDaysProvider(clock=lambda: NOW)
+    assert process_next_job(session_factory, provider, clock=lambda: NOW)
+    db.expire_all()
+
+    october = date(2026, 10, 1)
+    calendar = {
+        d.departure_date: d.price
+        for d in history.calendar_days(db, search.id, NOW.date(), passengers=(1, 0))
+        if d.departure_date.month == 10
+    }
+    fixed = {date(2026, 10, 1), date(2026, 10, 16)}
+    cheapest = sorted((price, day) for day, price in calendar.items() if day not in fixed)[:2]
+    (entry,) = db.scalars(
+        select(QueryLog).where(
+            QueryLog.kind == QueryKind.FARES, QueryLog.departure_month == october
+        )
+    ).all()
+    assert {date.fromisoformat(r["date"]) for r in entry.results} == fixed | {
+        day for _, day in cheapest
+    }

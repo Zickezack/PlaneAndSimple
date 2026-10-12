@@ -20,7 +20,7 @@ The code and docs use "Suchabo" for a tracked search.
 | Stops | Stopps | `max_stops` | `None` = any, `0` = direct flights only |
 | Period | Zeitraum | `months_ahead` | Departure months tracked, starting with the current month |
 | Stay | Aufenthalt | `stay_days_min` / `stay_days_max` | Length of stay (round trips only) |
-| Departure dates sampled per month | Abflugtermine pro Monat | `days_per_month` | Sampling count for some providers (4/8/15/31, default 4), separate from poll cadence |
+| Departure dates sampled per month | Abflugtermine pro Monat | `days_per_month` | Departure days queried per month by providers that query single days (4/8/15/31, default 4): half evenly spread, half the cheapest of the price calendar; separate from poll cadence |
 | Return flights | Rückflüge laden | `return_flights` | Round trips: also load the return flight of every price (one more request each; default from the Platform Setting) |
 | Adults / Children | Erwachsene / Kinder | `adults` / `children` | Passengers; children aged 2–11, at most 9 passengers in total |
 | Poll interval | Abfrage-Intervall | `default_poll_interval_minutes` | One platform-wide cadence for active Suchabos and Trips, in minutes (default 1440) |
@@ -98,8 +98,8 @@ erDiagram
   persistent log that outlives jobs and permanently deleted Suchabos (name kept as snapshot).
   `results` repeats the prices a query found (see below); it contains no personal data.
 - `price_calendar` is append-only as well and kept apart from `price_history` on purpose: a
-  calendar price has no flight (no stops, airline or times), so it only feeds the heat map and
-  never the chart, the flights table or the overlap rules. The latest observation per route,
+  calendar price has no flight (no stops, airline or times), so it feeds the heat map and the
+  choice of departure days, but never the chart, the flights table or the overlap rules. The latest observation per route,
   cabin, currency, departure and return day counts; passengers are filtered like prices.
   Calendar requests are logged with `query_log.kind = 'calendar'` (`departure_month` = month of
   the first day, no `results`) and neither resume nor count towards the job's counters.

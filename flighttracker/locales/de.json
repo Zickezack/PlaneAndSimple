@@ -101,7 +101,6 @@
   "How often all active tracked searches and Trips are polled. 1440 minutes is 24 hours.": "Wie oft alle aktiven Suchabos und Trips abgefragt werden. 1440 Minuten entsprechen 24 Stunden.",
   "Search defaults": "Sucheinstellungen",
   "Departure dates sampled per month": "Abflugtermine pro Monat",
-  "How many departure dates are sampled per month; this affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests (about 2 min), every day = 186 requests (about 12 min). Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.": "Wie viele Abflugtermine pro Monat abgefragt werden; das beeinflusst Abdeckung und Anfragen pro Durchlauf, nicht das Abfrageintervall. Beispiel (Google Flights, 1 Route, 6 Monate, Einweg): 4 pro Monat = 24 Anfragen (ca. 2 Min.), jeden Tag = 186 Anfragen (ca. 12 Min.). Bei Hin- und Rückflug multipliziert sich das mit der Anzahl Aufenthaltslängen (bis zu 8). Warnung: Viele Anfragen pro Durchlauf können dazu führen, dass Google deine IP vorübergehend sperrt – bleib bei 4, ausser du verfolgst nur wenige Routen.",
   "Please choose a JSON file to import.": "Bitte wähle eine JSON-Datei zum Importieren aus.",
   "Re-fetches countries, airports and passenger numbers from OurAirports and Wikidata (needs a contact above; otherwise airports are only ranked by type).": "Lädt Länder, Flughäfen und Passagierzahlen erneut von OurAirports und Wikidata (benötigt den Kontakt oben; sonst werden Flughäfen nur nach Typ sortiert).",
   "Re-import airports now": "Flughäfen jetzt neu importieren",
@@ -126,9 +125,6 @@
   "set, not shown": "gesetzt, wird nicht angezeigt",
   "+{n} more dates": "+{n} weitere Daten",
   "1 stop": "1 Stopp",
-  "15 (every other day)": "15 (jeden zweiten Tag)",
-  "4 (about weekly)": "4 (etwa wöchentlich)",
-  "8 (about twice a week)": "8 (etwa zweimal pro Woche)",
   "A length of stay is only possible for round trips.": "Eine Aufenthaltsdauer ist nur bei Hin- und Rückflug möglich.",
   "A new tracked search is not needed.": "Ein neues Suchabo ist nicht nötig.",
   "A poll of this tracked search is already running.": "Eine Abfrage dieses Suchabos läuft bereits.",
@@ -516,5 +512,9 @@
   "OK": "OK",
   "none": "keine",
   "Share of the round": "Anteil an der Runde",
-  "{requests} (upper bound) for {n} active tracked searches and Trips": "{requests} (Obergrenze) für {n} aktive Suchabos und Trips"
+  "{requests} (upper bound) for {n} active tracked searches and Trips": "{requests} (Obergrenze) für {n} aktive Suchabos und Trips",
+  "How many departure dates are queried per month: half of them evenly spread (the same every poll, for a continuous price history), the other half the cheapest days of Google's price calendar. This affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests, every day = 186 requests. Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.": "Wie viele Abflugtermine pro Monat abgefragt werden: die Hälfte gleichmässig verteilt (bei jedem Durchlauf dieselben, für einen durchgehenden Preisverlauf), die andere Hälfte die günstigsten Tage aus Googles Preiskalender. Das beeinflusst Abdeckung und Anfragen pro Durchlauf, nicht das Abfrageintervall. Beispiel (Google Flights, 1 Route, 6 Monate, Einweg): 4 pro Monat = 24 Anfragen, jeden Tag = 186 Anfragen. Bei Hin- und Rückflug multipliziert sich das mit der Anzahl Aufenthaltslängen (bis zu 8). Warnung: Viele Anfragen pro Durchlauf können dazu führen, dass Google deine IP vorübergehend sperrt – bleib bei 4, ausser du verfolgst nur wenige Routen.",
+  "4 (2 fixed, 2 cheapest)": "4 (2 feste, 2 günstigste)",
+  "8 (4 fixed, 4 cheapest)": "8 (4 feste, 4 günstigste)",
+  "15 (7 fixed, 8 cheapest)": "15 (7 feste, 8 günstigste)"
 }
