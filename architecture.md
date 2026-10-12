@@ -90,7 +90,7 @@ Where new code goes (dependencies only point downwards):
   (`trip_job.py`). Rules about *what* to query and store live in services (`ingestion.py`,
   `trip_polling.py`).
 - Services: one use case per module – write side `searches`, `trips`; lookups `locations`;
-  read side `history`, `price_trends`, `month_overview`; polling `ingestion`, `trip_polling`;
+  read side `history`, `price_trends`, `month_overview`, `capacity`; polling `ingestion`, `trip_polling`;
   transfer `data_export`, `data_import`.
 - No imports of another module's `_private` names: a helper a second module needs becomes public.
 - JS: one file per widget, shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
@@ -106,6 +106,7 @@ Where new code goes (dependencies only point downwards):
 | Detail page, chart, heat map | `web/routes/searches/detail.py`, `web/flights.py`, `services/history.py`, `services/price_trends.py`, `static/js/price-chart.js` (+ `price-history.js`, `price-calendar.js`, `chart-svg.js`) |
 | Poll now, pause, archive, delete | `web/routes/searches/actions.py`, `services/jobs.py` |
 | Sharing, owners, quotas | `web/routes/searches/shares.py`, `web/sharing.py`, `services/access.py`, `services/quota.py` |
+| Worker load (Platform Settings) | `services/capacity.py`, `web/routes/settings.py`, `templates/settings/index.html` |
 | Trips | `web/routes/trips.py`, `web/trip_forms.py`, `services/trips.py`, `domain/trips.py` |
 | Polling | `worker/*`, `services/ingestion.py`, `services/trip_polling.py`, `providers/*` |
 | Import/export | `services/data_export.py`, `services/data_import.py` |

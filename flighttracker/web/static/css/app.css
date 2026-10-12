@@ -291,3 +291,5 @@ details.more[open] > summary { margin-bottom: .75rem; }
 .trip-route { display: flex; flex-direction: column; gap: .55rem; padding-left: 1.5rem; }
 .trip-route li small { display: block; }
 
+/* Worker load (Platform Settings) */
+.load-meter { display: block; width: 100%; height: 1rem; margin: .5rem 0 1rem; }

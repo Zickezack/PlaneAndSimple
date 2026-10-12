@@ -88,7 +88,10 @@ locked out from the UI. Admins create further users under **Users** (top bar):
   `MAX_SEARCHES_PER_USER` (10) tracked searches and Trips, and at most `MAX_REQUESTS_PER_USER`
   (600) provider requests per poll for all of them together – the request budget is what really
   costs, since one broad search can need more requests than twenty narrow ones. Both are
-  defaults under **Settings → Platform Settings** and can be changed per user.
+  defaults under **Settings → Platform Settings** and can be changed per user. The real
+  ceiling is the single worker, which runs one poll after the other: Platform Settings shows its
+  load – how long one round of all polls takes (measured) against the poll interval, and how
+  many more requests fit before polls back up.
 - **Settings** shows every user their personal settings (language, time zone, password);
   Platform Settings, export and import are only shown to admins.
 

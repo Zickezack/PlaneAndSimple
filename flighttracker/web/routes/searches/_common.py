@@ -12,7 +12,7 @@ from flighttracker.domain.spec import (
 )
 from flighttracker.i18n import Msg
 from flighttracker.models import Search, User
-from flighttracker.services import quota
+from flighttracker.services import capacity, quota
 from flighttracker.services.access import (
     Access,
     search_access,
@@ -65,16 +65,11 @@ def redirect(url: str) -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
 
 
-# Rough time per scraper request on top of the configured pause: ~2 s for Google's result
-# list, plus its occasional retries after an error response (4 s and more).
-_SECONDS_PER_REQUEST = 4.0
-
-
 def estimate(spec: SearchSpec, settings: Settings) -> dict:
     """Cost of one poll, so that the user can weigh coverage against requests and time."""
     queries = queries_per_poll(spec)
     requests = quota.search_requests(spec, settings)
-    seconds = requests * (settings.scraper_request_delay_seconds + _SECONDS_PER_REQUEST)
+    seconds = capacity.estimated_seconds(requests, settings)
     return {
         "routes": len(route_pairs(spec)),
         "queries": queries,

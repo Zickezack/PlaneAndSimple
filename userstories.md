@@ -110,3 +110,6 @@
     (e.g. a departure day that is no longer sampled).
 35. Clear the price history of a Suchabo or Trip (confirmed by name, polled again right away), e.g.
     after a change in how prices are collected.
+36. Worker load for admins (Platform Settings): duration of one round of polls (measured from
+    the latest polls, extrapolated for new ones) against the poll interval, reserve in time and
+    requests, waiting polls, and each Suchabo's and Trip's share.

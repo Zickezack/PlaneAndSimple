@@ -41,6 +41,49 @@
 <h2>{{ _("Platform Settings") }}</h2>
 <p class="hint">{{ _("Only visible to admins. They apply to every user.") }} <a href="/users">{{ _("User management") }}</a></p>
 
+{% set c = capacity %}
+<section class="card capacity">
+  <h2>{{ _("Worker load") }}
+    {% if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}</h2>
+  <p class="hint">{{ _("The worker runs one poll after the other. If one round of all active tracked searches and Trips takes longer than the poll interval, polls back up and run later than planned.") }}</p>
+  <meter class="load-meter" min="0" max="1" low="0.8" high="1" optimum="0" value="{{ [c.utilization, 1] | min }}" aria-label="{{ _('Worker load') }}"></meter>
+  <dl class="facts">
+    <dt>{{ _("One round of polls") }}</dt>
+    <dd><strong>{{ duration(c.round_seconds) }}</strong> {{ _("of {interval} poll interval ({percent} %)", interval=duration(c.interval_seconds), percent=(c.utilization * 100) | round | int) }}</dd>
+    <dt>{{ _("Reserve") }}</dt>
+    <dd>{% if c.level == "overloaded" %}{{ _("None – {over} too long per round. Lengthen the poll interval or reduce requests (fewer departure dates, no return flights).", over=duration(c.round_seconds - c.interval_seconds)) }}
+      {%- else %}{{ _("{time} – about {requests} more requests per round before polls back up.", time=duration(c.spare_seconds), requests=c.spare_requests) }}{% endif %}</dd>
+    <dt>{{ _("Provider requests per round") }}</dt>
+    <dd>{{ _("{requests} (upper bound) for {n} active tracked searches and Trips", requests=c.requests, n=c.items | length) }}</dd>
+    <dt>{{ _("Time per request") }}</dt>
+    <dd>{% if c.measured_seconds_per_request %}{{ _("{seconds} s (measured from the latest polls, including pauses and retries)", seconds="%.1f" | format(c.seconds_per_request)) }}{% else %}{{ _("{seconds} s (estimate – no completed polls yet)", seconds="%.1f" | format(c.seconds_per_request)) }}{% endif %}</dd>
+    <dt>{{ _("Waiting now") }}</dt>
+    <dd>{% if c.queued %}{{ _("{n} polls, the oldest for {time}", n=c.queued, time=duration(c.longest_wait_seconds)) }}{% else %}{{ _("none") }}{% endif %}</dd>
+  </dl>
+  {% if c.items %}
+  <details class="more">
+    <summary>{{ _("Per tracked search and Trip") }}</summary>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Owner") }}</th><th class="num">{{ _("Requests per poll") }}</th><th class="num">{{ _("Poll duration") }}</th><th class="num">{{ _("Share of the round") }}</th></tr></thead>
+        <tbody>
+        {% for item in c.items %}
+          <tr>
+            <td><a href="{{ item.url }}">{{ item.name }}</a>{% if item.kind == "trip" %} <small class="hint">Trip</small>{% endif %}</td>
+            <td>{{ item.owner or "–" }}</td>
+            <td class="num">{{ item.requests }}</td>
+            <td class="num">{% if item.measured_seconds is none %}<span class="hint" title="{{ _('Estimate – not polled yet') }}">≈ {{ duration(item.seconds) }}</span>{% else %}{{ duration(item.seconds) }}{% endif %}</td>
+            <td class="num">{{ (item.seconds / c.round_seconds * 100) | round | int if c.round_seconds else 0 }} %</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">{{ _("Durations of the latest completed poll; a poll interrupted by a worker restart only counts its last part.") }}</p>
+  </details>
+  {% endif %}
+</section>
+
 <section class="card">
   <h2>{{ _("Export and import") }}</h2>
   <p class="hint">{{ _("Imported tracked searches and Trips belong to you; assign them to other users on their pages.") }}</p>

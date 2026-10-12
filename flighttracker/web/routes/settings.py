@@ -3,6 +3,7 @@ also Platform Settings – data export/import and DB-backed overrides of selecte
 defaults (flight data providers, worker, airport import, user limits)."""
 
 import json
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
@@ -12,7 +13,7 @@ from starlette.datastructures import FormData, UploadFile
 from flighttracker.i18n import SUPPORTED_LOCALES, Msg
 from flighttracker.models import User
 from flighttracker.providers.registry import PROVIDERS
-from flighttracker.services import quota
+from flighttracker.services import capacity, quota
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_export import export_all
 from flighttracker.services.data_import import import_payload
@@ -81,6 +82,15 @@ def _field_view(field: SettingField, overrides: dict, settings) -> dict:
     }
 
 
+def format_seconds(seconds: float) -> str:
+    """Poll durations: "2 h 05 min", "12 min", "< 1 min"."""
+    minutes = round(seconds / 60)
+    if minutes < 1:
+        return "< 1 min"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
+
+
 def _redirect() -> RedirectResponse:
     return RedirectResponse("/settings", status_code=303)
 
@@ -109,6 +119,10 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "provider_options": sorted(PROVIDERS),
             "user": user,
             "usage": quota.usage(db, user, settings),
+            "capacity": capacity.overview(db, settings, datetime.now(UTC))
+            if user.is_admin
+            else None,
+            "duration": format_seconds,
             "locale_options": list(SUPPORTED_LOCALES.items()),
             "default_timezone": settings.display_timezone,
         },
