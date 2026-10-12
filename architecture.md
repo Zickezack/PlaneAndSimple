@@ -166,7 +166,7 @@ passengers. Travelpayouts only returns prices for one adult.
 
 | Provider | Data | Notes |
 |---|---|---|
-| `google_flights` | Google Flights: the request behind its result list (`GetShoppingResults`, every result sorted by price, read by `parse_shopping`); the result page as fallback (`fast-flights`, pinned, builds the URL; our `parse_fares` reads it) | **Recommended, no account needed.** Live fares, one request per sampled departure date × stay length (dates per month set per Suchabo; every stay length from min. to max., at most 8; a failed request is skipped). The result page alone only holds the first ~10 "best" flights and often misses the cheapest, so it is only read when the result list keeps answering with Google's intermittent error response (retried after 4, 8 and 12 s). Round trips are listed by their outbound flight with the cheapest round-trip total; with the Platform Setting "Load return flights" one more request per round-trip price names that outbound flight and stores the cheapest return flight (`details.return`, counted in the request budget). Sends a consent cookie, otherwise EU/CH requests only get Google's cookie page. Skips itineraries without a price. Can break whenever Google changes its format; a Terms-of-Service grey area – keep request rates low. |
+| `google_flights` | Google Flights: the request behind its result list (`GetShoppingResults`, every result sorted by price, read by `parse_shopping`); the result page as fallback (`fast-flights`, pinned, builds the URL; our `parse_fares` reads it) | **Recommended, no account needed.** Live fares, one request per sampled departure date × stay length (dates per month set per Suchabo; every stay length from min. to max., at most 8; a failed request is skipped). The result page alone only holds the first ~10 "best" flights and often misses the cheapest, so it is only read when the result list keeps answering with Google's intermittent error response (retried after 4, 8 and 12 s). Round trips are listed by their outbound flight with the cheapest round-trip total; for a Suchabo with "Load return flights" (More options; the Platform Setting is only the preset for new ones) one more request per round-trip price names that outbound flight and stores the cheapest return flight (`details.return`, counted in the request budget). Sends a consent cookie, otherwise EU/CH requests only get Google's cookie page. Skips itineraries without a price. Can break whenever Google changes its format; a Terms-of-Service grey area – keep request rates low. |
 | `travelpayouts` | Aviasales Data API `v2/prices/month-matrix` | Free token. **Cached** prices from Aviasales user searches (`found_at`), not live fares. Economy/Business/First only; the stay length is filtered client-side. |
 | `mock` | Deterministic fake prices | Default in tests; **invented data, always marked in red in the UI**. |
 
@@ -199,7 +199,8 @@ on) instead of capping paths, so no candidate date is lost.
 
 **Lifecycle:** pause/resume (editors) and archive/restore/delete (owner and admins) act on the
 Trip and its leg Suchabos together (`services/trips.py`); legs cannot be changed on their own.
-Restoring is checked against the owner's quota; deleting asks for the exact name.
+Restoring is checked against the owner's quota; deleting and clearing the price history (all
+legs, then polled again) ask for the exact name.
 
 ## Users and permissions
 

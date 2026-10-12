@@ -177,6 +177,9 @@ class TestSpec:
         f = merged.filters
         assert f.cabin_classes == {CabinClass.ECONOMY, CabinClass.BUSINESS}
         assert (f.max_stops, f.months_ahead, f.stay_days_min, f.stay_days_max) == (1, 6, 3, 14)
+        assert not f.return_flights
+        with_returns = spec([A("GVA")], [A("MAD")], return_flights=True)
+        assert merge_specs(existing, with_returns).filters.return_flights
 
     def test_merge_unions_airport_selections(self):
         merged = merge_specs(
@@ -269,6 +272,9 @@ class TestCoverage:
             ({"months_ahead": 12}, {"months_ahead": 6}, False),
             ({"months_ahead": 3}, {"months_ahead": 6}, True),
             ({"currency": "EUR"}, {}, False),
+            # Return flights: only a Suchabo that loads them covers one that wants them.
+            ({"return_flights": True}, {}, False),
+            ({}, {"return_flights": True}, True),
         ],
     )
     def test_filters_covered(self, new, existing, covered):

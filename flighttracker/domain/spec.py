@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 
-from flighttracker.domain.filters import SearchFilters, TripType
+from flighttracker.domain.filters import SearchFilters
 from flighttracker.domain.locations import LocationRef, country_codes, expand_to_airports
 
 MAX_DAYS_PER_MONTH = 31
@@ -68,12 +68,12 @@ def requests_per_poll(
     """Provider requests of one poll; providers that do not sample days need one per query.
 
     `calendar_days`: days per price-calendar request, if the provider has a calendar.
-    `return_flights`: one more request per round-trip price for its return flight (upper
-    bound – a day without a price needs none).
+    `return_flights`: the provider can load return flights – a Suchabo that asks for them
+    needs one more request per round-trip price (upper bound: a day without a price needs none).
     """
     queries = queries_per_poll(spec)
     fares = queries * requests_per_query(spec) if samples_days else queries
-    if return_flights and spec.filters.trip_type is TripType.ROUND_TRIP:
+    if return_flights and spec.filters.return_flights:
         fares *= 2
     calendar = calendar_requests_per_poll(spec, calendar_days) if calendar_days else 0
     return fares + calendar
@@ -119,6 +119,7 @@ def merge_filters(existing: SearchFilters, new: SearchFilters) -> SearchFilters:
             "days_per_month": max(existing.days_per_month, new.days_per_month),
             "stay_days_min": _min_or_none(existing.stay_days_min, new.stay_days_min),
             "stay_days_max": _max_or_none(existing.stay_days_max, new.stay_days_max),
+            "return_flights": existing.return_flights or new.return_flights,
         }
     )
 

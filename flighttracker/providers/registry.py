@@ -13,10 +13,7 @@ def _travelpayouts(settings: Settings) -> TravelpayoutsProvider:
 
 
 def _google_flights(settings: Settings) -> GoogleFlightsProvider:
-    return GoogleFlightsProvider(
-        request_delay_seconds=settings.scraper_request_delay_seconds,
-        return_flights=settings.scraper_return_flights,
-    )
+    return GoogleFlightsProvider(request_delay_seconds=settings.scraper_request_delay_seconds)
 
 
 PROVIDERS: dict[
@@ -39,15 +36,10 @@ def provider_class(name: str) -> type[FlightPriceProvider]:
     return PROVIDERS[name][0]
 
 
-def provider_config(settings: Settings) -> tuple[str, str, float, bool]:
+def provider_config(settings: Settings) -> tuple[str, str, float]:
     """Every setting a provider is built from – when one changes, it has to be rebuilt."""
     token = settings.travelpayouts_token.get_secret_value() if settings.travelpayouts_token else ""
-    return (
-        settings.flight_provider,
-        token,
-        settings.scraper_request_delay_seconds,
-        settings.scraper_return_flights,
-    )
+    return settings.flight_provider, token, settings.scraper_request_delay_seconds
 
 
 def get_provider(settings: Settings) -> FlightPriceProvider:

@@ -58,6 +58,7 @@ def default_values(settings: Settings) -> dict:
         "max_stops": "any",
         "months_ahead": "6",
         "days_per_month": str(settings.scraper_days_per_month),
+        "return_flights": settings.scraper_return_flights,
         "stay_days_min": "",
         "stay_days_max": "",
         "adults": "1",
@@ -80,6 +81,7 @@ def values_from_spec(name: str, spec: SearchSpec, poll_interval_minutes: int) ->
         "max_stops": "any" if f.max_stops is None else str(f.max_stops),
         "months_ahead": str(f.months_ahead),
         "days_per_month": str(f.days_per_month),
+        "return_flights": f.return_flights,
         "stay_days_min": "" if f.stay_days_min is None else str(f.stay_days_min),
         "stay_days_max": "" if f.stay_days_max is None else str(f.stay_days_max),
         "adults": str(f.adults),
@@ -157,6 +159,7 @@ def parse_search_form(
     values["currency"] = default_currency.upper()
     values["poll_interval_hours"] = str(max(poll_interval_minutes // 60, 1))
     values["cabin_classes"] = [v for v in form.getlist("cabin_classes") if isinstance(v, str)]
+    values["return_flights"] = _text(form, "return_flights") == "1"
     # Countries whose checkboxes were part of the submitted form (hidden field).
     values["airport_countries"] = sorted(
         code for code in _text(form, "airport_countries").upper().split(",") if code
@@ -204,6 +207,9 @@ def parse_search_form(
         "adults": _optional_int(values["adults"], "Adults", errors),
         "children": _optional_int(values["children"], "Children", errors),
         "currency": values["currency"],
+        # Kept in the form when switching to one-way, but only round trips have return flights.
+        "return_flights": values["return_flights"]
+        and values["trip_type"] == TripType.ROUND_TRIP.value,
     }
     if not filters_input["cabin_classes"]:
         errors.append(Msg("Please select at least one cabin class."))

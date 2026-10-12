@@ -11,8 +11,10 @@ from flighttracker.domain.spec import SearchSpec, merge_specs, route_pairs
 from flighttracker.i18n import Msg
 from flighttracker.models import (
     Airport,
+    CalendarObservation,
     Country,
     LocationRole,
+    PriceHistory,
     Search,
     SearchLocation,
     SearchRevision,
@@ -278,6 +280,19 @@ def restore_search(search: Search) -> None:
 def delete_search_permanently(session: Session, search: Search) -> None:
     """Hard delete – the database cascades to locations, revisions, price history and jobs."""
     session.execute(delete(Search).where(Search.id == search.id))
+
+
+def clear_price_history(session: Session, search_ids: list[int]) -> int:
+    """Deletes every stored price and price-calendar day of these Suchabos, e.g. after a change
+    in how prices are collected. Suchabos, revisions and the Poll Log stay.
+
+    Returns the number of deleted prices.
+    """
+    prices = session.execute(delete(PriceHistory).where(PriceHistory.search_id.in_(search_ids)))
+    session.execute(
+        delete(CalendarObservation).where(CalendarObservation.search_id.in_(search_ids))
+    )
+    return prices.rowcount
 
 
 def get_search(session: Session, search_id: int) -> Search | None:

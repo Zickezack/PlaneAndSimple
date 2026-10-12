@@ -1,5 +1,6 @@
 import json
 import re
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -579,26 +580,64 @@ def test_platform_settings_override_switches_provider_without_restart(client):
     assert 'value="travelpayouts" selected' in client.get("/settings").text
 
 
-def test_return_flights_setting_counts_its_requests(client, db):
+def test_return_flights_per_tracked_search_count_their_requests(client, db):
     from flighttracker.services import quota
     from flighttracker.services.searches import spec_of
     from flighttracker.services.settings import effective_settings
 
     token = login(client)
+    data = {"csrf_token": token, "flight_provider": "google_flights"}
+    client.post("/settings/section/providers", data=data | {"scraper_return_flights": "true"})
+    assert '<option value="true" selected>On</option>' in client.get("/settings").text
+    # The platform setting only presets new tracked searches.
+    assert 'name="return_flights" value="1" checked' in client.get("/searches/new").text
+
+    url = client.post(
+        "/searches", data=search_form(token, return_flights="1"), follow_redirects=False
+    ).headers["location"]
+    search = db.get(Search, int(url.rsplit("/", 1)[1]))
+    spec = spec_of(search)
+    assert spec.filters.return_flights
+    assert "Return flights</dt><dd>loaded" in client.get(url).text
+    db.expire_all()
+    settings = effective_settings(db, client.app.state.settings)
+    without = replace(spec, filters=spec.filters.model_copy(update={"return_flights": False}))
+    # One more request per fare request (3 months × 4 days); the price calendar stays.
+    assert quota.search_requests(spec, settings) - quota.search_requests(without, settings) == 12
+
+    # One-way: the ticked box is ignored instead of failing.
+    one_way = search_form(token, name="One way", destinations="MAD", return_flights="1")
+    url = client.post(
+        "/searches", data=one_way | {"trip_type": "one_way"}, follow_redirects=False
+    ).headers["location"]
+    assert not spec_of(db.get(Search, int(url.rsplit("/", 1)[1]))).filters.return_flights
+
+
+def test_clear_price_history_needs_the_name_and_polls_again(client, db):
+    from flighttracker.models import FetchJob
+
+    token = login(client)
     url = client.post("/searches", data=search_form(token), follow_redirects=False).headers[
         "location"
     ]
-    spec = spec_of(db.get(Search, int(url.rsplit("/", 1)[1])))
-    data = {"csrf_token": token, "flight_provider": "google_flights"}
-    client.post("/settings/section/providers", data=data)
+    search_id = int(url.rsplit("/", 1)[1])
+    db.query(FetchJob).filter_by(search_id=search_id).delete()  # the creation's first poll
+    db.commit()
+    _seed_price(db, search_id)
+    assert f'action="/searches/{search_id}/clear-history"' in client.get(url).text
+
+    wrong = client.post(f"{url}/clear-history", data={"csrf_token": token, "confirm_clear": "nope"})
+    assert "please enter the exact name" in wrong.text
+    assert db.query(PriceHistory).filter_by(search_id=search_id).count() == 1
+
+    done = client.post(
+        f"{url}/clear-history", data={"csrf_token": token, "confirm_clear": "Zürich → Barcelona"}
+    )
+    assert "Price history cleared (1 prices). A new poll has started." in done.text
     db.expire_all()
-    before = quota.search_requests(spec, effective_settings(db, client.app.state.settings))
-    client.post("/settings/section/providers", data=data | {"scraper_return_flights": "true"})
-    assert '<option value="true" selected>On</option>' in client.get("/settings").text
-    db.expire_all()
-    settings = effective_settings(db, client.app.state.settings)
-    assert settings.scraper_return_flights is True
-    assert quota.search_requests(spec, settings) > before
+    assert db.query(PriceHistory).filter_by(search_id=search_id).count() == 0
+    assert db.query(FetchJob).filter_by(search_id=search_id).count() == 1
+    assert db.get(Search, search_id) is not None
 
 
 def test_global_currency_and_poll_interval_override_search_form_values(client, db):

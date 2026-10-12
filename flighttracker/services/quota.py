@@ -38,7 +38,7 @@ def search_requests(spec: SearchSpec, settings: Settings) -> int:
         spec,
         samples_days=provider.samples_days,
         calendar_days=provider.calendar_days_per_request,
-        return_flights=provider.supports_return_flights and settings.scraper_return_flights,
+        return_flights=provider.supports_return_flights,
     )
 
 

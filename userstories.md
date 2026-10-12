@@ -104,6 +104,9 @@
 30. "Poll now" and the scheduler can no longer queue the same Suchabo or Trip twice (row lock).
 34. Google Flights: every result sorted by price (Google's result list instead of the first ~10
     "best" flights of the page, which often missed the cheapest; retried on Google's error
-    response, the page as fallback); optional return flights (Platform Setting, one more request
-    per round-trip price, counted in the request budget); the tracked search page hides prices
-    the latest poll no longer found (e.g. a departure day that is no longer sampled).
+    response, the page as fallback); optional return flights per Suchabo (preset in Platform
+    Settings, one more request per round-trip price, counted in the request budget and shown
+    with the user's limit); the tracked search page hides prices the latest poll no longer found
+    (e.g. a departure day that is no longer sampled).
+35. Clear the price history of a Suchabo or Trip (confirmed by name, polled again right away), e.g.
+    after a change in how prices are collected.

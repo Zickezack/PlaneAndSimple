@@ -54,6 +54,7 @@ def filters_covered(new: SearchFilters, existing: SearchFilters) -> bool:
         and new.months_ahead <= existing.months_ahead
         and _days_covered(new.days_per_month, existing.days_per_month)
         and set(new.stay_lengths) <= set(existing.stay_lengths)
+        and (existing.return_flights or not new.return_flights)
     )
 
 

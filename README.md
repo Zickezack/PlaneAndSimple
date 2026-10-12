@@ -189,9 +189,10 @@ inside the Compose network, by design.
   falls back to `mock`): real live fares from Google Flights, **no account or token**.
   Best effort – it reads Google's result list (every flight sorted by price) and may break when
   Google changes it. Each poll also reads Google's price calendar (cheapest price of every
-  departure day, 61 days per request) for the heat map on the tracked search page. Optionally
-  (**Settings → Platform Settings → Load return flights**) one more request per round-trip price
-  loads its return flight.
+  departure day, 61 days per request) for the heat map on the tracked search page. Per tracked
+  search (**More options → Load return flights**; preset under Platform Settings) one more
+  request per round-trip price loads its return flight. **Archive or delete → Clear price
+  history** removes prices collected so far, e.g. after such a change.
 - `travelpayouts`: cached Aviasales prices, needs a free token from travelpayouts.com →
   `TRAVELPAYOUTS_TOKEN`.
 - `mock`: fake prices for tests.

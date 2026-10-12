@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
 from flighttracker.i18n import Msg
-from flighttracker.models import User
+from flighttracker.models import SearchStatus, User
 from flighttracker.providers.registry import FAKE_DATA_PROVIDERS, provider_class
 from flighttracker.services import quota
 from flighttracker.services.access import (
@@ -19,7 +19,7 @@ from flighttracker.services.access import (
 )
 from flighttracker.services.jobs import request_trip_poll
 from flighttracker.services.locations import airport_options, country_names
-from flighttracker.services.searches import SearchValidationError
+from flighttracker.services.searches import SearchValidationError, clear_price_history
 from flighttracker.services.settings import effective_settings
 from flighttracker.services.trips import (
     TripValidationError,
@@ -263,6 +263,39 @@ def change_owner(
     set_trip_owner(trip, owner.id)
     db.commit()
     flash(request, Msg("Owner changed."), "success")
+    return RedirectResponse(f"/trips/{trip.id}", status_code=303)
+
+
+@router.post("/trips/{trip_id}/clear-history")
+def clear_history(
+    trip_id: int,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_login),
+):
+    trip = _load_trip(db, trip_id, user, Access.OWN)
+    if str(form.get("confirm_clear", "")).strip() != trip.name:
+        flash(request, Msg("To clear the price history, please enter the exact name."), "error")
+        return RedirectResponse(f"/trips/{trip.id}", status_code=303)
+    count = clear_price_history(db, [leg.search_id for leg in trip.legs])
+    settings = effective_settings(db, request.app.state.settings)
+    polled = (
+        not trip.is_archived
+        and trip.status is SearchStatus.ACTIVE
+        and request_trip_poll(
+            db,
+            trip,
+            datetime.now(UTC),
+            poll_interval_minutes=settings.default_poll_interval_minutes,
+        )
+    )
+    db.commit()
+    if polled:
+        message = Msg("Price history cleared ({n} prices). A new poll has started.", n=count)
+    else:
+        message = Msg("Price history cleared ({n} prices).", n=count)
+    flash(request, message, "success")
     return RedirectResponse(f"/trips/{trip.id}", status_code=303)
 
 

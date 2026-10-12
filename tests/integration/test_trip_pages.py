@@ -74,3 +74,46 @@ def test_delete_needs_the_exact_name_and_removes_the_legs(client, db):
     db.expire_all()
     assert db.get(Trip, trip_id) is None
     assert db.scalars(select(Search).where(Search.id.in_(leg_ids))).all() == []
+
+
+def test_clear_price_history_of_all_legs(client, db):
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from flighttracker.models import PriceHistory, PriceSource, SearchRevision
+
+    alice = add_user(db, "alice")
+    trip = _trip(db, alice)
+    leg = trip.legs[1]
+    revision = db.scalar(select(SearchRevision.id).where(SearchRevision.search_id == leg.search_id))
+    db.add(
+        PriceHistory(
+            search_id=leg.search_id,
+            search_revision_id=revision,
+            source=PriceSource.LIVE,
+            provider="mock",
+            origin_iata="BCN",
+            destination_iata="MAD",
+            departure_date=trip.starts_on,
+            cabin_class="economy",
+            stops=0,
+            price=Decimal("80"),
+            currency="CHF",
+            adults=1,
+            children=0,
+            observed_at=datetime.now(UTC),
+        )
+    )
+    db.commit()
+    token = login_as(client, "alice")
+    page = client.get(f"/trips/{trip.id}").text
+    assert f'action="/trips/{trip.id}/clear-history"' in page
+    wrong = client.post(
+        f"/trips/{trip.id}/clear-history", data={"csrf_token": token, "confirm_clear": "x"}
+    )
+    assert "please enter the exact name" in wrong.text
+    done = client.post(
+        f"/trips/{trip.id}/clear-history", data={"csrf_token": token, "confirm_clear": trip.name}
+    )
+    assert "Price history cleared (1 prices)." in done.text
+    assert db.scalar(select(PriceHistory.id).where(PriceHistory.search_id == leg.search_id)) is None

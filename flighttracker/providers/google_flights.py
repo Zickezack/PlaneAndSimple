@@ -534,7 +534,6 @@ class GoogleFlightsProvider(FlightPriceProvider):
         self,
         *,
         request_delay_seconds: float = 3.0,
-        return_flights: bool = False,
         search: SearchFn = google_flights_search,
         return_search: ReturnSearchFn = google_return_search,
         calendar_search: CalendarSearchFn = google_calendar_search,
@@ -542,7 +541,6 @@ class GoogleFlightsProvider(FlightPriceProvider):
         sleep: Callable[[float], None] = time.sleep,
     ):
         self._delay = request_delay_seconds
-        self._return_flights = return_flights
         self._search = search
         self._return_search = return_search
         self._calendar_search = calendar_search
@@ -647,7 +645,7 @@ class GoogleFlightsProvider(FlightPriceProvider):
             if not allowed:
                 continue
             cheapest = min(allowed, key=lambda o: o.price)
-            if self._return_flights and return_date is not None:
+            if query.return_flights and return_date is not None:
                 cheapest = self._with_return(request, cheapest, query)
             quotes.append(
                 PriceQuote(

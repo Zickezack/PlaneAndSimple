@@ -24,6 +24,8 @@ class PriceQuery:
     children: int = 0
     days_per_month: int = 4
     departure_dates: tuple[date, ...] | None = None
+    # Round trips: also load the return flight of every price (`supports_return_flights`).
+    return_flights: bool = False
 
 
 @dataclass(frozen=True)
@@ -97,7 +99,7 @@ class FlightPriceProvider(ABC):
     # Price calendar (heat map): days covered by one request; None = not supported.
     calendar_days_per_request: ClassVar[int | None] = None
     # True: can load the return flight of a round trip (one more request per round-trip quote,
-    # platform setting `scraper_return_flights`).
+    # only for queries with `return_flights`).
     supports_return_flights: ClassVar[bool] = False
 
     @abstractmethod

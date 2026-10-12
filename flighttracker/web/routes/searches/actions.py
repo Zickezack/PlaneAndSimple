@@ -1,4 +1,4 @@
-"""Poll now, pause/resume/archive/restore and permanent deletion.
+"""Poll now, pause/resume/archive/restore, clearing the price history and permanent deletion.
 
 `status_action` is a catch-all (`/searches/{id}/{action}`) and must stay the last route.
 """
@@ -18,6 +18,7 @@ from flighttracker.services.access import (
 )
 from flighttracker.services.searches import (
     archive_search,
+    clear_price_history,
     delete_search_permanently,
     pause_search,
     restore_search,
@@ -88,6 +89,46 @@ _ACTIONS = {
     "archive": (archive_search, Msg("Tracked search archived. All data is kept."), Access.OWN),
     "restore": (restore_search, Msg("Tracked search restored."), Access.OWN),
 }
+
+
+@router.post("/searches/{search_id}/clear-history")
+def clear_history(
+    search_id: int,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_effective_settings),
+    user: AuthUser = Depends(require_login),
+):
+    search = load_search(db, search_id, user, Access.OWN)
+    trip = get_trip_for_search(db, search_id)
+    if trip is not None:
+        flash(request, Msg("Trip legs are managed through their Trip."), "error")
+        return redirect(f"/trips/{trip.id}")
+    if str(form.get("confirm_clear", "")).strip() != search.name:
+        flash(request, Msg("To clear the price history, please enter the exact name."), "error")
+        return redirect(f"/searches/{search.id}")
+    count = clear_price_history(db, [search.id])
+    # Collect fresh prices right away instead of showing an empty page until the next poll.
+    polled = (
+        not search.is_archived
+        and search.status is SearchStatus.ACTIVE
+        and jobs.request_poll(
+            db,
+            search,
+            datetime.now(UTC),
+            poll_interval_minutes=settings.default_poll_interval_minutes,
+        )
+    )
+    db.commit()
+    flash(request, _cleared_message(count, polled), "success")
+    return redirect(f"/searches/{search.id}")
+
+
+def _cleared_message(count: int, polled: bool) -> Msg:
+    if polled:
+        return Msg("Price history cleared ({n} prices). A new poll has started.", n=count)
+    return Msg("Price history cleared ({n} prices).", n=count)
 
 
 @router.post("/searches/{search_id}/delete")

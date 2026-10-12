@@ -21,6 +21,7 @@ The code and docs use "Suchabo" for a tracked search.
 | Period | Zeitraum | `months_ahead` | Departure months tracked, starting with the current month |
 | Stay | Aufenthalt | `stay_days_min` / `stay_days_max` | Length of stay (round trips only) |
 | Departure dates sampled per month | Abflugtermine pro Monat | `days_per_month` | Sampling count for some providers (4/8/15/31, default 4), separate from poll cadence |
+| Return flights | Rückflüge laden | `return_flights` | Round trips: also load the return flight of every price (one more request each; default from the Platform Setting) |
 | Adults / Children | Erwachsene / Kinder | `adults` / `children` | Passengers; children aged 2–11, at most 9 passengers in total |
 | Poll interval | Abfrage-Intervall | `default_poll_interval_minutes` | One platform-wide cadence for active Suchabos and Trips, in minutes (default 1440) |
 | Price history | Preis-Historie | `PriceHistory` / `price_history` | Append-only observed prices |
@@ -149,8 +150,8 @@ erDiagram
 
 JSONB written by providers that know the flight (currently Google Flights; `NULL` otherwise and
 for rows before migration `0004`). It describes the **outbound** itinerary as shown by the
-source; for round trips the price covers the whole trip. With the Platform Setting "Load return
-flights" a round trip also has `return` (same fields as the outbound, without `url`) and the
+source; for round trips the price covers the whole trip. For a Suchabo with `return_flights`
+a round trip also has `return` (same fields as the outbound, without `url`) and the
 price is the total of exactly this combination; otherwise the return flight is chosen on the
 source's site. All fields are optional:
 
@@ -176,6 +177,11 @@ Upcoming points count only while they are current: if the Suchabo's latest compl
 for their route, month and cabin without returning their dates (from `query_log.results`, e.g. a
 departure day of the current month that is no longer sampled), they are hidden and counted in a
 hint.
+
+**Clearing the price history** (owner, "Archive or delete" section, confirmed by name) deletes the
+`price_history` and `price_calendar` rows of a Suchabo or of all legs of a Trip – the one
+exception to append-only, for data collected in a way that is no longer comparable. Revisions,
+jobs and the query log stay; an active Suchabo or Trip is polled again right away.
 
 `query_log.results` lists what a query found: `[{"date", "return", "price", "currency", "stops"}]`.
 

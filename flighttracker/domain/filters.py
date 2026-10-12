@@ -61,12 +61,16 @@ class SearchFilters(BaseModel):
     currency: str = Field(default="CHF", pattern=r"^[A-Z]{3}$")
     # Sampled departure dates per month (providers that query single dates, e.g. Google Flights).
     days_per_month: int = Field(default=4, ge=1, le=31)
+    # Round trips: also load the return flight of every price (one more request each).
+    return_flights: bool = False
 
     @model_validator(mode="after")
     def _check_stay(self) -> "SearchFilters":
         has_stay = self.stay_days_min is not None or self.stay_days_max is not None
         if self.trip_type is TripType.ONE_WAY and has_stay:
             raise ValueError("A length of stay is only possible for round trips.")
+        if self.trip_type is TripType.ONE_WAY and self.return_flights:
+            raise ValueError("Return flights are only possible for round trips.")
         if (
             self.stay_days_min is not None
             and self.stay_days_max is not None

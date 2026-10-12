@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Default monthly departure-date sampling for new Suchabos (adjustable per Suchabo).
     scraper_days_per_month: int = Field(default=4, ge=1, le=31)
     scraper_request_delay_seconds: float = Field(default=3.0, ge=0, le=60)
-    # Also load the return flight of every round-trip price (one more request each).
+    # Default for new round-trip Suchabos: also load the return flight of every price.
     scraper_return_flights: bool = False
 
     worker_tick_seconds: int = Field(default=30, ge=1, le=3600)

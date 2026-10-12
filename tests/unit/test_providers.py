@@ -434,7 +434,7 @@ class TestReturnFlights:
         },
     )
 
-    def provider(self, returns, *, enabled=True, calls=None):
+    def provider(self, returns, *, calls=None):
         def return_search(request, legs):
             if calls is not None:
                 calls.append(legs)
@@ -443,7 +443,6 @@ class TestReturnFlights:
             return returns
 
         return GoogleFlightsProvider(
-            return_flights=enabled,
             search=lambda request: [self.OUTBOUND],
             return_search=return_search,
             clock=lambda: NOW,
@@ -458,7 +457,7 @@ class TestReturnFlights:
         ]
         calls = []
         (quote,) = self.provider(back, calls=calls).fetch_current(
-            query(days_per_month=1, max_stops=1)
+            query(days_per_month=1, max_stops=1, return_flights=True)
         )
         assert calls[0][0] == ("ZRH", "2026-11-12", "AUH", "EY", "140")
         assert quote.price == Decimal(990)  # the total of exactly this combination
@@ -467,14 +466,16 @@ class TestReturnFlights:
 
     def test_keeps_the_outbound_price_without_a_return_flight(self):
         for returns in ([], ProviderError("down")):
-            (quote,) = self.provider(returns).fetch_current(query(days_per_month=1))
+            (quote,) = self.provider(returns).fetch_current(
+                query(days_per_month=1, return_flights=True)
+            )
             assert quote.price == Decimal(980) and "return" not in quote.details
 
-    def test_off_by_default_and_never_for_one_way(self):
+    def test_only_for_queries_that_ask_for_them_and_never_for_one_way(self):
         calls = []
-        self.provider([], enabled=False, calls=calls).fetch_current(query(days_per_month=1))
+        self.provider([], calls=calls).fetch_current(query(days_per_month=1))
         self.provider([], calls=calls).fetch_current(
-            query(days_per_month=1, trip_type=TripType.ONE_WAY)
+            query(days_per_month=1, trip_type=TripType.ONE_WAY, return_flights=True)
         )
         assert calls == []
 

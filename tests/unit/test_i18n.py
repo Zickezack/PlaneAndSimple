@@ -14,6 +14,7 @@ _TEMPLATE_CALL = re.compile(r"""_\(\s*(["'])(.*?)(?<!\\)\1""", re.S)
 # Texts coming from pydantic validators in the domain (raised as ValueError, wrapped in Msg).
 VALIDATOR_TEXTS = {
     "A length of stay is only possible for round trips.",
+    "Return flights are only possible for round trips.",
     "The minimum stay is longer than the maximum stay.",
     "At most 9 passengers in total.",
     "A trip must contain between 2 and 8 legs.",

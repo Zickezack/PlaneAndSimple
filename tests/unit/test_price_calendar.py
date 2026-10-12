@@ -169,15 +169,26 @@ def test_calendar_requests_count_towards_the_poll():
 
 
 def test_return_flights_double_the_fare_requests_of_round_trips():
-    def spec(trip_type):
+    def spec(trip_type, return_flights):
         return SearchSpec(
             frozenset({LocationRef.airport("ZRH")}),
             frozenset({LocationRef.airport("BKK")}),
-            SearchFilters(months_ahead=2, days_per_month=4, trip_type=trip_type),
+            SearchFilters(
+                months_ahead=2,
+                days_per_month=4,
+                trip_type=trip_type,
+                return_flights=return_flights,
+            ),
         )
 
-    round_trip, one_way = spec(TripType.ROUND_TRIP), spec(TripType.ONE_WAY)
+    round_trip = spec(TripType.ROUND_TRIP, True)
+    one_way = spec(TripType.ONE_WAY, False)
+    without = spec(TripType.ROUND_TRIP, False)
     assert requests_per_poll(round_trip, samples_days=True, return_flights=True) == 2 * 2 * 4
+    assert requests_per_poll(round_trip, samples_days=True) == 2 * 4  # provider cannot
+    assert requests_per_poll(without, samples_days=True, return_flights=True) == 2 * 4
+    with pytest.raises(ValueError, match="only possible for round trips"):
+        spec(TripType.ONE_WAY, True)
     assert requests_per_poll(
         round_trip, samples_days=True, calendar_days=61, return_flights=True
     ) == (2 * 2 * 4 + calendar_requests_per_poll(round_trip, 61))

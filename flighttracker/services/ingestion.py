@@ -51,6 +51,7 @@ def build_queries(
             children=filters.children,
             currency=currency or filters.currency,
             days_per_month=filters.days_per_month,
+            return_flights=filters.return_flights,
         )
         for origin, destination in route_pairs(spec)
         for cabin in sorted(filters.cabin_classes)

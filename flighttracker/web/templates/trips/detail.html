@@ -57,6 +57,13 @@
   <p>{{ _("Archiving hides the Trip and its legs and stops polling; all data is kept.") }}</p>
   <div class="actions">{{ ui.action_form("/trips/%d/archive" % trip.id, _("Archive")) }}</div>
   {% endif %}
+  <h2>{{ _("Clear price history") }}</h2>
+  <p>{{ _("Deletes every price its legs collected so far, e.g. after a change in how prices are collected. Route, settings and Poll Log stay; an active Trip is polled again right away. This cannot be undone.") }}</p>
+  <form method="post" action="/trips/{{ trip.id }}/clear-history" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("confirm_clear", _("Enter the name to confirm"), autocomplete="off") }}
+    <div class="actions">{{ ui.button(_("Clear price history"), "danger") }}</div>
+  </form>
   <h2>{{ _("Delete permanently") }}</h2>
   <p>{{ _("Deletes the Trip and its legs including their entire price history. This cannot be undone. To keep the data, archive it instead.") }}</p>
   <form method="post" action="/trips/{{ trip.id }}/delete" class="form">

@@ -131,6 +131,7 @@
     <dt>{{ _("Stops") }}</dt><dd>{{ _(labels.stops_label(f.max_stops)) }}</dd>
     <dt>{{ _("Period") }}</dt><dd>{{ _("{n} months ahead", n=f.months_ahead) }}</dd>
     <dt>{{ _("Departure days") }}</dt><dd>{% if f.days_per_month in labels.DAYS_PER_MONTH_LABELS %}{{ _(labels.DAYS_PER_MONTH_LABELS[f.days_per_month]) }}{% else %}{{ f.days_per_month }}{% endif %}{% if estimate.stay_lengths %} · {{ _("stays of {days} days", days=estimate.stay_lengths | join(", ")) }}{% endif %}</dd>
+    {% if f.trip_type == "round_trip" %}<dt>{{ _("Return flights") }}</dt><dd>{{ _("loaded") if f.return_flights else _("not loaded (chosen on Google Flights)") }}</dd>{% endif %}
     <dt>{{ _("Passengers") }}</dt><dd>{{ _("{adults} adults, {children} children", adults=f.adults, children=f.children) }}</dd>
     <dt>{{ _("Global poll interval") }}</dt><dd>{{ _("every {n} h", n=poll_interval_minutes // 60) }}</dd>
     <dt>{{ _("Scope") }}</dt><dd>{{ _("{routes} routes · {queries} queries · {requests} requests (about {minutes} min) per poll", routes=estimate.routes, queries=estimate.queries, requests=estimate.requests, minutes=estimate.minutes) }}</dd>
@@ -181,6 +182,13 @@
   <p>{{ _("Archiving hides the tracked search and stops polling; all data is kept.") }}</p>
   <div class="actions">{{ ui.action_form("/searches/%d/archive" % search.id, _("Archive")) }}</div>
   {% endif %}
+  <h2>{{ _("Clear price history") }}</h2>
+  <p>{{ _("Deletes every price collected so far, including the price calendar and the data for the previous-year comparison – e.g. after a change in how prices are collected. Settings, change history and Poll Log stay; an active tracked search is polled again right away. This cannot be undone.") }}</p>
+  <form method="post" action="/searches/{{ search.id }}/clear-history" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("confirm_clear", _("Enter the name to confirm"), autocomplete="off") }}
+    <div class="actions">{{ ui.button(_("Clear price history"), "danger") }}</div>
+  </form>
   <h2>{{ _("Delete permanently") }}</h2>
   <p>{{ _("Deletes the tracked search including its entire price history. This cannot be undone. To keep the data, archive it instead.") }}</p>
   <form method="post" action="/searches/{{ search.id }}/delete" class="form">

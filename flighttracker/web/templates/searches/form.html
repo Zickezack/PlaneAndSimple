@@ -106,6 +106,12 @@
       {{ ui.select_field("days_per_month", _("Departure dates sampled per month"), days_per_month_options | tr_options, values.days_per_month,
         hint=_("How many departure dates are sampled per month; this affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests (about 2 min), every day = 186 requests (about 12 min). Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.")) }}
     </div>
+    <div class="field">
+      <label class="choice"><input type="checkbox" name="return_flights" value="1"{% if values.return_flights %} checked{% endif %}> <span>{{ _("Load return flights") }}</span></label>
+      <small class="hint">{% if provider.supports_return_flights %}{{ _("Round trips only. Google Flights lists a round trip by its outbound flight; one more request per price loads its return flight (shown on the flight page with its flight numbers). This doubles the requests per poll of this tracked search.") }}
+        {% if usage and usage.max_requests is not none %}{{ _("Your limit: {max} provider requests per poll for all your tracked searches and Trips together ({used} used).", max=usage.max_requests, used=usage.requests) }}{% endif %}
+        {%- else %}{{ _('Note: not available with the data source "{provider}".', provider=provider.name) }}{% endif %}</small>
+    </div>
   </details>
 
   <div class="actions">
