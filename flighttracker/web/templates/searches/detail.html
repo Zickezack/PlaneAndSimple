@@ -45,7 +45,6 @@
 </p>
 {% if not provider.prices_all_passengers and passengers > 1 %}<p class="note">{{ _('Note: prices from "{provider}" are for one adult; the number of passengers is not considered.', provider=provider.name) }}</p>
 {% elif f.children and not provider.supports_children %}<p class="note">{{ _('Note: not available with the data source "{provider}" – prices do not include children.', provider=provider.name) }}</p>{% endif %}
-{% if outdated_prices %}<p class="hint">{{ _("{n} older prices are not shown – the latest poll no longer found these dates.", n=outdated_prices) }}</p>{% endif %}
 {% if hidden_passenger_prices %}<p class="hint">{{ _("{n} prices observed for a different number of passengers are not shown – they are not comparable.", n=hidden_passenger_prices) }}</p>{% endif %}
 
 <section class="card prices">
@@ -121,6 +120,7 @@
   {% else %}
   <p class="empty">{{ _("No prices yet. The worker fetches them shortly.") }}</p>
   {% endif %}
+  {% if outdated_prices %}<p class="hint">{{ _("Only the departure dates of the latest poll are shown; {n} older prices of other dates are hidden.", n=outdated_prices) }}</p>{% endif %}
 </section>
 
 <details class="card more">

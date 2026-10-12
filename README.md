@@ -1,7 +1,12 @@
 # Plane and simple ✈
 
-Self-hosted flight price tracker: Suchabos (tracked searches) in a web UI in English or German, a background
-worker that collects prices, and an append-only price history with a previous-year comparison.
+**Plane and simple** is a self-hosted flight price tracker. Create *tracked searches* – airports
+or whole countries, round trip or one-way, stay lengths, cabins, passengers – and a background
+worker polls Google Flights on a schedule and keeps every price it sees. For every departure date
+you get the cheapest fare with its flights, how it developed (*when to buy*) and the same dates a
+year earlier. The Trip Planner finds the cheapest combinations of up to eight one-way flights;
+several users share searches within per-user limits. English and German UI, runs with Docker
+Compose, built with Claude.
 
 ![Tracked search from Zurich to Thailand: the price per departure date for three routes, with arrows from the first observed to the current price and one pinned date](docs/screenshots/tracked-search.png)
 
@@ -12,21 +17,75 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
 
 ## Features
 
-- **Tracked searches** from and to airports or whole countries (largest airports preselected),
-  round trip or one-way, stay lengths, cabins, passengers, direct-only.
+- **Tracked searches** from and to airports or whole countries (the largest airports by passenger
+  numbers are preselected), round trip or one-way, stay lengths, cabins, passengers, direct-only.
+- **Complete prices:** every Google Flights result sorted by price, not just the first page. Each
+  poll reads Google's price calendar first and queries half of its departure days on the
+  cheapest days of the month, the other half on fixed days for a continuous history.
 - **Price chart** per departure date with price changes and the previous year; a clicked date
-  lists its flights (1 day / 1 week / 1 month changes) and how their price developed –
-  *when to buy*.
-- **Price calendar** (heat map): the cheapest price of every departure day – it also picks
-  half of the departure days a poll queries, so the chart shows the really cheap days.
-- **Flight details** with segments, layovers, Flightradar24 and Google Flights links.
+  lists its flights with 1-day / 1-week / 1-month changes and their price over time – *when to
+  buy*.
+- **Flight details:** segments, layovers, aircraft, Flightradar24 and Google Flights links, every
+  poll's price for these dates; optionally the return flight (one more request per price).
 - **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
-- **[Users](#users)** with sharing, per-user limits and a Poll Log.
-- English and German UI; JSON export/import; append-only history; self-hosted with Docker.
+- **[Users](#users-and-operation)** with sharing and per-user limits; Poll Log and worker load
+  for admins.
+- Clear a search's price history, JSON export/import, append-only history, self-hosted with
+  Docker.
 
-![A clicked departure date: its six flights with sparklines and price changes, and their price over time as step lines](docs/screenshots/price-over-time.png)
+![New tracked search with Greece as destination: its largest airports by passenger numbers are preselected, with the provider requests per poll below](docs/screenshots/new-tracked-search.png)
 
-![Price calendar: the cheapest price of every departure day from October to March, Christmas darkest, the cheapest day ringed](docs/screenshots/price-calendar.png)
+![A clicked departure date: its flights with sparklines and price changes, and their price over time as step lines](docs/screenshots/price-over-time.png)
+
+![Flight details: outbound and return flight with segments in local time, layovers and aircraft, a link to the search on Google Flights, and every poll's price for exactly these dates](docs/screenshots/flight-details.png)
+
+There is no historical backfill – no free source offers past fares; the previous-year
+comparison fills up through the app's own tracking:
+
+![Price chart filtered to one route: the grey line shows the price for the same departure dates one year earlier](docs/screenshots/previous-year.png)
+
+## Trip Planner
+
+Open **Trip Planner** to build a route from 2–8 airport-to-airport legs, each its own one-way
+tracked search listed under the Trip. Set a date window from first departure to final arrival (up
+to 60 days) and the min/max stay before each following leg. The worker polls the first leg on
+every day of the window, then only dates that can connect to a known arrival.
+
+![Trip with three one-way legs and their stay limits, and the cheapest working options with flight times and the total of the separate legs](docs/screenshots/trip.png)
+
+Options are the 200 cheapest current combinations with valid connections – the sum of separate
+one-way fares, not a through-ticket: self-transfers are not protected. The planner needs flight
+times, so it requires Google Flights. A Trip is paused, archived, cleared or deleted together with
+its legs.
+
+## Users and operation
+
+The admin from `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`) always works and cannot be
+locked out from the UI. Admins create further users under **Users** (top bar):
+
+- **Users** see and fully edit their own tracked searches and Trips and can share each one with
+  other users, view-only or view-and-edit. Editors can change, pause and poll, but not archive,
+  delete or share. Admins see and manage everything.
+- **Deactivating or deleting** a user pauses their tracked searches and Trips – except those
+  another active user may edit. A deleted user's tracked searches and Trips go to the admin
+  from `.env`.
+- **Limits** per user (admins have none): at most `MAX_SEARCHES_PER_USER` (10) tracked searches
+  and Trips and `MAX_REQUESTS_PER_USER` (600) provider requests per poll for all of them – the
+  request budget is what really costs. Defaults under **Settings → Platform Settings**,
+  changeable per user.
+
+![User management: role, status, tracked searches and Trips, and provider requests per poll against each user's limits (admins have none)](docs/screenshots/users.png)
+
+The **Poll Log** lists running and queued polls and every provider query; whoever may edit a
+tracked search can cancel its poll there (prices fetched so far are kept).
+
+![Poll Log: one running and two queued polls with Cancel, and the latest provider queries with their results and durations](docs/screenshots/poll-log.png)
+
+The single worker runs one poll after the other, so the real ceiling is time: **Platform
+Settings → Worker load** shows how long one round of all polls takes (measured) against the poll
+interval, how many more requests fit before polls back up, and each search's share.
+
+![Worker load: one round of polls takes part of the 24-hour interval, with the reserve in time and requests, waiting polls, and each tracked search's and Trip's share](docs/screenshots/worker-load.png)
 
 ## Quick start (devcontainer)
 
@@ -51,57 +110,9 @@ and start the airport import there, so that countries preselect their largest ai
 passenger numbers. (`WIKIDATA_CONTACT` in `.env` works too, but the CLI only sees it after a
 container rebuild.)
 
-![New tracked search with Greece as destination: its largest airports by passenger numbers are preselected, with the provider requests per poll below](docs/screenshots/new-tracked-search.png)
-
 Tests: `pytest` (integration tests use `TEST_DATABASE_URL`, preset in the devcontainer).
 Lint: `ruff check . && ruff format --check .`
 
-## Trip Planner
-
-Open **Trip Planner** to build a route from 2–8 airport-to-airport legs. Each becomes its own
-one-way tracked search and appears under the Trip in **Tracked searches**. Set the first-departure
-to final-arrival date window (up to 60 days) and min/max layover before each following leg; Trips
-are checked at the global poll interval. The worker polls the first leg within the window, then queries only candidate dates
-that could connect to a known previous arrival; Trip legs are not polled by the normal monthly
-scheduler.
-
-![Trip with three one-way legs and their stay limits, and the cheapest working options with flight times and the total of the separate legs](docs/screenshots/trip.png)
-
-The planner currently requires Google Flights (or the development-only mock provider), because a
-provider must return departure and arrival times to verify connections. Complete options show the
-sum of the separate one-way prices, not a through-ticket fare; self-transfers and separately
-booked connections are not protected. Options list the 200 cheapest current combinations (flights from the
-latest poll, no past departures). A Trip can be paused, archived and deleted together with its legs.
-
-## Users
-
-The admin from `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`) always works and cannot be
-locked out from the UI. Admins create further users under **Users** (top bar):
-
-- **Users** see and fully edit their own tracked searches and Trips and can share each one with
-  other users, view-only or view-and-edit. Editors can change, pause and poll, but not archive,
-  delete or share. Admins see and manage everything; tracked searches from before user
-  management belong to the admin from `.env` (assigned on its next login).
-- **Deactivating or deleting** a user pauses their tracked searches and Trips – except those
-  another active user may edit, which keep running until no such editor is left. A deleted
-  user's tracked searches and Trips go to the admin from `.env`.
-- **Limits** per user (admins have none), so that API usage cannot run away: at most
-  `MAX_SEARCHES_PER_USER` (10) tracked searches and Trips, and at most `MAX_REQUESTS_PER_USER`
-  (600) provider requests per poll for all of them together – the request budget is what really
-  costs, since one broad search can need more requests than twenty narrow ones. Both are
-  defaults under **Settings → Platform Settings** and can be changed per user. The real
-  ceiling is the single worker, which runs one poll after the other: Platform Settings shows its
-  load – how long one round of all polls takes (measured) against the poll interval, and how
-  many more requests fit before polls back up.
-- **Settings** shows every user their personal settings (language, time zone, password);
-  Platform Settings, export and import are only shown to admins.
-
-![User management: role, status, tracked searches and Trips, and provider requests per poll against each user's limits (admins have none)](docs/screenshots/users.png)
-
-The **Poll Log** lists running and queued polls; whoever may edit a tracked search can cancel
-its poll there (a running poll stops after its current query, prices fetched so far are kept).
-
-![Poll Log: one running and two queued polls with Cancel, and the latest provider queries with their results and durations](docs/screenshots/poll-log.png)
 
 ## Production (Docker Compose, reverse proxy with TLS)
 
@@ -134,6 +145,7 @@ and keep `SESSION_COOKIE_SECURE=true`. Set `FORWARDED_ALLOW_IPS` to the address 
 connects from, otherwise the login lockout counts every visitor as one client: a proxy on the
 Docker host arrives from the Compose network's gateway (see the command in `.env.example`), a
 proxy container on the same network from its own container IP.
+
 
 ## Home server on the local network (no reverse proxy, no CI/CD)
 
@@ -187,33 +199,20 @@ change them in `.env` any time, no file edits needed, and re-run `bash scripts/d
 `docker compose up -d`) to apply. The `db` service has no published port and is only reachable
 inside the Compose network, by design.
 
+
 ## Flight data
 
 - `google_flights` (default in `.env.example` and Compose; without any `FLIGHT_PROVIDER` the app
-  falls back to `mock`): real live fares from Google Flights, **no account or token**.
-  Best effort – it reads Google's result list (every flight sorted by price) and may break when
-  Google changes it. Each poll first reads Google's price calendar (cheapest price of every
-  departure day, 61 days per request): it fills the heat map and chooses half of the departure
-  days the poll queries – the cheapest ones; the other half stays evenly spread for a continuous
-  price history. Per tracked
-  search (**More options → Load return flights**; preset under Platform Settings) one more
-  request per round-trip price loads its return flight. **Archive or delete → Clear price
-  history** removes prices collected so far, e.g. after such a change.
+  falls back to `mock`): real live fares from Google Flights, **no account or token**. Best
+  effort – it reads the requests behind Google's result list and price calendar and may break
+  when Google changes them; a Terms-of-Service grey area, so keep request rates low.
 - `travelpayouts`: cached Aviasales prices, needs a free token from travelpayouts.com →
   `TRAVELPAYOUTS_TOKEN`.
-- `mock`: fake prices for tests.
+- `mock`: fake prices for development and tests (always marked in red).
 
-![Flight details from Google Flights: segments in local time with layover and aircraft, a link to the search on Google Flights, and every poll's price for exactly these dates](docs/screenshots/flight-details.png)
-
-There is no historical backfill: no free source offers past fares. The previous-year comparison
-fills up through the app's own tracking.
-
-![Price chart filtered to one route: the grey line shows the price for the same departure dates one year earlier](docs/screenshots/previous-year.png)
-
-The active provider, worker and airport-import settings above can also be changed at runtime
-from **Settings → Platform Settings** in the web UI (overrides `.env`, no restart needed); that
-page is also where the admin exports/imports all data as JSON and can trigger a fresh airport
-import.
+Provider, worker, user-limit and airport-import settings can be changed at runtime under
+**Settings → Platform Settings** (overrides `.env`, no restart needed); that page is also where
+the admin exports/imports all data as JSON and can trigger a fresh airport import.
 
 ## Dependencies
 
@@ -226,10 +225,11 @@ import.
 | sqlalchemy, alembic, psycopg | ORM, migrations, PostgreSQL driver (project standard) |
 | pydantic, pydantic-settings | Filter validation, configuration from env |
 | httpx | HTTP client for provider APIs and the airport import |
-| fast-flights *(extra `scraper`)* | Google Flights scraper; pinned because its API changes between versions. Its HTTP client `primp` is used directly to send the consent cookie |
+| fast-flights *(extra `scraper`)* | Builds Google Flights links and reads the result page as fallback; pinned because its API changes between versions. Its HTTP client `primp` sends all Google requests (with the consent cookie) |
 | pytest, ruff *(extra `dev`)* | Tests and lint/format |
 
 Airport data: [OurAirports](https://ourairports.com/data/) (public domain), downloaded at runtime and not stored in the repo.
+
 
 ## License
 

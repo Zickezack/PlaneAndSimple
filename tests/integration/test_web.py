@@ -473,12 +473,12 @@ def test_detail_page_hides_prices_the_latest_poll_no_longer_found(client, db):
     poll(("2099-01-03", "2099-01-10"))
     page = client.get(url).text
     assert link not in page
-    assert "1 older prices are not shown" in page
+    assert "1 older prices of other dates are hidden" in page
 
     # Found again by a later poll: current again.
     poll((stale.departure_date.isoformat(), stale.return_date.isoformat()))
     page = client.get(url).text
-    assert link in page and "older prices are not shown" not in page
+    assert link in page and "older prices of other dates" not in page
 
 
 def test_flight_detail_page_with_segments_and_price_history(client, db):

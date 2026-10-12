@@ -470,7 +470,6 @@
   "Trip \"{name}\" and its legs were deleted permanently.": "Trip „{name}“ inklusive Teilstrecken und Preis-Historie endgültig gelöscht.",
   "Archiving hides the Trip and its legs and stops polling; all data is kept.": "Archivieren blendet den Trip und seine Teilstrecken aus und stoppt die Abfragen; alle Daten bleiben erhalten.",
   "Deletes the Trip and its legs including their entire price history. This cannot be undone. To keep the data, archive it instead.": "Löscht den Trip und seine Teilstrecken samt der ganzen Preishistorie. Das kann nicht rückgängig gemacht werden. Um die Daten zu behalten, archiviere ihn stattdessen.",
-  "{n} older prices are not shown – the latest poll no longer found these dates.": "{n} ältere Preise werden nicht angezeigt – die letzte Abfrage hat diese Daten nicht mehr gefunden.",
   "Load return flights": "Rückflüge laden",
   "Off": "Aus",
   "On": "Ein",
@@ -516,5 +515,6 @@
   "How many departure dates are queried per month: half of them evenly spread (the same every poll, for a continuous price history), the other half the cheapest days of Google's price calendar. This affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests, every day = 186 requests. Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.": "Wie viele Abflugtermine pro Monat abgefragt werden: die Hälfte gleichmässig verteilt (bei jedem Durchlauf dieselben, für einen durchgehenden Preisverlauf), die andere Hälfte die günstigsten Tage aus Googles Preiskalender. Das beeinflusst Abdeckung und Anfragen pro Durchlauf, nicht das Abfrageintervall. Beispiel (Google Flights, 1 Route, 6 Monate, Einweg): 4 pro Monat = 24 Anfragen, jeden Tag = 186 Anfragen. Bei Hin- und Rückflug multipliziert sich das mit der Anzahl Aufenthaltslängen (bis zu 8). Warnung: Viele Anfragen pro Durchlauf können dazu führen, dass Google deine IP vorübergehend sperrt – bleib bei 4, ausser du verfolgst nur wenige Routen.",
   "4 (2 fixed, 2 cheapest)": "4 (2 feste, 2 günstigste)",
   "8 (4 fixed, 4 cheapest)": "8 (4 feste, 4 günstigste)",
-  "15 (7 fixed, 8 cheapest)": "15 (7 feste, 8 günstigste)"
+  "15 (7 fixed, 8 cheapest)": "15 (7 feste, 8 günstigste)",
+  "Only the departure dates of the latest poll are shown; {n} older prices of other dates are hidden.": "Nur die Abflugtermine der letzten Abfrage werden angezeigt; {n} ältere Preise anderer Termine sind ausgeblendet."
 }
