@@ -296,3 +296,8 @@ details.more[open] > summary { margin-bottom: .75rem; }
 
 /* A heading after a table inside a card (e.g. the return flight). */
 .card .table-wrap + h2 { margin-top: 1.5rem; }
+
+/* Flights table on the tracked search page: foldable, open by default. */
+.flights-section > summary { cursor: pointer; margin: 1.25rem 0 .5rem; }
+.flights-section > summary h2 { display: inline; margin: 0; }
+.flights-section .table-header { margin-top: 0; }

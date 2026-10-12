@@ -76,8 +76,10 @@
   <script type="application/json" id="price-chart-data">{{ chart_json | safe }}</script>
 
 
+  {#- Foldable, open by default; the view switch stays outside <summary> (a click there would fold). -#}
+  <details class="flights-section" open>
+  <summary><h2>{{ _("Flights") }}</h2></summary>
   <div class="table-header">
-    <h2>{{ _("Flights") }}</h2>
     <div class="view-switch" data-view-switch hidden>
       {{ ui.select_field("filter_view", _("Show"), [("month", _("Cheapest per month")), ("all", _("All flights"))], "month") }}
     </div>
@@ -117,6 +119,7 @@
   </div>
   <p class="empty" data-filter-empty hidden>{{ _("No prices for this selection yet.") }}</p>
   <p class="hint">{{ _("Changes compare with observations around 1 day, 1 week and 1 month earlier. Click a date for all flight details.") }}</p>
+  </details>
   {% else %}
   <p class="empty">{{ _("No prices yet. The worker fetches them shortly.") }}</p>
   {% endif %}
