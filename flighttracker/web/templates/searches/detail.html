@@ -107,7 +107,7 @@
             {%- if p.return_date %}<br><small class="hint">→ {{ p.return_date | weekday_date }} · {{ _("{n} days", n=p.stay_days) }}</small>{% endif %}
           </td>
           <td class="route-cell"><span class="route-dot" data-route="{{ p.origin }}-{{ p.destination }}" aria-hidden="true"></span>{{ p.origin }} → {{ p.destination }}{% if multiple_cabins %}<br><small class="hint">{{ _(labels.CABIN_LABELS[p.cabin_class]) }}</small>{% endif %}</td>
-          <td>
+          <td class="flight-cell">
             {% if s %}
             {{ s.airlines | join(", ") }}{% if s.flights %} · {{ s.flights | join(", ") }}{% endif %}
             <br><small class="hint">{% if s.departure_time %}{{ s.departure_time }}–{{ s.arrival_time }}{% if s.arrival_day_offset %}<sup>+{{ s.arrival_day_offset }}</sup>{% endif %} · {% endif %}{{ duration(s.duration_min) }} · {{ stops_text(p.stops) }}{% for layover in s.layovers %} · {{ ui.layover_place(layover) }} {{ duration(layover.minutes) }}{% endfor %}</small>

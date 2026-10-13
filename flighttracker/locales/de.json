@@ -12,7 +12,6 @@
   "Every leg needs both an origin and a destination airport.": "Jede Teilstrecke braucht einen Abflug- und einen Zielflughafen.",
   "First departure from": "Früheste Abreise am",
   "Flight legs": "Flugteilstrecken",
-  "Flight times": "Flugzeiten",
   "Last check": "Letzte Prüfung",
   "Leg {number}": "Teilstrecke {number}",
   "Main navigation": "Hauptnavigation",
@@ -615,5 +614,6 @@
   "Stay between leg {previous} and leg {number}": "Aufenthalt zwischen Teilstrecke {previous} und {number}",
   "Calendar days at the destination before the next leg departs. Stops within a leg are layovers, not stays.": "Kalendertage am Zielort, bevor die nächste Teilstrecke startet. Stopps innerhalb einer Teilstrecke sind Umstiege, keine Aufenthalte.",
   "Stops are layovers within a leg (changing planes on the same journey); the stays between legs are set above.": "Stopps sind Umstiege innerhalb einer Teilstrecke (Flugzeugwechsel auf derselben Reise); die Aufenthalte zwischen den Teilstrecken legst du oben fest.",
-  "1 passenger": "1 Passagier"
+  "1 passenger": "1 Passagier",
+  "Legs": "Teilstrecken"
 }

@@ -339,3 +339,11 @@ tr.is-changed td { background: var(--info-bg); }
 .capacity > summary .badge { margin-left: .4rem; }
 /* Layover warnings next to a flight (domain/layovers.py). */
 .layover-warning { white-space: nowrap; }
+/* Flights table: the flight column wraps (airlines, flight numbers, layovers), so the table
+   fits without scrolling on a tablet; phones scroll inside the card. */
+.flights-table td.flight-cell { white-space: normal; min-width: 12rem; }
+/* The return line and the 1d / 1w / 1m changes may wrap too (date, price and sparkline do not). */
+.flights-table td.date-cell, .flights-table td.num { white-space: normal; }
+.flights-table td.date-cell strong { white-space: nowrap; }
+/* Working options of a Trip: one line per leg. */
+.trip-option-leg { display: block; }

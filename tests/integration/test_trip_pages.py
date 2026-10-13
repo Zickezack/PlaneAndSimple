@@ -117,3 +117,32 @@ def test_clear_price_history_of_all_legs(client, db):
     )
     assert "Price history cleared (1 prices)." in done.text
     assert db.scalar(select(PriceHistory.id).where(PriceHistory.search_id == leg.search_id)) is None
+
+
+def test_working_options_show_every_leg_with_its_date(client, db, session_factory):
+    import re
+    from datetime import UTC, datetime
+
+    from flighttracker.providers.mock import MockProvider
+    from flighttracker.services.jobs import request_trip_poll
+    from flighttracker.worker.loop import process_next_job
+    from tests.integration.test_web import login
+
+    trip = create_trip(db, trip_input(), max_route_pairs=50)
+    db.commit()
+    assert request_trip_poll(db, trip, datetime.now(UTC))
+    db.commit()
+    assert process_next_job(session_factory, MockProvider())
+    login(client)
+    page = client.get(f"/trips/{trip.id}").text
+    first = re.search(r"<tr[^>]*>\s*<td>(.*?)</td>", page.split("Total for separate legs")[1], re.S)
+    legs = re.findall(
+        r'<span class="trip-option-leg"><strong>([^<]+)</strong> · (\w{3}) → (\w{3})',
+        first.group(1),
+    )
+    assert [(origin, destination) for _, origin, destination in legs] == [
+        ("ZRH", "BCN"),
+        ("BCN", "MAD"),
+        ("MAD", "ZRH"),
+    ]
+    assert len({day for day, _, _ in legs}) == 3  # each leg has its own date

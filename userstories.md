@@ -172,3 +172,6 @@
     separators, every price with the currency's decimals (also in the chart; whole prices only in
     phone-width price-calendar cells); "1 passenger"; the Poll Log page is titled "Poll Log";
     neutral badges ("Deactivated") are visible on any background.
+48. Flights table fits without horizontal scrolling on desktop and tablet (the flight column,
+    the return line and the 1d/1w/1m changes wrap); a Trip's working options show one line per
+    leg with its date, route and flight times instead of a separate first-departure column.

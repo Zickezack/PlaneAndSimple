@@ -32,13 +32,12 @@
   {% if itineraries %}
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>{{ _("Departure") }}</th><th>{{ _("Route") }}</th><th>{{ _("Flight times") }}</th><th class="num">{{ _("Total for separate legs") }}</th></tr></thead>
+      <thead><tr><th>{{ _("Legs") }}</th><th class="num">{{ _("Total for separate legs") }}</th></tr></thead>
       <tbody>
       {% for itinerary in itineraries %}
         <tr{% if itinerary.fake %} class="fake-row"{% endif %}>
-          <td>{{ itinerary.legs[0].departure_date | weekday_date }}</td>
-          <td>{% for leg in itinerary.legs %}{{ leg.origin }} → {{ leg.destination }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
-          <td>{% for leg in itinerary.legs %}{{ leg.departure_date | weekday_date }} · {{ leg.details.departure_time }} – {{ leg.details.arrival_time }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+          {#- One line per leg: its date, route and flight times. -#}
+          <td>{% for leg in itinerary.legs %}<span class="trip-option-leg"><strong>{{ leg.departure_date | weekday_date }}</strong> · {{ leg.origin }} → {{ leg.destination }} · {{ leg.details.departure_time }} – {{ leg.details.arrival_time }}</span>{% endfor %}</td>
           <td class="num"><strong>{{ itinerary.total_price | price(itinerary.currency) }}</strong>{% if itinerary.fake %} {{ ui.fake_tag() }}{% endif %}</td>
         </tr>
       {% endfor %}
