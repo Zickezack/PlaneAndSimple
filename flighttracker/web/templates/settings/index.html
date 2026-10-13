@@ -95,7 +95,7 @@
               </td>
               <td><a href="{{ item.url }}">{{ item.name }}</a>{% if item.kind == "trip" %} <small class="hint">Trip</small>{% endif %}</td>
               <td>{{ item.owner or "–" }}</td>
-              <td class="num">{{ item.requests }}</td>
+              <td class="num">{{ item.requests | count }}</td>
               <td class="num">{% if item.measured_seconds is none %}<span class="hint" title="{{ _('Estimate – not polled yet') }}">≈ {{ duration(item.seconds) }}</span>{% else %}{{ duration(item.seconds) }}{% endif %}</td>
               <td class="num">{{ (item.seconds / c.round_seconds * 100) | round | int if c.round_seconds else 0 }} %</td>
               <td>{% if poll.offset is none %}{{ ui.badge(_("Not placed yet"), "muted") }}

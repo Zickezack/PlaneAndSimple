@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from flighttracker.domain.currencies import currency_decimals
-from flighttracker.i18n import DEFAULT_LOCALE, translate
+from flighttracker.i18n import DEFAULT_LOCALE, format_number, translate
 from flighttracker.models import User
 from flighttracker.services.mail import Mail
 
@@ -21,7 +21,7 @@ def _body(*paragraphs: str | None) -> str:
 
 
 def format_amount(amount: Decimal, currency: str) -> str:
-    return f"{amount:,.{currency_decimals(currency)}f} {currency}".replace(",", "'")
+    return f"{format_number(amount, currency_decimals(currency))} {currency}"
 
 
 def test_mail(to: str, locale: str) -> Mail:

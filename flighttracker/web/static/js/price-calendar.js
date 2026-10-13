@@ -17,6 +17,9 @@
     const weekdayNames = [...Array(7)].map((_, i) =>
       new Intl.DateTimeFormat(locale, { ...utc, weekday: "short" }).format(new Date(Date.UTC(2024, 0, 1 + i))),
     ); // 1 Jan 2024 is a Monday
+    // Phone-width cells hold "1'909" but not "1'909.28": whole prices there (exact in the tooltip).
+    const compact = window.innerWidth < 600;
+    const cellPrice = (price) => (compact ? Math.round(price).toLocaleString("en-US").replace(/,/g, "'") : number.format(price));
     const days = new Map();
     (data.calendar || [])
       .filter((c) => (!filter.origin || c.o === filter.origin) && (!filter.destination || c.d === filter.destination)
@@ -68,7 +71,7 @@
           if (index >= HEAT_DARK_FROM) cell.classList.add("is-dark");
           if (entry.price === low) cell.classList.add("is-lowest");
           if (entry.fake) cell.classList.add("is-fake");
-          cell.append(element("span", "calendar-price", number.format(entry.price)));
+          cell.append(element("span", "calendar-price", cellPrice(entry.price)));
           cell.title = fill(labels.calendarDay, { date: longDate.format(toDate(iso)), price: formatPrice(entry.price) });
           if (fareDates.has(iso)) {
             cell.type = "button";

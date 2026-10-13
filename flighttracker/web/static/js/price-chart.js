@@ -20,7 +20,6 @@
   const HEIGHT = 300;
   const MARGIN = { top: 24, right: 20, bottom: 36 };
 
-  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
   // Decimals of the currency (JPY 0, CHF 2, KWD 3), as the browser knows them from ISO 4217.
   const currencyDigits = (() => {
     try {
@@ -29,9 +28,11 @@
       return 2;
     }
   })();
-  const exactNumber = new Intl.NumberFormat(locale, { minimumFractionDigits: currencyDigits, maximumFractionDigits: currencyDigits });
+  // Prices as everywhere in the app, whatever the language: 1'234.50 (' between thousands).
+  const grouped = new Intl.NumberFormat("en-US", { minimumFractionDigits: currencyDigits, maximumFractionDigits: currencyDigits });
+  const number = { format: (value) => grouped.format(value).replace(/,/g, "'") };
   const formatPrice = (value) => `${number.format(value)} ${data.currency}`;
-  const formatChangePrice = (value) => `${exactNumber.format(value)} ${data.currency}`;
+  const formatChangePrice = formatPrice;
   const utc = { timeZone: "UTC" };
   const longDate = new Intl.DateTimeFormat(locale, { ...utc, weekday: "short", day: "numeric", month: "short", year: "numeric" });
   const shortDate = new Intl.DateTimeFormat(locale, { ...utc, weekday: "short", day: "numeric", month: "short" });

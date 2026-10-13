@@ -110,7 +110,7 @@ h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
 .badge { font-size: .8rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px; }
 .badge-success { background: var(--success-bg); color: var(--success); }
 .badge-warning { background: var(--warning-bg); color: var(--warning); }
-.badge-muted, .badge-neutral { background: var(--bg); color: var(--muted); }
+.badge-muted, .badge-neutral { background: var(--surface); color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
 .badge-danger { background: var(--error-bg); color: var(--danger); }
 .delta-up { color: var(--danger); }
 .delta-down { color: var(--success); }
@@ -225,13 +225,14 @@ h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
 .calendar-legend { display: flex; align-items: center; gap: .5rem; font-size: .85rem; color: var(--muted); }
 .calendar-swatches { display: inline-flex; gap: 2px; }
 .calendar-swatch { width: 1.4rem; height: .8rem; border-radius: 2px; }
-.calendar-months { display: grid; gap: 1rem 1.5rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+/* A month needs room for prices like 1'909.28 in every cell; never wider than the page. */
+.calendar-months { display: grid; gap: 1rem 1.5rem; grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr)); }
 .calendar-title { font-weight: 600; margin-bottom: .3rem; }
-.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
 .calendar-weekday { font-size: .7rem; color: var(--muted); text-align: center; }
-.calendar-day { display: flex; flex-direction: column; align-items: flex-start; min-height: 2.6rem; padding: .15rem .25rem; border: 0; border-radius: 4px; font: inherit; color: var(--text); text-align: left; background: var(--bg); }
+.calendar-day { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; min-height: 2.6rem; padding: .15rem .25rem; border: 0; border-radius: 4px; font: inherit; color: var(--text); text-align: left; background: var(--bg); }
 .calendar-day small { font-size: .65rem; opacity: .8; }
-.calendar-price { font-size: .72rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.calendar-price { max-width: 100%; overflow: hidden; font-size: clamp(.6rem, 2.6vw, .72rem); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .calendar-day.is-dark { color: #fff; }
 .calendar-day.is-empty { color: var(--muted); }
 .calendar-day.is-lowest { box-shadow: inset 0 0 0 2px var(--text); }

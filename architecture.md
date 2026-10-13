@@ -166,8 +166,11 @@ by the English text); `tests/unit/test_i18n.py` fails on missing or stale entrie
 names come from OurAirports in English; German ones are in `flighttracker/locales/countries.de.json`
 (ISO code → name, generated once from CLDR), used for labels and for matching suggestions.
 Currency names likewise: English in `domain/currencies.py`, German in
-`flighttracker/locales/currencies.de.json`. Personal time zone: dropdown of all IANA zones. Logs, CLI
-output and stored error texts (`fetch_jobs.last_error`) are English only.
+`flighttracker/locales/currencies.de.json`. Personal time zone: dropdown of all IANA zones.
+Numbers look the same in every language: `i18n.format_number` (1'234.50 – ' between thousands,
+decimal point); integer parameters of translated texts get it automatically, raw counters use
+the `count` filter, prices the currency's decimals (`price` filter, chart). Logs, CLI output and
+stored error texts (`fetch_jobs.last_error`) are English only.
 
 **Price chart:** `static/js/price-chart.js` draws the detail page's chart as plain SVG (no
 library) from JSON embedded in the page (`web/flights.py` → `<script type="application/json">`,

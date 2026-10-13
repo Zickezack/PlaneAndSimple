@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 
 from flighttracker.domain.currencies import currency_decimals
-from flighttracker.i18n import SUPPORTED_LOCALES, Msg, translate
+from flighttracker.i18n import SUPPORTED_LOCALES, Msg, format_number, translate
 from flighttracker.providers.registry import provider_class
 from flighttracker.services.settings import effective_settings
 from flighttracker.web import flights, labels
@@ -49,18 +49,12 @@ def _request_context(request: Request) -> dict:
     }
 
 
-def _format_number(value, locale: str, decimals: int = 0) -> str:
-    formatted = f"{value:,.{decimals}f}"
-    # German UI uses Swiss formatting (1'234.50), English 1,234.50.
-    return formatted.replace(",", "'") if locale == "de" else formatted
-
-
 @pass_context
 def _format_price(context, value, currency: str = "") -> str:
     if value is None:
         return "–"
     decimals = currency_decimals(currency) if currency else 2
-    return f"{_format_number(value, context['locale'], decimals)} {currency}".strip()
+    return f"{format_number(value, decimals)} {currency}".strip()
 
 
 @pass_context
@@ -123,12 +117,10 @@ def _airport_label(context, option) -> tuple[str, str]:
     if option.passengers is None:
         passengers = translate("passengers unknown", locale)
     elif option.passengers >= 1_000_000:
-        millions = _format_number(option.passengers / 1_000_000, locale, 1)
+        millions = format_number(option.passengers / 1_000_000, 1)
         passengers = translate("{n}M passengers", locale, n=millions)
     else:
-        passengers = translate(
-            "{n} passengers", locale, n=_format_number(option.passengers, locale)
-        )
+        passengers = translate("{n} passengers", locale, n=format_number(option.passengers))
     city = f", {option.city}" if option.city else ""
     return option.iata_code, f"{option.iata_code} – {option.name}{city} · {passengers}"
 
@@ -144,6 +136,7 @@ templates.env.globals["labels"] = labels
 templates.env.globals["static_url"] = _static_url
 templates.env.globals["sparkline"] = flights.sparkline
 templates.env.filters["price"] = _format_price
+templates.env.filters["count"] = format_number
 templates.env.filters["datetime"] = _format_datetime
 templates.env.filters["date"] = _format_date
 templates.env.filters["month"] = _format_month

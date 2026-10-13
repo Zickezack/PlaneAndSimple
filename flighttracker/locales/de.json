@@ -203,7 +203,6 @@
   "Layover in {airport}: {duration}": "Umsteigen in {airport}: {duration}",
   "Local times of the airports. Flight numbers link to Flightradar24 (route, aircraft and punctuality of past flights).": "Ortszeiten der Flughäfen. Die Flugnummern führen zu Flightradar24 (Route, Flugzeug und Pünktlichkeit vergangener Flüge).",
   "Locations and filters were added to \"{name}\".": "Orte und Filter wurden in „{name}“ übernommen.",
-  "Log": "Protokoll",
   "Log in": "Anmelden",
   "Log out": "Abmelden",
   "Max. 1 stop": "Max. 1 Stopp",
@@ -615,5 +614,6 @@
   "Price changes and the price range appear from the second poll on – they need more than one observed price per date.": "Preisänderungen und Preisspanne erscheinen ab der zweiten Abfrage – dafür braucht es pro Datum mehr als einen beobachteten Preis.",
   "Stay between leg {previous} and leg {number}": "Aufenthalt zwischen Teilstrecke {previous} und {number}",
   "Calendar days at the destination before the next leg departs. Stops within a leg are layovers, not stays.": "Kalendertage am Zielort, bevor die nächste Teilstrecke startet. Stopps innerhalb einer Teilstrecke sind Umstiege, keine Aufenthalte.",
-  "Stops are layovers within a leg (changing planes on the same journey); the stays between legs are set above.": "Stopps sind Umstiege innerhalb einer Teilstrecke (Flugzeugwechsel auf derselben Reise); die Aufenthalte zwischen den Teilstrecken legst du oben fest."
+  "Stops are layovers within a leg (changing planes on the same journey); the stays between legs are set above.": "Stopps sind Umstiege innerhalb einer Teilstrecke (Flugzeugwechsel auf derselben Reise); die Aufenthalte zwischen den Teilstrecken legst du oben fest.",
+  "1 passenger": "1 Passagier"
 }

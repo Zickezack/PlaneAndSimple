@@ -41,7 +41,7 @@
   <strong>{{ origins }} → {{ destinations }}</strong>
   · {{ _(labels.TRIP_TYPE_LABELS[f.trip_type]) }}
   · {% for c in f.cabin_classes | sort %}{{ _(labels.CABIN_LABELS[c]) }}{% if not loop.last %}, {% endif %}{% endfor %}
-  · {{ _("{n} passengers", n=passengers) }}
+  · {{ _("1 passenger") if passengers == 1 else _("{n} passengers", n=passengers) }}
   · {{ _("Last poll") }}: {{ search.last_polled_at | datetime }}
 </p>
 {% if not provider.prices_all_passengers and passengers > 1 %}<p class="note">{{ _('Note: prices from "{provider}" are for one adult; the number of passengers is not considered.', provider=provider.name) }}</p>
@@ -147,7 +147,7 @@
     <dt>{{ _("Passengers") }}</dt><dd>{{ _("{adults} adults, {children} children", adults=f.adults, children=f.children) }}</dd>
     <dt>{{ _("Global poll interval") }}</dt><dd>{{ _("every {n} h", n=poll_interval_minutes // 60) }}</dd>
     <dt>{{ _("Scope") }}</dt><dd>{{ _("{routes} routes · {queries} queries · {requests} requests (about {minutes} min) per poll", routes=estimate.routes, queries=estimate.queries, requests=estimate.requests, minutes=estimate.minutes) }}</dd>
-    <dt>{{ _("Stored prices") }}</dt><dd>{{ observation_count }}</dd>
+    <dt>{{ _("Stored prices") }}</dt><dd>{{ observation_count | count }}</dd>
   </dl>
 </details>
 
@@ -162,8 +162,8 @@
         {% for j in jobs %}
         <tr>
           <td>{{ _(labels.JOB_STATUS_LABELS[j.status]) }}{% if j.last_error %} <small class="hint">({{ j.last_error }})</small>{% endif %}</td>
-          <td class="num">{{ j.queries_total }}{% if j.queries_failed %} <small class="fake">({{ _("{n} failed", n=j.queries_failed) }})</small>{% endif %}</td>
-          <td class="num">{{ j.quotes_stored }}</td>
+          <td class="num">{{ j.queries_total | count }}{% if j.queries_failed %} <small class="fake">({{ _("{n} failed", n=j.queries_failed) }})</small>{% endif %}</td>
+          <td class="num">{{ j.quotes_stored | count }}</td>
           <td>{{ j.created_at | datetime }}</td>
         </tr>
         {% endfor %}

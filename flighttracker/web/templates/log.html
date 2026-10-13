@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% import "_macros.html" as ui with context %}
-{% block title %}{{ _("Log") }}{% endblock %}
+{% block title %}{{ _("Poll Log") }}{% endblock %}
 {% block content %}
 {% macro stops_label(stops) -%}
 {% if stops == 0 %}{{ _("direct") }}{% elif stops == 1 %}{{ _("1 stop") }}{% else %}{{ _("{n} stops", n=stops) }}{% endif %}
 {%- endmacro %}
 <div class="page-header">
-  <h1>{{ _("Log") }}</h1>
+  <h1>{{ _("Poll Log") }}</h1>
 </div>
 <p class="hint">{{ _("Every provider query of every poll: route × departure month × cabin class. Entries are kept, even for deleted tracked searches.") }}</p>
 
@@ -22,7 +22,7 @@
           <td>{% if o.trip_id %}<a href="/trips/{{ o.trip_id }}">{{ o.name }}</a> <small class="hint">({{ _("Trip") }})</small>{% else %}<a href="/searches/{{ o.job.search_id }}">{{ o.name }}</a>{% endif %}</td>
           <td>{{ ui.badge(_(labels.JOB_STATUS_LABELS[o.job.status]), "success" if o.job.status == "running" else "muted") }}</td>
           <td>{{ (o.job.started_at if o.job.status == "running" else o.job.run_after) | datetime }}</td>
-          <td class="num">{{ o.queries_done }}</td>
+          <td class="num">{{ o.queries_done | count }}</td>
           <td>{% if o.job.id in cancellable %}{{ ui.action_form("/log/jobs/%d/cancel" % o.job.id, _("Cancel"), "ghost") }}{% endif %}</td>
         </tr>
         {% endfor %}

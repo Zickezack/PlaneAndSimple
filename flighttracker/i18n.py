@@ -54,13 +54,26 @@ def currency_name(code: str, english_name: str, locale: str) -> str:
     return currency_catalog(locale).get(code, english_name)
 
 
+def format_number(value: float, decimals: int = 0) -> str:
+    """Numbers as everywhere in the app, whatever the language: ' between thousands and . before
+    the decimals – 1'234 and 1'234.50 (a per-locale format is in the backlog)."""
+    return f"{value:,.{decimals}f}".replace(",", "'")
+
+
+def _param(value: object, locale: str) -> object:
+    if isinstance(value, Msg):
+        return value.render(locale)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return format_number(value)  # counts in texts: "1'240 requests"
+    return value
+
+
 def translate(text: str, locale: str, **params) -> str:
     """Translated text with `{name}` placeholders filled; unknown texts stay English."""
     template = catalog(locale).get(text, text)
     if not params:
         return template
-    rendered = {k: v.render(locale) if isinstance(v, Msg) else v for k, v in params.items()}
-    return template.format(**rendered)
+    return template.format(**{k: _param(v, locale) for k, v in params.items()})
 
 
 @dataclass(frozen=True)

@@ -29,11 +29,16 @@
 1. More UI languages (e.g. French, Italian, Spanish): today English and German. Needs a
    catalog per language (`locales/<code>.json`), country and currency names per language
    (generated from CLDR like the German ones) and a translation workflow for new texts.
-2. Locale-aware formats per language and region instead of the two fixed ones (numbers, dates,
-   weekday and month names, e.g. via Babel/CLDR – a new dependency); price format with currency
-   symbols.
+2. Locale-aware formats per language and region instead of the fixed ones (dates, weekday and
+   month names, e.g. via Babel/CLDR – a new dependency); price format with currency symbols.
+   Numbers are the same in every language today (1'234.50: ' between thousands, decimal point,
+   prices with the currency's decimals) – make the separators adjustable per user or locale.
 3. Market per user or platform for Google Flights (`gl`/`hl` parameters: country of sale and
    language), so fares match what users in other countries see.
+
+### Epic Datenquellen
+1. Verify the Travelpayouts adapter with a real token (cabin classes, `trip_duration`, currency
+   CHF) – no token available yet.
 
 ### Epic AI-gestützte Planung
 1. Optional Ollama-assisted drafting: turn plain-language travel intent into a search or Trip
@@ -53,7 +58,7 @@
 
 ## Planned
 
-1. Verify the Travelpayouts adapter with a real token (cabin classes, `trip_duration`, currency CHF).
+(nothing at the moment)
 
 ## Implemented
 
@@ -163,3 +168,7 @@
 46. Trip Planner: the stay (min/max days) is shown between the legs – in the form and in the
     Trip's route – so it reads as the time before the next leg; stops within a leg are explained
     as layovers.
+47. Consistent numbers: ' between thousands and a decimal point in every language, counters with
+    separators, every price with the currency's decimals (also in the chart; whole prices only in
+    phone-width price-calendar cells); "1 passenger"; the Poll Log page is titled "Poll Log";
+    neutral badges ("Deactivated") are visible on any background.

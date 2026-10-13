@@ -14,6 +14,7 @@ from flighttracker.i18n import (
     country_name,
     currency_catalog,
     currency_name,
+    format_number,
     translate,
 )
 from flighttracker.web import forms, labels
@@ -141,3 +142,12 @@ def test_currency_decimals_follow_iso_4217():
     assert currency_decimals("CHF") == 2
     assert currency_decimals("JPY") == 0
     assert currency_decimals("KWD") == 3
+
+
+def test_numbers_use_apostrophes_and_a_decimal_point_in_every_language():
+    assert format_number(1234567) == "1'234'567"
+    assert format_number(1234.5, 2) == "1'234.50"
+    assert format_number(999) == "999"
+    for locale in ("en", "de"):
+        assert translate("{n} failed", locale, n=12500).startswith("12'500")
+    assert translate("Leg {number}", "en", number=True) == "Leg True"  # bools stay as they are
