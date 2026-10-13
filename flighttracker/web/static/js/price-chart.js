@@ -74,7 +74,24 @@
   const trendToggle = figure.querySelector("[data-chart-trends]");
   const hasTrends = data.points.some((p) => p.hist?.length > 1);
   const showTrends = () => hasTrends && trendToggle.checked;
-  if (trendLabel) trendLabel.hidden = !hasTrends;
+  // Before a second poll there is nothing to compare: the toggles stay visible but disabled,
+  // with a note why (it disappears as soon as a date has more than one observed price).
+  const historyHint = figure.querySelector("[data-chart-history-hint]");
+  const offerToggle = (label, toggle) => {
+    if (!label) return;
+    label.hidden = false;
+    toggle.disabled = !hasTrends;
+    if (!hasTrends) toggle.checked = false;
+  };
+  offerToggle(trendLabel, trendToggle);
+  if (historyHint) historyHint.hidden = hasTrends;
+  // Observed price range (price-band.js): only once some date has more than one price.
+  const bandLabel = figure.querySelector("[data-chart-band-toggle]");
+  const bandToggle = figure.querySelector("[data-chart-band]");
+  const { priceRange, drawRange } = window.PlaneChart.priceBand;
+  const hasBand = hasTrends;
+  const showBand = () => hasBand && bandToggle.checked;
+  offerToggle(bandLabel, bandToggle);
 
   filterRow.hidden = filterRow.childElementCount === 0;
   if (viewSwitch) viewSwitch.hidden = false;
@@ -147,7 +164,7 @@
     return { series, previousYear, points };
   }
 
-  function renderLegend(series, previousYear) {
+  function renderLegend(series, previousYear, band) {
     legend.replaceChildren();
     const items = series.length > 1 ? series.map((s) => [s.name, s.color]) : [];
     // The combined line must say what it is – and how to get the per-route lines.
@@ -163,6 +180,8 @@
     if (series.some((s) => s.points.some((p) => p.first != null)) && showTrends()) {
       legend.append(element("span", "legend-hint", labels.arrowHint));
     }
+    if (band.length) legend.append(element("span", "legend-hint", labels.bandHint));
+    else if (showBand() && series.length > 1) legend.append(element("span", "legend-hint", labels.bandOneLine));
     legend.hidden = legend.childElementCount === 0;
   }
 
@@ -248,7 +267,10 @@
   function render() {
     const filter = currentFilter();
     const { series, previousYear, points } = buildSeries(filter);
-    renderLegend(series, previousYear);
+    // One range for one line; with several routes the shaded areas would hide the lines.
+    const band = showBand() && series.length === 1 ? priceRange(series[0].points) : [];
+    const atLowest = new Set(band.filter((b) => b.atLowest).map((b) => b.date));
+    renderLegend(series, previousYear, band);
     plot.replaceChildren();
     tooltip.hidden = true;
     view = null;
@@ -272,6 +294,7 @@
     }
     const values = series.flatMap((s) => s.points.map((p) => p.price)).concat(previousYear.map((p) => p.price));
     if (showTrends()) series.forEach((s) => s.points.forEach((p) => p.first != null && values.push(p.first)));
+    band.forEach((b) => values.push(b.low, b.high));
     const scale = niceScale(Math.min(...values), Math.max(...values));
     const left = Math.ceil(Math.max(...scale.ticks.map((t) => textWidth(formatPrice(t))))) + 16;
     const x = (iso) => left + ((toDate(iso).getTime() - start) / (end - start)) * (width - left - MARGIN.right);
@@ -294,6 +317,7 @@
 
     const path = (list) => list.map((p, i) => `${i ? "L" : "M"}${x(p.date).toFixed(1)},${y(p.price).toFixed(1)}`).join("");
     const line = (list, color) => svg("path", { d: path(list), fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, root);
+    if (band.length) drawRange(root, band, series[0].color, x, y);
     if (previousYear.length > 1) line(previousYear, PREVIOUS_YEAR_COLOR);
     series.forEach((s) => {
       if (s.points.length > 1) line(s.points, s.color);
@@ -313,7 +337,11 @@
         });
       }
       // 2px surface ring keeps markers legible where lines cross.
-      s.points.forEach((p) => svg("circle", { cx: x(p.date), cy: y(p.price), r: 4, fill: s.color, stroke: INK.surface, "stroke-width": 2 }, root));
+      s.points.forEach((p) => {
+        // A ring: this date is at the lowest price observed for it (after being higher).
+        if (atLowest.has(p.date)) svg("circle", { cx: x(p.date), cy: y(p.price), r: 8, fill: "none", stroke: s.color, "stroke-width": 1.5, class: "band-lowest" }, root);
+        svg("circle", { cx: x(p.date), cy: y(p.price), r: 4, fill: s.color, stroke: INK.surface, "stroke-width": 2 }, root);
+      });
     });
 
     // Selective direct label: only the lowest price of the visible selection (below its marker).
@@ -568,6 +596,7 @@
 
   Object.values(controls).forEach((control) => control && control.addEventListener("change", render));
   if (trendToggle) trendToggle.addEventListener("change", render);
+  if (bandToggle) bandToggle.addEventListener("change", render);
   // Re-render only when the width changes (not on the height change of our own render).
   let pending = null;
   let renderedWidth = plot.clientWidth;

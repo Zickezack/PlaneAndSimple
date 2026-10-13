@@ -5,6 +5,7 @@
 <script src="{{ static_url('js/chart-svg.js') }}" defer></script>
 <script src="{{ static_url('js/price-history.js') }}" defer></script>
 <script src="{{ static_url('js/price-calendar.js') }}" defer></script>
+<script src="{{ static_url('js/price-band.js') }}" defer></script>
 <script src="{{ static_url('js/price-chart.js') }}" defer></script>
 {% set f = spec.filters %}
 
@@ -59,17 +60,18 @@
   {% endif %}
 
   {% if points %}
-  {#- Only filters that offer a real choice (static/js/price-chart.js shows the row). -#}
-  <div class="filter-row" data-price-filters hidden>
-    {% if filter_origins | length > 1 %}{{ ui.select_field("filter_origin", _("Origin"), [("", _("All"))] + filter_origins, "") }}{% endif %}
-    {% if filter_destinations | length > 1 %}{{ ui.select_field("filter_destination", _("Destination"), [("", _("All"))] + filter_destinations, "") }}{% endif %}
-    {% if filter_cabins | length > 1 %}{{ ui.select_field("filter_cabin", _("Cabin"), filter_cabins | tr_options, filter_cabins[0][0]) }}{% endif %}
-    {% if filter_stays | length > 1 %}{{ ui.select_field("filter_stay", _("Stay"), [("", _("All"))] + filter_stays | map("stay_option") | list, "") }}{% endif %}
-  </div>
-
   <figure class="chart" data-price-chart hidden>
     <figcaption class="chart-title">{{ _("Price by departure date") }} <small class="hint">({{ f.currency }} · {{ _("click a date to keep its flights") }})</small></figcaption>
+    {#- Only filters that offer a real choice (static/js/price-chart.js shows the row). -#}
+    <div class="filter-row" data-price-filters hidden>
+      {% if filter_origins | length > 1 %}{{ ui.select_field("filter_origin", _("Origin"), [("", _("All"))] + filter_origins, "") }}{% endif %}
+      {% if filter_destinations | length > 1 %}{{ ui.select_field("filter_destination", _("Destination"), [("", _("All"))] + filter_destinations, "") }}{% endif %}
+      {% if filter_cabins | length > 1 %}{{ ui.select_field("filter_cabin", _("Cabin"), filter_cabins | tr_options, filter_cabins[0][0]) }}{% endif %}
+      {% if filter_stays | length > 1 %}{{ ui.select_field("filter_stay", _("Stay"), [("", _("All"))] + filter_stays | map("stay_option") | list, "") }}{% endif %}
+    </div>
     <label class="choice chart-toggle" data-chart-trends-toggle hidden><input type="checkbox" data-chart-trends checked> <span>{{ _("Show price changes") }}</span></label>
+    <label class="choice chart-toggle" data-chart-band-toggle hidden><input type="checkbox" data-chart-band checked> <span>{{ _("Show observed price range") }}</span></label>
+    <small class="hint chart-toggle-hint" data-chart-history-hint hidden>{{ _("Price changes and the price range appear from the second poll on – they need more than one observed price per date.") }}</small>
     <div class="chart-legend" data-chart-legend></div>
     <div class="chart-plot" data-chart-plot></div>
     <div class="chart-tooltip" data-chart-tooltip role="status" hidden></div>

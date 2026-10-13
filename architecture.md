@@ -121,7 +121,7 @@ Where new code goes (dependencies only point downwards):
   transfer `data_export`, `data_import`; accounts `users` (management), `login`, `password_tokens`;
   mail `mail`, `mail_messages`, `price_alerts`.
 - No imports of another module's `_private` names: a helper a second module needs becomes public.
-- JS: one file per widget, shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
+- JS: one file per widget (chart, `price-band`, `price-history`, `price-calendar`), shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
   classic `defer` scripts loaded via `static_url()` in a fixed order – no ES-module `import`
   (imported files would skip the `?v=` cache busting).
 
@@ -173,7 +173,11 @@ output and stored error texts (`fetch_jobs.last_error`) are English only.
 library) from JSON embedded in the page (`web/flights.py` → `<script type="application/json">`,
 escaped so it cannot close the tag). One line per route in the validated categorical palette
 (colour follows the route); more than 8 routes collapse into one "cheapest of n routes" line;
-previous-year values appear as a gray context line when a single line is shown. A click pins a
+previous-year values appear as a gray context line when a single line is shown. The **observed
+price range** (`static/js/price-band.js`, checkbox like the arrows) shades, for a single line,
+the lowest to highest price ever observed for each departure date (from `hist`) around the line
+of the current prices; a ring marks a date that is at its lowest observed price now. With
+several lines it asks to filter to one. A click pins a
 date (diamond markers + a panel with that day's flights and links). The panel also draws that
 date's price over time (x = poll date, a step line per flight, from `hist`/`seen` in the JSON),
 so the user sees when a flight was cheapest. Below, a **price calendar** (heat map) shows the

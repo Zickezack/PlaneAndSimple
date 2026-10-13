@@ -68,6 +68,9 @@ CHART_LABELS = {
     "stops": "{n} stops",
     "via": "via",
     "arrowHint": "Arrow: first observed price → current price",
+    "bandHint": "Band: lowest to highest price observed for each departure date, the line is the "
+    "current price; a ring marks a date that is at its lowest observed price now.",
+    "bandOneLine": "The price range needs one line: filter by origin or destination.",
     "firstToCurrent": "First observed price → current price",
     "invented": "invented",
     "empty": "No prices for this selection yet.",

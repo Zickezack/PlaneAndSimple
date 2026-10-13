@@ -174,6 +174,8 @@ h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
 .chart { position: relative; margin: 0 0 1.25rem; }
 .chart-title { font-weight: 600; margin-bottom: .25rem; }
 .chart-toggle { margin-bottom: .25rem; }
+.chart-toggle-hint:not([hidden]) { display: block; margin-bottom: .5rem; }
+.chart-toggle:has(input:disabled) { opacity: .55; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: .5rem 2rem; font-size: .85rem; color: var(--muted); margin: .25rem 0 .5rem; }
 .legend-item { display: inline-flex; align-items: center; gap: .45rem; }
 .line-key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; flex: none; }

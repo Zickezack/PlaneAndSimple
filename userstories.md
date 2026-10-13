@@ -157,3 +157,6 @@
     at most one mail per flight and price drop, one mail per user and poll.
 44. User management: admins rename users (ownership, shares and alerts follow); login with
     username or e-mail address – usernames and addresses are unique across each other.
+45. Observed price range in the price chart (toggle like the arrows): per departure date a band
+    from the lowest to the highest price ever observed, the line is the current price, arrows
+    from the first to the current price; a ring marks dates at their lowest observed price.

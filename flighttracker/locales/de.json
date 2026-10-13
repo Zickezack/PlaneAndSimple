@@ -608,5 +608,9 @@
   "Name, role, status and limits": "Name, Rolle, Status und Limits",
   "Optional. For the user's mails (password links, price alerts) and to log in with it.": "Optional. Für die Mails des Benutzers (Passwort-Links, Preisalarme) und zum Anmelden.",
   "Optional. You can log in with it too; needed for price alerts and to reset a forgotten password. Never shown to other users.": "Optional. Du kannst dich auch damit anmelden; nötig für Preisalarme und um ein vergessenes Passwort zurückzusetzen. Wird anderen Benutzern nie angezeigt.",
-  "Renaming keeps everything of the user; they log in with the new name from now on.": "Beim Umbenennen bleibt alles des Benutzers erhalten; die Anmeldung erfolgt ab sofort mit dem neuen Namen."
+  "Renaming keeps everything of the user; they log in with the new name from now on.": "Beim Umbenennen bleibt alles des Benutzers erhalten; die Anmeldung erfolgt ab sofort mit dem neuen Namen.",
+  "Show observed price range": "Beobachtete Preisspanne anzeigen",
+  "Band: lowest to highest price observed for each departure date, the line is the current price; a ring marks a date that is at its lowest observed price now.": "Band: tiefster bis höchster beobachteter Preis je Abflugtag, die Linie ist der aktuelle Preis; ein Ring markiert einen Tag, der gerade auf seinem tiefsten beobachteten Preis steht.",
+  "The price range needs one line: filter by origin or destination.": "Die Preisspanne braucht eine einzelne Linie: nach Abflug oder Ziel filtern.",
+  "Price changes and the price range appear from the second poll on – they need more than one observed price per date.": "Preisänderungen und Preisspanne erscheinen ab der zweiten Abfrage – dafür braucht es pro Datum mehr als einen beobachteten Preis."
 }
