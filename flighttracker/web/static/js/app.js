@@ -16,6 +16,37 @@
     });
   });
 
+  // Quick navigation of long pages: a link opens its section and folds the other ones of the
+  // row, so only the chosen part is open; "Show all" unfolds them again. Without JavaScript the
+  // links are plain anchors. A section named in the URL (#…) is opened on load.
+  document.querySelectorAll("[data-section-nav]").forEach((nav) => {
+    const links = [...nav.querySelectorAll('a[href^="#"]')];
+    const foldable = (link) => {
+      const section = document.getElementById(link.hash.slice(1));
+      return section instanceof HTMLDetailsElement ? section : null;
+    };
+    const focus = (chosen) => {
+      links.forEach((link) => {
+        const active = link === chosen;
+        link.toggleAttribute("aria-current", active);
+        const section = foldable(link);
+        if (section) section.open = active;
+      });
+    };
+    links.forEach((link) => link.addEventListener("click", () => focus(link)));
+    const showAll = nav.querySelector("[data-section-nav-all]");
+    showAll.hidden = false;
+    showAll.addEventListener("click", () => {
+      links.forEach((link) => {
+        link.removeAttribute("aria-current");
+        const section = foldable(link);
+        if (section) section.open = true;
+      });
+    });
+    const named = links.find((link) => link.hash === window.location.hash);
+    if (named && foldable(named)) foldable(named).open = true;
+  });
+
   const tripLegList = document.querySelector("[data-trip-legs]");
   const addTripLeg = document.querySelector("[data-add-trip-leg]");
   const tripLegTemplate = document.querySelector("[data-trip-leg-template]");

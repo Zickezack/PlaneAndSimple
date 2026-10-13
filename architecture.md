@@ -142,6 +142,11 @@ polls, change history and deletion are `<details>` sections; everything about on
 its flight detail page (`/searches/<id>/flights/<price id>`: segments with Flightradar24 links,
 layovers, price history of these dates, Google Flights link). Filters appear only when they offer
 a real choice; rarely changed form fields sit under "More options". New features follow this.
+Pages with many sections (Settings for admins, Suchabo detail – from about five) get a quick
+navigation row (macro `ui.section_nav`, behaviour in `static/js/app.js`) above cards that are
+`<details>` with an `id`: a link opens its section and folds the others, "Show all" unfolds them
+all, and a `#section` in the URL opens it on load – so saving redirects to `…#section`. Without
+JavaScript the links are plain anchors.
 
 **Static files** are referenced with `static_url()`, which appends the file's modification time,
 so browsers pick up CSS/JS changes immediately.

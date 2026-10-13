@@ -314,3 +314,16 @@ tr.is-changed td { background: var(--info-bg); }
 .flights-section > summary { cursor: pointer; margin: 1.25rem 0 .5rem; }
 .flights-section > summary h2 { display: inline; margin: 0; }
 .flights-section .table-header { margin-top: 0; }
+
+/* Quick navigation of long pages (macro section_nav): one row of links to the page's cards. */
+.section-nav { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 var(--space); }
+.section-nav a, .section-nav-all {
+  font: inherit; font-size: .9rem; padding: .25rem .7rem; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--surface); color: var(--text); text-decoration: none; cursor: pointer;
+}
+.section-nav a:hover, .section-nav-all:hover { border-color: var(--primary); background: var(--info-bg); }
+.section-nav a[aria-current] { border-color: var(--primary); background: var(--info-bg); color: var(--primary-dark); font-weight: 600; }
+.section-nav-all { color: var(--muted); }
+/* Jump targets: keep the section's top visible below the sticky top bar. */
+.card[id] { scroll-margin-top: 6rem; }
+.capacity > summary .badge { margin-left: .4rem; }

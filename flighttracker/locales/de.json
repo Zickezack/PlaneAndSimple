@@ -509,5 +509,7 @@
   "Edit schedule": "Zeitplan bearbeiten",
   "Worker load and poll schedule": "Auslastung des Workers und Abfrage-Zeitplan",
   "Times in {zone}; bar length = duration of the latest poll (or an estimate).": "Zeiten in {zone}; Balkenlänge = Dauer des letzten Durchlaufs (oder eine Schätzung).",
-  "Drag a bar or change a start time, then save.": "Balken ziehen oder Startzeit ändern, dann speichern."
+  "Drag a bar or change a start time, then save.": "Balken ziehen oder Startzeit ändern, dann speichern.",
+  "Sections": "Abschnitte",
+  "Show all": "Alle anzeigen"
 }

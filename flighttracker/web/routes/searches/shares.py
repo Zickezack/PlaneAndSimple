@@ -52,10 +52,10 @@ def add_share(
         )
     except ShareError as exc:
         flash(request, exc.message, "error")
-        return redirect(f"/searches/{search.id}")
+        return redirect(f"/searches/{search.id}#sharing")
     db.commit()
     flash(request, Msg('Shared with "{name}".', name=share.user.username), "success")
-    return redirect(f"/searches/{search.id}")
+    return redirect(f"/searches/{search.id}#sharing")
 
 
 @router.post("/searches/{search_id}/shares/{share_id}/delete")
@@ -71,7 +71,7 @@ def delete_share(
     if remove_share(db, share_id, search_id=search.id):
         db.commit()
         flash(request, Msg("Access removed."), "success")
-    return redirect(f"/searches/{search.id}")
+    return redirect(f"/searches/{search.id}#sharing")
 
 
 @router.post("/searches/{search_id}/owner", dependencies=[Depends(require_admin)])
@@ -92,4 +92,4 @@ def change_owner(
     search.owner_id = owner.id
     db.commit()
     flash(request, Msg("Owner changed."), "success")
-    return redirect(f"/searches/{search.id}")
+    return redirect(f"/searches/{search.id}#sharing")

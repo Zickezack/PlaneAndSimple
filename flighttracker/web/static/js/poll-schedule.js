@@ -113,6 +113,8 @@
   };
 
   window.addEventListener("resize", render);
+  // Drawn at width 0 while its section is folded – redraw when it is unfolded.
+  svgRoot.closest("details")?.addEventListener("toggle", render);
   render();
   if (!form) return;
 

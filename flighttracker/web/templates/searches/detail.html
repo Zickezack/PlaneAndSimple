@@ -47,7 +47,12 @@
 {% elif f.children and not provider.supports_children %}<p class="note">{{ _('Note: not available with the data source "{provider}" – prices do not include children.', provider=provider.name) }}</p>{% endif %}
 {% if hidden_passenger_prices %}<p class="hint">{{ _("{n} prices observed for a different number of passengers are not shown – they are not comparable.", n=hidden_passenger_prices) }}</p>{% endif %}
 
-<section class="card prices">
+{% set nav = [("prices", "Prices"), ("search-settings", "Settings"), ("polls", "Recent polls"), ("history", "Change history")] %}
+{% if sharing %}{% set nav = nav + [("sharing", "Sharing")] %}{% endif %}
+{% if access >= Access.OWN and not trip %}{% set nav = nav + [("danger-zone", "Archive or delete")] %}{% endif %}
+{{ ui.section_nav(nav) }}
+
+<section class="card prices" id="prices">
   {% if has_fake_prices %}
   <div class="fake-banner" role="alert">{{ _("This table contains invented prices (demo data). They are marked in red and are not real.") }}</div>
   {% endif %}
@@ -126,7 +131,7 @@
   {% if outdated_prices %}<p class="hint">{{ _("Only the departure dates of the latest poll are shown; {n} older prices of other dates are hidden.", n=outdated_prices) }}</p>{% endif %}
 </section>
 
-<details class="card more">
+<details class="card more" id="search-settings">
   <summary>{{ _("Settings") }}</summary>
   <dl class="facts">
     <dt>{{ _("Origin") }}</dt><dd>{{ origins }}</dd>
@@ -142,7 +147,7 @@
   </dl>
 </details>
 
-<details class="card more">
+<details class="card more" id="polls">
   <summary>{{ _("Recent polls") }}</summary>
   <p class="hint"><a href="/log?search_id={{ search.id }}">{{ _("All queries of this tracked search in the log") }}</a></p>
   {% if jobs %}
@@ -164,7 +169,7 @@
   {% else %}<p class="empty">{{ _("No polls yet.") }}</p>{% endif %}
 </details>
 
-<details class="card more">
+<details class="card more" id="history">
   <summary>{{ _("Change history") }}</summary>
   <p class="hint">{{ _("Every change creates a new revision. Existing prices stay unchanged.") }}</p>
   <ul class="revisions">
@@ -179,7 +184,7 @@
 {% if sharing %}{% include "_sharing.html" %}{% endif %}
 
 {% if access >= Access.OWN and not trip %}
-<details class="card more danger-zone">
+<details class="card more danger-zone" id="danger-zone">
   <summary>{{ _("Archive or delete") }}</summary>
   {% if not search.is_archived %}
   <p>{{ _("Archiving hides the tracked search and stops polling; all data is kept.") }}</p>

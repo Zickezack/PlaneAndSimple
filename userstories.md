@@ -133,3 +133,6 @@
     time fields without JavaScript), "Spread evenly", expected waits; polls never overlap; a
     resumed or restored one moves to a free gap if its start is taken meanwhile. The timeline is
     the Worker load view (one card, one table) and is edited in place.
+40. Quick navigation on long pages (Settings for admins, tracked search detail): a row of links
+    to the sections, which are collapsible; a link focuses on its section (the others fold),
+    "Show all" unfolds everything; saving returns to the section that was saved.

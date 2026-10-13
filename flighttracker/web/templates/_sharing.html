@@ -1,6 +1,6 @@
 {#- "Sharing" section of a tracked search or Trip (owner and admins only); data from web/sharing.py. -#}
 {% import "_macros.html" as ui with context %}
-<details class="card more">
+<details class="card more" id="sharing">
   <summary>{{ _("Sharing") }}</summary>
   <p>{{ _("Owner") }}: <strong>{{ sharing.owner_name or _("no owner") }}</strong></p>
   {% if sharing.owner_options is not none %}

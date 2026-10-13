@@ -5,9 +5,10 @@
 <div class="page-header">
   <h1>{{ _("Settings") }}</h1>
 </div>
+{% if section_nav %}{{ ui.section_nav(section_nav) }}{% endif %}
 
-<section class="card">
-  <h2>{{ _("Personal settings") }}</h2>
+<details class="card more" id="personal" open>
+  <summary>{{ _("Personal settings") }}</summary>
   <p>{{ _("Logged in as {name}", name=user.username) }}{% if user.is_admin %} · {{ ui.badge(_("Admin")) }}{% endif %}</p>
   {{ ui.quota_hint(usage) }}
   <form method="post" action="/settings/personal" class="form">
@@ -18,9 +19,9 @@
     </div>
     <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
   </form>
-</section>
+</details>
 
-<details class="card more">
+<details class="card more" id="password">
   <summary>{{ _("Change password") }}</summary>
   {% if user.password_hash %}
   <form method="post" action="/settings/password" class="form">
@@ -42,9 +43,9 @@
 <p class="hint">{{ _("Only visible to admins. They apply to every user.") }} <a href="/users">{{ _("User management") }}</a></p>
 
 {% set c = capacity %}
-<section class="card capacity{% if editing %} is-editing{% endif %}" id="schedule" data-schedule-card>
-  <h2>{{ _("Worker load and poll schedule") }}
-    {% if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}</h2>
+<details class="card more capacity{% if editing %} is-editing{% endif %}" id="schedule" data-schedule-card open>
+  <summary>{{ _("Worker load and poll schedule") }}
+    {%- if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}</summary>
   <p class="hint">{{ _("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.") }}</p>
   <p class="hint">{{ _("Times in {zone}; bar length = duration of the latest poll (or an estimate).", zone=zone) }}
     {%- if interval < 1440 %} {{ _("The schedule repeats every {interval}.", interval=duration(interval * 60)) }}{% endif %}
@@ -116,11 +117,11 @@
     </div>
   </form>
   {% endif %}
-</section>
+</details>
 <script src="{{ static_url('js/poll-schedule.js') }}" defer></script>
 
-<section class="card">
-  <h2>{{ _("Export and import") }}</h2>
+<details class="card more" id="transfer">
+  <summary>{{ _("Export and import") }}</summary>
   <p class="hint">{{ _("Imported tracked searches and Trips belong to you; assign them to other users on their pages.") }}</p>
   <p class="hint">{{ _("Export every tracked search with its price history and query log, plus every Trip with its ordered legs and layover rules, as one JSON file. Importing only ever adds new data – existing records are never changed or removed, so the same file can safely be imported twice or combined with exports from other servers.") }}</p>
   <div class="actions">
@@ -135,10 +136,10 @@
     </div>
     <div class="actions">{{ ui.button(_("Import"), "secondary") }}</div>
   </form>
-</section>
+</details>
 
 {% for section in sections %}
-<details class="card more">
+<details class="card more" id="{{ section.key }}">
   <summary>{{ _(section.label) }}</summary>
   <form method="post" action="/settings/section/{{ section.key }}" class="form">
     {{ ui.csrf_field() }}

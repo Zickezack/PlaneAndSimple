@@ -125,3 +125,15 @@
 <p class="hint">{{ _("Your limit: {searches} of {max_searches} tracked searches and Trips, {requests} of {max_requests} provider requests per poll.", searches=usage.searches, max_searches=usage.max_searches, requests=usage.requests, max_requests=usage.max_requests) }}</p>
 {% endif %}
 {%- endmacro %}
+
+{#- Quick navigation for pages with many sections. `items`: (element id, English label) pairs of
+    the page's cards. With JavaScript a link opens its section and folds the others (focus on
+    one part), "Show all" unfolds them again; without it the links are plain anchors. -#}
+{% macro section_nav(items) -%}
+<nav class="section-nav" aria-label="{{ _('Sections') }}" data-section-nav>
+  {%- for id, label in items %}
+  <a href="#{{ id }}">{{ _(label) }}</a>
+  {%- endfor %}
+  <button type="button" class="section-nav-all" data-section-nav-all hidden>{{ _("Show all") }}</button>
+</nav>
+{%- endmacro %}

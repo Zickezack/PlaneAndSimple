@@ -112,8 +112,9 @@ def format_seconds(seconds: float) -> str:
     return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
 
 
-def _redirect() -> RedirectResponse:
-    return RedirectResponse("/settings", status_code=303)
+def _redirect(section: str) -> RedirectResponse:
+    """Back to the Settings page, scrolled to (and with JavaScript unfolding) the section."""
+    return RedirectResponse(f"/settings#{section}", status_code=303)
 
 
 @router.get("/settings")
@@ -146,6 +147,16 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "user": user,
             "usage": quota.usage(db, user, settings),
             "capacity": load,
+            # Quick navigation: only admins have enough sections for it.
+            "section_nav": [
+                ("personal", "Personal settings"),
+                ("password", "Change password"),
+                ("schedule", "Worker load and poll schedule"),
+                ("transfer", "Export and import"),
+            ]
+            + [(section["key"], section["label"]) for section in sections]
+            if user.is_admin
+            else None,
             # "Edit schedule" without JavaScript: the same page with the start time fields.
             "editing": user.is_admin and request.query_params.get("edit") == "schedule",
             # Read-only poll schedule inside the Worker load card.
@@ -176,12 +187,12 @@ def save_personal(
     except UserValidationError as exc:
         for error in exc.errors:
             flash(request, error, "error")
-        return _redirect()
+        return _redirect("personal")
     db.commit()
     if locale:
         request.session[SESSION_LOCALE] = locale
     flash(request, Msg("Settings saved."), "success")
-    return _redirect()
+    return _redirect("personal")
 
 
 @router.post("/settings/password")
@@ -194,18 +205,18 @@ def change_password(
     new = str(form.get("new_password", ""))
     if new != str(form.get("repeat_password", "")):
         flash(request, Msg("The new passwords do not match."), "error")
-        return _redirect()
+        return _redirect("password")
     try:
         change_own_password(user, str(form.get("current_password", "")), new)
     except UserValidationError as exc:
         for error in exc.errors:
             flash(request, error, "error")
-        return _redirect()
+        return _redirect("password")
     db.commit()
     # Other sessions of this user end; this one continues.
     request.session[SESSION_AUTH_VERSION] = user.auth_version
     flash(request, Msg("Password changed. Other sessions were logged out."), "success")
-    return _redirect()
+    return _redirect("password")
 
 
 @router.post("/settings/section/{section}", dependencies=admin_only)
@@ -233,13 +244,13 @@ def save_section(
     if errors:
         db.rollback()
         flash(request, Msg("Could not save: {errors}", errors="; ".join(errors)), "error")
-        return _redirect()
+        return _redirect(section)
     settings = effective_settings(db, request.app.state.settings)
     if settings.default_poll_interval_minutes != old_interval:
         poll_plan.rescale(db, old_interval, settings, datetime.now(UTC))
     db.commit()
     flash(request, Msg("Settings saved."), "success")
-    return _redirect()
+    return _redirect(section)
 
 
 @router.post("/settings/airport-import/run", dependencies=admin_only)
@@ -254,7 +265,7 @@ def run_airport_import(
     except Exception as exc:
         db.rollback()
         flash(request, Msg("Airport import failed ({error}).", error=type(exc).__name__), "error")
-        return _redirect()
+        return _redirect("airport_import")
     db.commit()
     flash(
         request,
@@ -267,7 +278,7 @@ def run_airport_import(
         ),
         "success",
     )
-    return _redirect()
+    return _redirect("airport_import")
 
 
 @router.get("/settings/export", dependencies=admin_only)
@@ -290,12 +301,12 @@ def import_data(
     upload = form.get("file")
     if not isinstance(upload, UploadFile) or not upload.filename:
         flash(request, Msg("Please choose a JSON file to import."), "error")
-        return _redirect()
+        return _redirect("transfer")
     try:
         payload = json.loads(upload.file.read())
     except (ValueError, UnicodeDecodeError):
         flash(request, Msg("This file is not valid JSON."), "error")
-        return _redirect()
+        return _redirect("transfer")
     result = import_payload(db, payload, owner_id=user.id)
     if result.errors:
         db.rollback()
@@ -317,4 +328,4 @@ def import_data(
             ),
             "success",
         )
-    return _redirect()
+    return _redirect("transfer")
