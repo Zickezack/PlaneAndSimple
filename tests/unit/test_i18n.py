@@ -108,8 +108,10 @@ def ui_texts() -> set[str]:
     texts.update(text for _, text in labels.STOPS_OPTIONS)
     texts.update(provider.hint for provider in MAIL_PROVIDERS)
     texts.update(preset.hint for preset in AI_PRESETS)
-    for item in setup_status(_settings_for_texts()):
-        texts.update((item.label, item.missing))
+    mail_on = _settings_for_texts()
+    for settings in (mail_on, mail_on.model_copy(update={"smtp_host": ""})):
+        for item in setup_status(settings):
+            texts.update((item.label, item.missing))
     return texts
 
 

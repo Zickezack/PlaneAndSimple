@@ -734,5 +734,10 @@
   "Public address": "Öffentliche Adresse",
   "Set up:": "Eingerichtet:",
   "Wikidata contact": "Wikidata-Kontakt",
-  "Recommended": "Empfohlen"
+  "Recommended": "Empfohlen",
+  "Only a server without login (a test catcher such as Mailpit or a local relay) – mails may never be delivered. Store username and password, then check the login.": "Nur ein Server ohne Login (ein Test-Catcher wie Mailpit oder ein lokales Relay) – Mails werden womöglich nie zugestellt. Benutzername und Passwort hinterlegen, dann den Login prüfen.",
+  "Mail login failed: {error}": "Mail-Login fehlgeschlagen: {error}",
+  "Login to {host} works.": "Login bei {host} funktioniert.",
+  "Check the login": "Login prüfen",
+  "Connects and logs in with the saved settings, without sending a mail. Runs after saving this section too.": "Verbindet sich und meldet sich mit den gespeicherten Einstellungen an, ohne eine Mail zu senden. Läuft auch nach dem Speichern dieses Abschnitts."
 }

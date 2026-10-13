@@ -233,6 +233,11 @@
     <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
   </form>
   {% if section.key == "mail" %}
+  <form method="post" action="/settings/mail/check" class="inline-form">
+    {{ ui.csrf_field() }}
+    {{ ui.button(_("Check the login"), "secondary") }}
+    <small class="hint">{{ _("Connects and logs in with the saved settings, without sending a mail. Runs after saving this section too.") }}</small>
+  </form>
   <form method="post" action="/settings/mail/test" class="inline-form">
     {{ ui.csrf_field() }}
     {{ ui.button(_("Send a test mail"), "secondary") }}

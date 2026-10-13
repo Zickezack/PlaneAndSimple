@@ -138,3 +138,27 @@ def test_mail(
     db.commit()
     flash(request, Msg("Test mail sent to {email}.", email=user.email), "success")
     return RedirectResponse(target, status_code=303)
+
+
+def flash_login_check(request: Request, settings: Settings) -> None:
+    """Result of a login check of the configured mail server as a flash message."""
+    try:
+        mail.check_login(settings)
+    except mail.MailError as exc:
+        flash(request, Msg("Mail login failed: {error}", error=str(exc)), "error")
+        return
+    flash(
+        request,
+        Msg("Login to {host} works.", host=f"{settings.smtp_host}:{settings.smtp_port}"),
+        "success",
+    )
+
+
+@router.post("/settings/mail/check", dependencies=[Depends(require_admin)])
+def check_mail_login(
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    settings: Settings = Depends(get_effective_settings),
+):
+    flash_login_check(request, settings)
+    return RedirectResponse("/settings#mail", status_code=303)

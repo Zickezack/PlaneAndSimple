@@ -174,9 +174,11 @@ def test_price_alert_once_per_flight_and_drop(client, db, outbox):
     assert db.scalars(select(PriceAlert)).all() == []
 
 
-def test_smtp_password_is_stored_encrypted(client, db):
+def test_smtp_password_is_stored_encrypted(client, db, monkeypatch):
+    checked = []
+    monkeypatch.setattr(mail, "check_login", lambda settings: checked.append(settings.smtp_host))
     token = login(client)
-    client.post(
+    response = client.post(
         "/settings/section/mail",
         data={
             "csrf_token": token,
@@ -187,6 +189,8 @@ def test_smtp_password_is_stored_encrypted(client, db):
             "smtp_port": "25",
         },
     )
+    assert checked == ["smtp.gmail.com"]  # the login is checked right after saving
+    assert "Login to smtp.gmail.com:587 works." in response.text
     stored = {row.key: row.value for row in db.scalars(select(PlatformSetting))}
     assert stored["smtp_host"] == "smtp.gmail.com" and stored["smtp_port"] == "587"
     assert stored["smtp_password"].startswith("fernet:")

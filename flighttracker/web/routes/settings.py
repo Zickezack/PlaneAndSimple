@@ -19,7 +19,9 @@ from flighttracker.services.ai_prompts import DEFAULT_SYSTEM_PROMPT
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_export import export_all
 from flighttracker.services.data_import import import_payload
+from flighttracker.services.mail import has_login
 from flighttracker.services.settings import (
+    MAIL_SECTION,
     SETTING_FIELDS,
     SettingValidationError,
     clear_override,
@@ -47,6 +49,7 @@ from flighttracker.web.deps import (
     require_login,
 )
 from flighttracker.web.mails import send_password_changed
+from flighttracker.web.routes.password import flash_login_check
 from flighttracker.web.schedule_view import timeline
 from flighttracker.web.settings_forms import (
     SECTIONS,
@@ -226,6 +229,8 @@ def save_section(
         poll_plan.rescale(db, old_interval, settings, datetime.now(UTC))
     db.commit()
     flash(request, Msg("Settings saved."), "success")
+    if section == MAIL_SECTION and has_login(settings):
+        flash_login_check(request, settings)  # tell right away whether the login works
     return _redirect(section)
 
 

@@ -186,3 +186,6 @@ see 49.)
 53. "No thinking" for Ollama (`think: false`) and, for every provider, reasoning text removed from
     answers; the top of the admins' Settings page lists the services not set up yet (flight
     data, mail server, public address, AI, Wikidata contact) with their consequences and links.
+54. Mail counts as set up only with a login (a server without one is shown as a test catcher or
+    relay); "Check the login" connects and logs in without sending, also right after saving the
+    Mail section.

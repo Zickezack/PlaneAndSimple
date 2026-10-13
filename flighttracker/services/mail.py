@@ -101,7 +101,14 @@ def _message(settings: Settings, mail: Mail) -> EmailMessage:
     return message
 
 
-def send(settings: Settings, mail: Mail) -> None:
+def has_login(settings: Settings) -> bool:
+    """Username and password stored. Without them only a local relay or a test catcher such as
+    Mailpit accepts mails – which may never reach anybody."""
+    return bool(settings.smtp_username and settings.smtp_password)
+
+
+def _session(settings: Settings, action) -> None:
+    """Connect, secure and log in as configured, then `action(server)`; errors as MailError."""
     if not mail_enabled(settings):
         raise MailError("Mail is not set up (Platform Settings → Mail).")
     host, port = settings.smtp_host, settings.smtp_port
@@ -120,14 +127,25 @@ def send(settings: Settings, mail: Mail) -> None:
                     settings.smtp_password.get_secret_value() if settings.smtp_password else ""
                 )
                 server.login(settings.smtp_username, password)
-            server.send_message(_message(settings, mail))
+            action(server)
     except smtplib.SMTPAuthenticationError as exc:
         raise MailError(f"The mail server rejected the login (SMTP {exc.smtp_code}).") from None
     except smtplib.SMTPException as exc:
         raise MailError(f"The mail server refused the mail ({type(exc).__name__}).") from None
     except OSError as exc:
         raise MailError(f"No connection to {host}:{port} ({type(exc).__name__}).") from None
+
+
+def send(settings: Settings, mail: Mail) -> None:
+    _session(settings, lambda server: server.send_message(_message(settings, mail)))
     log.info("Mail sent: %s", mail.subject)
+
+
+def check_login(settings: Settings) -> None:
+    """Connection, encryption and login as configured – without sending anything."""
+    if not has_login(settings):
+        raise MailError("No username and password stored – nothing to check.")
+    _session(settings, lambda server: server.noop())
 
 
 def deliver(

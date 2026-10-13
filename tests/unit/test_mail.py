@@ -145,3 +145,29 @@ def test_every_mail_has_an_html_part_made_from_the_text(monkeypatch):
     assert "Hello &lt;you&gt;" in html  # escaped
     assert "<li>ZRH → BCN: 120.00 CHF</li>" in html
     assert '<a href="https://f.example/x?a=1&amp;b=2"' in html
+
+
+def test_login_check_sends_nothing(fake_smtp, monkeypatch):
+    noops = []
+    monkeypatch.setattr(FakeSMTP, "noop", lambda self: noops.append(True), raising=False)
+    mail.check_login(settings())
+    assert noops == [True]
+    assert ("login", "me@example.test") in fake_smtp
+    assert not any(call[0] == "send" for call in fake_smtp)
+    with pytest.raises(mail.MailError, match="rejected the login"):
+        mail.check_login(settings(smtp_password="wrong"))
+    with pytest.raises(mail.MailError, match="No username and password"):
+        mail.check_login(settings(smtp_username="", smtp_password=None))
+
+
+def test_mail_without_login_is_not_counted_as_set_up():
+    from flighttracker.web.settings_forms import setup_status
+
+    def mail_item(**overrides):
+        return next(i for i in setup_status(settings(**overrides)) if i.label == "Mail server")
+
+    catcher = mail_item(smtp_host="mailpit", smtp_username="", smtp_password=None)
+    assert not catcher.ok and "Mailpit" in catcher.missing
+    assert mail_item().ok
+    off = mail_item(smtp_host="")
+    assert not off.ok and "no price alerts" in off.missing

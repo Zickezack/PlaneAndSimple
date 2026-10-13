@@ -11,7 +11,7 @@ from flighttracker.domain.mail_providers import PROVIDERS_BY_KEY
 from flighttracker.i18n import currency_name, translate
 from flighttracker.providers.registry import PROVIDERS, provider_class
 from flighttracker.services.ai import ai_enabled
-from flighttracker.services.mail import mail_enabled
+from flighttracker.services.mail import has_login, mail_enabled
 from flighttracker.services.settings import (
     AI_SECTION,
     AIRPORT_IMPORT_SECTION,
@@ -122,9 +122,12 @@ def setup_status(settings: Settings) -> list[SetupItem]:
         ),
         SetupItem(
             "Mail server",
-            mail_on,
+            mail_on and has_login(settings),
             "recommended",
-            'No welcome mails, no "Forgot password?", no price alerts.',
+            "Only a server without login (a test catcher such as Mailpit or a local relay) – "
+            "mails may never be delivered. Store username and password, then check the login."
+            if mail_on
+            else 'No welcome mails, no "Forgot password?", no price alerts.',
             "mail",
         ),
     ]

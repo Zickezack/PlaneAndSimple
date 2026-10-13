@@ -256,7 +256,9 @@ legs, then polled again) ask for the exact name.
 - **Setup status:** the top of the admins' Settings page lists the platform services that are
   not set up yet – needed (real flight data), recommended (mail server; public address once mail
   is on), optional (AI, Wikidata contact) – with what is missing and a link to the section
-  (`web/settings_forms.setup_status`).
+  (`web/settings_forms.setup_status`). A mail server counts as set up only with username and
+  password; without them it is most likely a test catcher (Mailpit) or a local relay. "Check the
+  login" (and saving the Mail section) connects and logs in without sending (`mail.check_login`).
 - **Roles:** `admin` sees and manages everything (users, Platform Settings, export/import, all
   Suchabos and Trips). `user` sees their own Suchabos and Trips and those shared with them;
   the Settings page shows them only their personal settings (language, time zone, password).
