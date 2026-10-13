@@ -146,6 +146,8 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "user": user,
             "usage": quota.usage(db, user, settings),
             "capacity": load,
+            # "Edit schedule" without JavaScript: the same page with the start time fields.
+            "editing": user.is_admin and request.query_params.get("edit") == "schedule",
             # Read-only poll schedule inside the Worker load card.
             **(schedule_context or {}),
             "zone": settings.display_timezone,

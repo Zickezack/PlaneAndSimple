@@ -291,10 +291,7 @@ details.more[open] > summary { margin-bottom: .75rem; }
 .trip-route { display: flex; flex-direction: column; gap: .55rem; padding-left: 1.5rem; }
 .trip-route li small { display: block; }
 
-/* Worker load (Platform Settings) */
-.load-meter { display: block; width: 100%; height: 1rem; margin: .5rem 0 1rem; }
-
-/* Poll schedule (Platform Settings): timeline with draggable bars, start times below. */
+/* Worker load and poll schedule (Platform Settings): timeline, draggable while editing. */
 .schedule-timeline { display: block; width: 100%; margin: .5rem 0 1rem; user-select: none; touch-action: pan-y; }
 .schedule-tick { stroke: var(--border); }
 .schedule-tick-label { font-size: 11px; fill: var(--muted); }
@@ -305,6 +302,8 @@ details.more[open] > summary { margin-bottom: .75rem; }
 .schedule-bar.is-late rect { fill: var(--warning); }
 .schedule-timeline.is-dragging .schedule-bar { cursor: grabbing; }
 .schedule-start { display: flex; gap: .4rem; }
+/* View/edit toggle: `hidden` must win over the display of .actions and .schedule-start. */
+[data-view-only][hidden], [data-edit-only][hidden] { display: none; }
 .schedule-start .input { width: auto; }
 tr.is-changed td { background: var(--info-bg); }
 

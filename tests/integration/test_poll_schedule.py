@@ -116,31 +116,36 @@ def test_worker_places_new_searches(db, session_factory, settings):
     assert search.next_poll_at == zurich(2026, 10, 14, 0, 0)
 
 
-def test_schedule_page_for_admins_only(client, db):  # noqa: F811
+def test_editing_the_schedule_on_the_settings_page(client, db):  # noqa: F811
     search = create(db)
     search.poll_offset_minutes = 120
     db.commit()
     add_user(db, "alice")
     login_as(client, "alice")
-    assert client.get("/settings/schedule").status_code == 403
+    assert client.post("/settings/schedule", data={}).status_code in (403, 422)
 
     login(client)
-    page = client.get("/settings/schedule").text
+    # The former edit page leads to the Settings page in edit mode (works without JavaScript).
+    response = client.get("/settings/schedule", follow_redirects=False)
+    assert response.headers["location"] == "/settings?edit=schedule#schedule"
+    page = client.get("/settings?edit=schedule").text
+    assert "schedule-timeline is-editable" in page
     assert f'name="start-search-{search.id}" value="02:00"' in page
-    assert "schedule-bar" in page
     response = client.post(
         "/settings/schedule",
         data={"csrf_token": csrf(page), f"start-search-{search.id}": "05:30"},
+        follow_redirects=False,
     )
-    assert response.status_code == 200
+    assert response.headers["location"] == "/settings#schedule"
     db.refresh(search)
     assert search.poll_offset_minutes == 5 * 60 + 30
 
-    page = client.get("/settings/schedule").text
-    client.post(
+    response = client.post(
         "/settings/schedule",
         data={"csrf_token": csrf(page), f"start-search-{search.id}": "25:00"},
+        follow_redirects=False,
     )
+    assert response.headers["location"] == "/settings?edit=schedule#schedule"
     db.refresh(search)
     assert search.poll_offset_minutes == 5 * 60 + 30
     assert (
@@ -197,6 +202,6 @@ def test_settings_page_shows_the_schedule_read_only(client, db):  # noqa: F811
     page = client.get("/settings").text
     assert "Worker load and poll schedule" in page
     assert 'class="schedule-timeline"' in page  # without "is-editable"
-    assert 'href="/settings/schedule"' in page and "Edit schedule" in page
-    assert "<td>01:30</td>" in page
-    assert 'name="start-search-' not in page
+    assert 'href="/settings?edit=schedule#schedule" data-schedule-edit' in page
+    assert "<span data-view-only>01:30</span>" in page
+    assert '<span class="schedule-start" data-edit-only hidden>' in page

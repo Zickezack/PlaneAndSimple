@@ -131,5 +131,5 @@
 39. Poll schedule (admins, Platform Settings): every tracked search and Trip has a start time in
     the poll interval; new ones are placed in the largest free gap; drag and drop timeline (start
     time fields without JavaScript), "Spread evenly", expected waits; polls never overlap; a
-    resumed or restored one moves to a free gap if its start is taken meanwhile. Shown read-only
-    together with the Worker load (one table), edited on its own page.
+    resumed or restored one moves to a free gap if its start is taken meanwhile. The timeline is
+    the Worker load view (one card, one table) and is edited in place.

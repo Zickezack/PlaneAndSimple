@@ -100,4 +100,4 @@ def test_only_admins_see_the_worker_load(client, db):  # noqa: F811
     client.cookies.clear()
     login(client)
     page = client.get("/settings").text
-    assert "Worker load" in page and 'class="load-meter"' in page
+    assert "Worker load" in page and 'class="schedule-timeline' in page

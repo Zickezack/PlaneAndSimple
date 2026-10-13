@@ -85,8 +85,8 @@ The single worker runs one poll after the other, so the real ceiling is time: **
 Settings → Worker load** shows how long one round of all polls takes (measured) against the poll
 interval, how many more requests fit before polls back up, and each search's share, together
 with the **poll schedule**: every tracked search and Trip has a start time of its own (new ones go
-into the largest free gap). "Edit schedule" lets admins drag the bars of the timeline or type the
-start times, or spread all polls evenly.
+into the largest free gap). The timeline replaces a load bar; "Edit schedule" lets admins drag its
+bars or type the start times right there, or spread all polls evenly.
 
 ![Worker load: one round of polls takes part of the 24-hour interval, with the reserve in time and requests, waiting polls, and each tracked search's and Trip's share](docs/screenshots/worker-load.png)
 

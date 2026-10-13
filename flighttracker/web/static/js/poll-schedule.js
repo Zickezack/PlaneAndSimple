@@ -1,12 +1,13 @@
-// Poll schedule timeline: redrawn in screen pixels; on the edit page its bars can be dragged
-// to move a poll's start. Progressive enhancement – the bars mirror the start fields of the
-// form below, which alone work too. Read-only (Settings → Worker load) without that form.
+// Poll schedule timeline (Settings → Worker load): redrawn in screen pixels. "Edit schedule"
+// switches the card to editing in place – bars can then be dragged to move a poll's start.
+// Progressive enhancement: the bars mirror the start fields of the form below, which alone
+// work too (`/settings?edit=schedule` without JavaScript).
 (() => {
   const dataNode = document.getElementById("schedule-data");
   const svgRoot = document.querySelector("[data-schedule-timeline]");
   const form = document.getElementById("schedule-form");
   if (!dataNode || !svgRoot) return;
-  const editable = Boolean(form) && svgRoot.classList.contains("is-editable");
+  let editable = Boolean(form) && svgRoot.classList.contains("is-editable");
 
   const { interval, days, geometry, polls } = JSON.parse(dataNode.textContent);
   const { width: UNITS, axis: AXIS, lane: LANE, bar: BAR } = geometry;
@@ -113,13 +114,25 @@
 
   window.addEventListener("resize", render);
   render();
-  if (!editable) return;
+  if (!form) return;
+
+  const card = svgRoot.closest("[data-schedule-card]");
+  card?.querySelector("[data-schedule-edit]")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    editable = true;
+    svgRoot.classList.add("is-editable");
+    card.classList.add("is-editing");
+    card.querySelectorAll("[data-edit-only]").forEach((node) => { node.hidden = false; });
+    card.querySelectorAll("[data-view-only]").forEach((node) => { node.hidden = true; });
+    const table = card.querySelector("[data-schedule-table]");
+    if (table) table.open = true;
+  });
 
   // Dragging: horizontal movement only, snapped to whole minutes.
   let drag = null;
   svgRoot.addEventListener("pointerdown", (event) => {
     const group = event.target.closest(".schedule-bar");
-    if (!group) return;
+    if (!editable || !group) return;
     const poll = polls.find((p) => p.key === group.dataset.key);
     drag = { poll, x: event.clientX, start: poll.start };
     svgRoot.setPointerCapture(event.pointerId);

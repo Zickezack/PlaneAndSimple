@@ -42,11 +42,14 @@
 <p class="hint">{{ _("Only visible to admins. They apply to every user.") }} <a href="/users">{{ _("User management") }}</a></p>
 
 {% set c = capacity %}
-<section class="card capacity">
+<section class="card capacity{% if editing %} is-editing{% endif %}" id="schedule" data-schedule-card>
   <h2>{{ _("Worker load and poll schedule") }}
     {% if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}</h2>
   <p class="hint">{{ _("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.") }}</p>
-  <meter class="load-meter" min="0" max="1" low="0.8" high="1" optimum="0" value="{{ [c.utilization, 1] | min }}" aria-label="{{ _('Worker load') }}"></meter>
+  <p class="hint">{{ _("Times in {zone}; bar length = duration of the latest poll (or an estimate).", zone=zone) }}
+    {%- if interval < 1440 %} {{ _("The schedule repeats every {interval}.", interval=duration(interval * 60)) }}{% endif %}
+    <span data-edit-only{% if not editing %} hidden{% endif %}>{{ _("Drag a bar or change a start time, then save.") }}</span></p>
+  {% with editable=editing %}{% include "settings/_timeline.html" %}{% endwith %}
   <dl class="facts">
     <dt>{{ _("One round of polls") }}</dt>
     <dd><strong>{{ duration(c.round_seconds) }}</strong> {{ _("of {interval} poll interval ({percent} %)", interval=duration(c.interval_seconds), percent=(c.utilization * 100) | round | int) }}</dd>
@@ -61,37 +64,57 @@
     <dd>{% if c.queued %}{{ _("{n} polls, the oldest for {time}", n=c.queued, time=duration(c.longest_wait_seconds)) }}{% else %}{{ _("none") }}{% endif %}</dd>
   </dl>
   {% if plan.polls %}
-  <h3>{{ _("Poll schedule") }}</h3>
-  <p class="hint">{{ _("Times in {zone}; bar length = duration of the latest poll (or an estimate).", zone=zone) }}
-    {%- if interval < 1440 %} {{ _("The schedule repeats every {interval}.", interval=duration(interval * 60)) }}{% endif %}</p>
-  {% with editable=false %}{% include "settings/_timeline.html" %}{% endwith %}
-  <div class="actions">{{ ui.link_button(_("Edit schedule"), "/settings/schedule") }}</div>
-  <details class="more">
-    <summary>{{ _("Per tracked search and Trip") }}</summary>
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr><th class="num">#</th><th>{{ _("Start") }}</th><th>{{ _("Name") }}</th><th>{{ _("Owner") }}</th><th class="num">{{ _("Requests per poll") }}</th><th class="num">{{ _("Poll duration") }}</th><th class="num">{{ _("Share of the round") }}</th><th>{{ _("Status") }}</th></tr></thead>
-        <tbody>
-        {% for poll in plan.polls %}
-          {% set item = poll.load %}
-          <tr>
-            <td class="num">{{ loop.index }}</td>
-            <td>{% if poll.offset is none %}–{% else %}{% set day, clock = offset_parts(poll.offset) %}{% if day %}{{ _("Day {n}", n=day) }} {% endif %}{{ clock }}{% endif %}</td>
-            <td><a href="{{ item.url }}">{{ item.name }}</a>{% if item.kind == "trip" %} <small class="hint">Trip</small>{% endif %}</td>
-            <td>{{ item.owner or "–" }}</td>
-            <td class="num">{{ item.requests }}</td>
-            <td class="num">{% if item.measured_seconds is none %}<span class="hint" title="{{ _('Estimate – not polled yet') }}">≈ {{ duration(item.seconds) }}</span>{% else %}{{ duration(item.seconds) }}{% endif %}</td>
-            <td class="num">{{ (item.seconds / c.round_seconds * 100) | round | int if c.round_seconds else 0 }} %</td>
-            <td>{% if poll.offset is none %}{{ ui.badge(_("Not placed yet"), "muted") }}
-              {%- elif poll.wait_minutes >= 1 %}{{ ui.badge(_("Waits ≈ {time}", time=duration(poll.wait_minutes * 60)), "warning") }}
-              {%- else %}{{ ui.badge(_("On time"), "success") }}{% endif %}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+  <div class="actions" data-view-only{% if editing %} hidden{% endif %}>
+    <a class="btn btn-secondary" href="/settings?edit=schedule#schedule" data-schedule-edit>{{ _("Edit schedule") }}</a>
+  </div>
+  <form method="post" action="/settings/schedule" class="form" id="schedule-form">
+    {{ ui.csrf_field() }}
+    <details class="more" data-schedule-table{% if editing %} open{% endif %}>
+      <summary>{{ _("Per tracked search and Trip") }}</summary>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th class="num">#</th><th>{{ _("Start") }}</th><th>{{ _("Name") }}</th><th>{{ _("Owner") }}</th><th class="num">{{ _("Requests per poll") }}</th><th class="num">{{ _("Poll duration") }}</th><th class="num">{{ _("Share of the round") }}</th><th>{{ _("Status") }}</th></tr></thead>
+          <tbody>
+          {% for poll in plan.polls %}
+            {% set item = poll.load %}
+            {% set parts = offset_parts(poll.offset) if poll.offset is not none else (none, "") %}
+            <tr data-key="{{ poll.key }}">
+              <td class="num">{{ loop.index }}</td>
+              <td>
+                <span data-view-only{% if editing %} hidden{% endif %}>{% if poll.offset is none %}–{% else %}{% if parts[0] %}{{ _("Day {n}", n=parts[0]) }} {% endif %}{{ parts[1] }}{% endif %}</span>
+                <span class="schedule-start" data-edit-only{% if not editing %} hidden{% endif %}>
+                  {% if days %}
+                  <select class="input" name="day-{{ poll.key }}" aria-label="{{ _('Day') }}">
+                    {% for day in range(1, days + 1) %}<option value="{{ day }}"{% if day == parts[0] %} selected{% endif %}>{{ _("Day {n}", n=day) }}</option>{% endfor %}
+                  </select>
+                  {% endif %}
+                  <input class="input" type="time" name="start-{{ poll.key }}" value="{{ parts[1] }}" aria-label="{{ _('Start') }} {{ item.name }}">
+                </span>
+              </td>
+              <td><a href="{{ item.url }}">{{ item.name }}</a>{% if item.kind == "trip" %} <small class="hint">Trip</small>{% endif %}</td>
+              <td>{{ item.owner or "–" }}</td>
+              <td class="num">{{ item.requests }}</td>
+              <td class="num">{% if item.measured_seconds is none %}<span class="hint" title="{{ _('Estimate – not polled yet') }}">≈ {{ duration(item.seconds) }}</span>{% else %}{{ duration(item.seconds) }}{% endif %}</td>
+              <td class="num">{{ (item.seconds / c.round_seconds * 100) | round | int if c.round_seconds else 0 }} %</td>
+              <td>{% if poll.offset is none %}{{ ui.badge(_("Not placed yet"), "muted") }}
+                {%- elif poll.wait_minutes >= 1 %}{{ ui.badge(_("Waits ≈ {time}", time=duration(poll.wait_minutes * 60)), "warning") }}
+                {%- else %}{{ ui.badge(_("On time"), "success") }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">{{ _("Durations of the latest completed poll; a poll interrupted by a worker restart only counts its last part.") }}</p>
+    </details>
+    <div data-edit-only{% if not editing %} hidden{% endif %}>
+      <div class="actions">
+        {{ ui.button(_("Save schedule")) }}
+        {{ ui.button(_("Spread evenly"), "secondary", formaction="/settings/schedule/spread") }}
+        {{ ui.link_button(_("Cancel"), "/settings#schedule") }}
+      </div>
+      <small class="hint">{{ _("Spread evenly: keeps the order and gives every poll the same free time before the next one.") }}</small>
     </div>
-    <p class="hint">{{ _("Durations of the latest completed poll; a poll interrupted by a worker restart only counts its last part.") }}</p>
-  </details>
+  </form>
   {% endif %}
 </section>
 <script src="{{ static_url('js/poll-schedule.js') }}" defer></script>

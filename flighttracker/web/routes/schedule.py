@@ -1,6 +1,6 @@
-"""Editing the poll schedule (admins only; the read-only view is part of Worker load on the
-Settings page). A timeline (bars can be dragged, static/js/poll-schedule.js) above a form with
-one start time per poll – the form alone works without JavaScript."""
+"""Saving the poll schedule (admins only). It is shown and edited inside the Worker load card
+of the Settings page: the timeline's bars can be dragged (static/js/poll-schedule.js), the
+start time fields alone work without JavaScript (`/settings?edit=schedule`)."""
 
 from datetime import UTC, datetime
 
@@ -14,26 +14,19 @@ from flighttracker.i18n import Msg
 from flighttracker.services import poll_plan
 from flighttracker.services.settings import effective_settings
 from flighttracker.web.deps import csrf_form, flash, get_db, require_admin
-from flighttracker.web.routes.settings import format_seconds
-from flighttracker.web.schedule_view import timeline
-from flighttracker.web.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
 
 
-def _redirect() -> RedirectResponse:
-    return RedirectResponse("/settings/schedule", status_code=303)
+def _redirect(*, editing: bool = False) -> RedirectResponse:
+    url = "/settings?edit=schedule#schedule" if editing else "/settings#schedule"
+    return RedirectResponse(url, status_code=303)
 
 
 @router.get("/settings/schedule")
-def show(request: Request, db: Session = Depends(get_db)):
-    settings = effective_settings(db, request.app.state.settings)
-    plan = poll_plan.schedule(db, settings, datetime.now(UTC))
-    return templates.TemplateResponse(
-        request,
-        "settings/schedule.html",
-        {**timeline(plan), "duration": format_seconds, "zone": settings.display_timezone},
-    )
+def show() -> RedirectResponse:
+    """Former edit page; editing now happens on the Settings page."""
+    return _redirect(editing=True)
 
 
 def parse_schedule_form(form: FormData, interval: int) -> tuple[dict[str, int], list[Msg]]:
@@ -61,7 +54,7 @@ def save(request: Request, form: FormData = Depends(csrf_form), db: Session = De
     if errors:
         for error in errors:
             flash(request, error, "error")
-        return _redirect()
+        return _redirect(editing=True)
     changed = poll_plan.set_offsets(db, settings, datetime.now(UTC), offsets)
     db.commit()
     flash(request, Msg("Poll schedule saved ({n} changed).", n=changed), "success")
