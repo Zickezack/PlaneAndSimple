@@ -353,7 +353,8 @@ class TestJobs:
 
     def test_global_interval_is_used_for_search_and_trip_schedulers(self, db):
         search = create(db)
-        starts_on = NOW.date() + timedelta(days=14)
+        # Relative to the real date: a Trip window must not start in the past.
+        starts_on = date.today() + timedelta(days=14)
         trip = create_trip(
             db,
             TripInput(
@@ -449,7 +450,10 @@ class TestWorker:
 
         schedule(session_factory, clock=lambda: NOW, base_settings=base_settings)
         db.refresh(search)
-        assert search.next_poll_at == NOW + timedelta(days=1)
+        # Placed at the start of the (empty) poll schedule: midnight in Zurich, and at least
+        # half an interval after this first poll – 30 Sep 00:00 CEST.
+        assert search.poll_offset_minutes == 0
+        assert search.next_poll_at == datetime(2026, 9, 29, 22, tzinfo=UTC)
         assert process_next_job(
             session_factory,
             MockProvider(clock=lambda: NOW),

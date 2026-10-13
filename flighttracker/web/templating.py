@@ -6,6 +6,7 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 
+from flighttracker.domain.currencies import currency_decimals
 from flighttracker.i18n import SUPPORTED_LOCALES, Msg, translate
 from flighttracker.providers.registry import provider_class
 from flighttracker.services.settings import effective_settings
@@ -58,7 +59,8 @@ def _format_number(value, locale: str, decimals: int = 0) -> str:
 def _format_price(context, value, currency: str = "") -> str:
     if value is None:
         return "–"
-    return f"{_format_number(value, context['locale'], 2)} {currency}".strip()
+    decimals = currency_decimals(currency) if currency else 2
+    return f"{_format_number(value, context['locale'], decimals)} {currency}".strip()
 
 
 @pass_context

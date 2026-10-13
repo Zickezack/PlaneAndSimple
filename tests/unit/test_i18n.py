@@ -5,8 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from flighttracker.domain.currencies import CURRENCIES
-from flighttracker.i18n import Msg, catalog, country_catalog, country_name, translate
+from flighttracker.domain.currencies import CURRENCIES, currency_decimals
+from flighttracker.i18n import (
+    Msg,
+    catalog,
+    country_catalog,
+    country_name,
+    currency_catalog,
+    currency_name,
+    translate,
+)
 from flighttracker.web import forms, labels
 
 ROOT = Path(__file__).resolve().parents[2] / "flighttracker"
@@ -69,7 +77,6 @@ def ui_texts() -> set[str]:
         labels.SETTINGS_FIELD_LABELS,
         labels.SETTINGS_FIELD_HINTS,
         forms._FIELD_LABELS,
-        CURRENCIES,
     ):
         texts.update(table.values())
     texts.update(text for _, text in labels.STOPS_OPTIONS)
@@ -116,3 +123,17 @@ def test_german_country_names_cover_iso_codes_and_fall_back_to_english():
     assert country_name("CH", "Switzerland", "de") == "Schweiz"
     assert country_name("CH", "Switzerland", "en") == "Switzerland"
     assert country_name("QQ", "Unknown land", "de") == "Unknown land"
+
+
+def test_every_currency_has_a_german_name():
+    assert currency_catalog("de").keys() == CURRENCIES.keys()
+    assert len(CURRENCIES) >= 150
+    assert all(re.fullmatch(r"[A-Z]{3}", code) and name for code, name in CURRENCIES.items())
+    assert currency_name("CHF", CURRENCIES["CHF"], "de") == "Schweizer Franken"
+    assert currency_name("CHF", CURRENCIES["CHF"], "en") == "Swiss Franc"
+
+
+def test_currency_decimals_follow_iso_4217():
+    assert currency_decimals("CHF") == 2
+    assert currency_decimals("JPY") == 0
+    assert currency_decimals("KWD") == 3

@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from flighttracker.config import Settings
+from flighttracker.domain.currencies import is_known_currency
 from flighttracker.models import PlatformSetting
 
 Kind = Literal["str", "int", "float", "bool", "secret", "currency"]
@@ -65,8 +66,8 @@ def _parse(field: SettingField, raw: str) -> object:
     if field.kind == "secret":
         return raw
     if field.kind == "currency":
-        if len(raw) != 3 or not raw.isalpha() or not raw.isupper():
-            raise SettingValidationError("Enter a three-letter uppercase currency code.")
+        if not is_known_currency(raw):
+            raise SettingValidationError("Choose a currency from the list.")
         return raw
     if field.kind == "str":
         return raw

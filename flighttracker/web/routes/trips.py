@@ -19,6 +19,7 @@ from flighttracker.services.access import (
 )
 from flighttracker.services.jobs import request_trip_poll
 from flighttracker.services.locations import airport_options, country_names
+from flighttracker.services.poll_plan import fit_returning, poll_cycle, poll_key
 from flighttracker.services.searches import SearchValidationError, clear_price_history
 from flighttracker.services.settings import effective_settings
 from flighttracker.services.trips import (
@@ -198,6 +199,7 @@ def poll_now(
         trip,
         datetime.now(UTC),
         poll_interval_minutes=settings.default_poll_interval_minutes,
+        cycle=poll_cycle(settings),
     ):
         db.commit()
         flash(request, Msg("Trip poll queued."), "success")
@@ -288,6 +290,7 @@ def clear_history(
             trip,
             datetime.now(UTC),
             poll_interval_minutes=settings.default_poll_interval_minutes,
+            cycle=poll_cycle(settings),
         )
     )
     db.commit()
@@ -365,6 +368,9 @@ def status_action(
                 flash(request, error, "error")
             return RedirectResponse(f"/trips/{trip.id}", status_code=303)
         restore_trip(trip)
+    if action in ("resume", "restore"):
+        settings = effective_settings(db, request.app.state.settings)
+        fit_returning(db, settings, datetime.now(UTC), poll_key("trip", trip.id))
     db.commit()
     flash(request, message, "success")
     return RedirectResponse(f"/trips/{trip.id}", status_code=303)

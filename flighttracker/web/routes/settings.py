@@ -4,16 +4,18 @@ defaults (flight data providers, worker, airport import, user limits)."""
 
 import json
 from datetime import UTC, datetime
+from zoneinfo import available_timezones
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData, UploadFile
 
-from flighttracker.i18n import SUPPORTED_LOCALES, Msg
+from flighttracker.domain.currencies import CURRENCIES
+from flighttracker.i18n import SUPPORTED_LOCALES, Msg, currency_name, translate
 from flighttracker.models import User
 from flighttracker.providers.registry import PROVIDERS
-from flighttracker.services import capacity, quota
+from flighttracker.services import capacity, poll_plan, quota
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_export import export_all
 from flighttracker.services.data_import import import_payload
@@ -42,6 +44,7 @@ from flighttracker.web.deps import (
     SESSION_LOCALE,
     AuthUser,
     csrf_form,
+    current_locale,
     flash,
     get_db,
     get_user,
@@ -75,11 +78,28 @@ def _field_view(field: SettingField, overrides: dict, settings) -> dict:
         "hint": labels.SETTINGS_FIELD_HINTS[field.key],
         "is_secret": is_secret,
         "is_choice": field.key == "flight_provider",
+        "is_currency": field.kind == "currency",
         "is_bool": field.kind == "bool",
         "is_overridden": field.key in overrides,
         "value": "" if is_secret else value,
         "has_value": bool(value.get_secret_value()) if is_secret and value else False,
     }
+
+
+def currency_options(locale: str, current: str) -> list[tuple[str, str]]:
+    """Every national currency as "CHF – Swiss Franc"; a legacy `.env` value stays selectable."""
+    codes = sorted(CURRENCIES.keys() | {current})
+    return [
+        (code, f"{code} – {currency_name(code, CURRENCIES.get(code, code), locale)}")
+        for code in codes
+    ]
+
+
+def timezone_options(platform_default: str, locale: str) -> list[tuple[str, str]]:
+    """Empty value = the platform's zone; then every IANA zone of a region ("Europe/Zurich")."""
+    zones = sorted(zone for zone in available_timezones() if "/" in zone and "Etc/" not in zone)
+    default = translate("{zone} (platform default)", locale, zone=platform_default)
+    return [("", default)] + [(zone, zone) for zone in zones]
 
 
 def format_seconds(seconds: float) -> str:
@@ -98,6 +118,7 @@ def _redirect() -> RedirectResponse:
 @router.get("/settings")
 def index(request: Request, db: Session = Depends(get_db), user: User = Depends(get_user)):
     settings = effective_settings(db, request.app.state.settings)
+    locale = current_locale(request)
     sections = []
     if user.is_admin:
         overrides = load_overrides(db)
@@ -124,7 +145,8 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             else None,
             "duration": format_seconds,
             "locale_options": list(SUPPORTED_LOCALES.items()),
-            "default_timezone": settings.display_timezone,
+            "currency_options": currency_options(locale, settings.default_currency),
+            "timezone_options": timezone_options(settings.display_timezone, locale),
         },
     )
 
@@ -187,6 +209,7 @@ def save_section(
 ):
     if section not in _SECTIONS:
         raise HTTPException(status_code=404)
+    old_interval = effective_settings(db, request.app.state.settings).default_poll_interval_minutes
     errors: list[str] = []
     for field in _section_fields(section):
         if field.kind == "secret" and form.get(f"{field.key}_clear") == "1":
@@ -202,9 +225,12 @@ def save_section(
     if errors:
         db.rollback()
         flash(request, Msg("Could not save: {errors}", errors="; ".join(errors)), "error")
-    else:
-        db.commit()
-        flash(request, Msg("Settings saved."), "success")
+        return _redirect()
+    settings = effective_settings(db, request.app.state.settings)
+    if settings.default_poll_interval_minutes != old_interval:
+        poll_plan.rescale(db, old_interval, settings, datetime.now(UTC))
+    db.commit()
+    flash(request, Msg("Settings saved."), "success")
     return _redirect()
 
 

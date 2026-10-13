@@ -34,6 +34,7 @@ from flighttracker.services.jobs import (
     schedule_due_polls,
     schedule_due_trip_polls,
 )
+from flighttracker.services.poll_plan import place_unplanned, poll_cycle
 from flighttracker.services.settings import effective_settings
 from flighttracker.worker.job_control import interrupt, should_end
 from flighttracker.worker.trip_job import process_trip_job
@@ -57,10 +58,16 @@ def schedule(
         now = clock()
         effective = effective_settings(session, base_settings) if base_settings else None
         interval = effective.default_poll_interval_minutes if effective else None
+        cycle = poll_cycle(effective) if effective else None
+        placed = place_unplanned(session, effective, now) if effective else 0
         requeued = requeue_stale_jobs(session, now)
-        scheduled = schedule_due_polls(session, now, poll_interval_minutes=interval)
-        trips_scheduled = schedule_due_trip_polls(session, now, poll_interval_minutes=interval)
+        scheduled = schedule_due_polls(session, now, poll_interval_minutes=interval, cycle=cycle)
+        trips_scheduled = schedule_due_trip_polls(
+            session, now, poll_interval_minutes=interval, cycle=cycle
+        )
         session.commit()
+    if placed:
+        log.info("%d tracked searches and Trips placed in the poll schedule", placed)
     if requeued or scheduled or trips_scheduled:
         log.info(
             "%d search polls and %d Trip polls scheduled, %d stale jobs requeued",

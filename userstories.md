@@ -19,6 +19,16 @@
    and rises, new lowest prices – optionally with the price chart as an embedded image (mail
    clients do not run JavaScript, so it must be rendered server-side, e.g. PNG).
 
+### Epic Internationalisierung
+1. More UI languages (e.g. French, Italian, Spanish): today English and German. Needs a
+   catalog per language (`locales/<code>.json`), country and currency names per language
+   (generated from CLDR like the German ones) and a translation workflow for new texts.
+2. Locale-aware formats per language and region instead of the two fixed ones (numbers, dates,
+   weekday and month names, e.g. via Babel/CLDR – a new dependency); price format with currency
+   symbols.
+3. Market per user or platform for Google Flights (`gl`/`hl` parameters: country of sale and
+   language), so fares match what users in other countries see.
+
 ### Epic AI-gestützte Planung
 1. Optional Ollama-assisted drafting: turn plain-language travel intent into a search or Trip
    draft, validate it with existing deterministic rules, and require confirmation before saving
@@ -116,3 +126,9 @@
 37. Calendar-driven departure days: each poll reads the price calendar first and queries half
     evenly spread and half the cheapest calendar days per month (same number of requests); the
     heat map is folded away by default. Google Flights adapter split into a package.
+38. Platform currency as a dropdown of all current national currencies (ISO 4217, names in
+    English and German, prices with the currency's decimals); personal time zone as a dropdown.
+39. Poll schedule (admins, Platform Settings): every tracked search and Trip has a start time in
+    the poll interval; new ones are placed in the largest free gap; drag and drop timeline (start
+    time fields without JavaScript), "Spread evenly", expected waits; polls never overlap; a
+    resumed or restored one moves to a free gap if its start is taken meanwhile.

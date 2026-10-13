@@ -14,7 +14,7 @@
     {{ ui.csrf_field() }}
     <div class="grid-2">
       {{ ui.select_field("locale", _("Language"), locale_options, user.locale or locale) }}
-      {{ ui.text_field("timezone", _("Time zone"), user.timezone or "", placeholder=default_timezone, hint=_("For example Europe/Zurich or America/New_York. Empty: {zone} (platform default).", zone=default_timezone)) }}
+      {{ ui.select_field("timezone", _("Time zone"), timezone_options, user.timezone or "") }}
     </div>
     <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
   </form>
@@ -60,6 +60,7 @@
     <dt>{{ _("Waiting now") }}</dt>
     <dd>{% if c.queued %}{{ _("{n} polls, the oldest for {time}", n=c.queued, time=duration(c.longest_wait_seconds)) }}{% else %}{{ _("none") }}{% endif %}</dd>
   </dl>
+  <div class="actions">{{ ui.link_button(_("Poll schedule"), "/settings/schedule") }}</div>
   {% if c.items %}
   <details class="more">
     <summary>{{ _("Per tracked search and Trip") }}</summary>
@@ -135,8 +136,8 @@
         <small class="hint">{{ _(field.hint) }}</small>
       </div>
       {% else %}
-      {% if field.key == "default_currency" %}
-      {{ ui.text_field(field.key, _(field.label), field.value, hint=_(field.hint), suggest="/api/suggest/currencies") }}
+      {% if field.is_currency %}
+      {{ ui.select_field(field.key, _(field.label), currency_options, field.value, hint=_(field.hint)) }}
       {% else %}
       {{ ui.text_field(field.key, _(field.label), field.value, hint=_(field.hint)) }}
       {% endif %}

@@ -13,6 +13,7 @@ from flighttracker.web.routes import (
     health,
     log,
     preferences,
+    schedule,
     searches,
     suggest,
     trips,
@@ -78,6 +79,7 @@ def create_app(
     app.include_router(searches.router)
     app.include_router(log.router)
     app.include_router(settings_routes.router)
+    app.include_router(schedule.router)
     app.include_router(trips.router)
     app.include_router(users.router)
     return app

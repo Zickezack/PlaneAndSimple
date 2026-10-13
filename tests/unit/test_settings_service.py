@@ -42,8 +42,10 @@ def test_validate_plain_string_field_is_passed_through():
 
 def test_validate_global_currency():
     assert validate("default_currency", "CHF") == "CHF"
-    with pytest.raises(SettingValidationError):
-        validate("default_currency", "chf")
+    assert validate("default_currency", "JPY") == "JPY"
+    for raw in ("chf", "XYZ", "XAU"):  # only national currencies
+        with pytest.raises(SettingValidationError):
+            validate("default_currency", raw)
 
 
 @pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "61"])

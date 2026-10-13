@@ -1,9 +1,8 @@
-"""JSON suggestions for the autocomplete fields of the Suchabo form."""
+"""JSON suggestions for the airport/country autocomplete fields."""
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from flighttracker.domain.currencies import suggest_currencies
 from flighttracker.i18n import translate
 from flighttracker.services.locations import suggest_locations
 from flighttracker.web.deps import current_locale, get_db, require_login
@@ -24,13 +23,4 @@ def locations(request: Request, q: str = "", db: Session = Depends(get_db)) -> l
             "kind": translate(LOCATION_KIND_LABELS[s.kind], locale),
         }
         for s in suggest_locations(db, q[:MAX_QUERY_LENGTH], locale=locale)
-    ]
-
-
-@router.get("/currencies")
-def currencies(request: Request, q: str = "") -> list[dict]:
-    locale = current_locale(request)
-    return [
-        {"value": code, "label": translate(name, locale), "kind": ""}
-        for code, name in suggest_currencies(q[:MAX_QUERY_LENGTH])
     ]

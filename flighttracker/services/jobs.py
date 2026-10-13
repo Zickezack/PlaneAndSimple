@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import ColumnElement, exists, func, select, text, update
 from sqlalchemy.orm import Session
 
+from flighttracker.domain.poll_plan import PollCycle
 from flighttracker.models import (
     FetchJob,
     JobKind,
@@ -63,12 +64,26 @@ def _lock_row(session: Session, model: type[Search] | type[Trip], row_id: int) -
     session.execute(select(model.id).where(model.id == row_id).with_for_update())
 
 
+def next_poll_at(
+    row: Search | Trip,
+    now: datetime,
+    poll_interval_minutes: int | None,
+    cycle: PollCycle | None,
+) -> datetime:
+    """After queuing a poll at `now`: the row's next planned start in the poll schedule, or
+    one interval later while it is not placed yet (or without a schedule)."""
+    if cycle is not None and row.poll_offset_minutes is not None:
+        return cycle.next_poll(row.poll_offset_minutes, now)
+    return now + timedelta(minutes=poll_interval_minutes or row.poll_interval_minutes)
+
+
 def request_poll(
     session: Session,
     search: Search,
     now: datetime,
     *,
     poll_interval_minutes: int | None = None,
+    cycle: PollCycle | None = None,
 ) -> bool:
     """Poll a Suchabo right away ("poll now"). New prices are added – the history is
     append-only, so nothing is overwritten; the latest poll simply becomes the current price.
@@ -79,14 +94,17 @@ def request_poll(
     if has_open_poll(session, search.id):
         return False
     enqueue_job(session, search.id, JobKind.POLL, run_after=now)
-    interval = poll_interval_minutes or search.poll_interval_minutes
-    search.next_poll_at = now + timedelta(minutes=interval)
+    search.next_poll_at = next_poll_at(search, now, poll_interval_minutes, cycle)
     wake_worker(session)
     return True
 
 
 def schedule_due_polls(
-    session: Session, now: datetime, *, poll_interval_minutes: int | None = None
+    session: Session,
+    now: datetime,
+    *,
+    poll_interval_minutes: int | None = None,
+    cycle: PollCycle | None = None,
 ) -> int:
     """Queue a poll job for every active Suchabo whose `next_poll_at` has passed."""
     open_poll = exists().where(
@@ -108,13 +126,16 @@ def schedule_due_polls(
     ).all()
     for search in due:
         enqueue_job(session, search.id, JobKind.POLL, run_after=now)
-        interval = poll_interval_minutes or search.poll_interval_minutes
-        search.next_poll_at = now + timedelta(minutes=interval)
+        search.next_poll_at = next_poll_at(search, now, poll_interval_minutes, cycle)
     return len(due)
 
 
 def schedule_due_trip_polls(
-    session: Session, now: datetime, *, poll_interval_minutes: int | None = None
+    session: Session,
+    now: datetime,
+    *,
+    poll_interval_minutes: int | None = None,
+    cycle: PollCycle | None = None,
 ) -> int:
     """Queue one coordinated poll for each due Trip, anchored to its first leg."""
     open_poll = exists().where(
@@ -140,8 +161,7 @@ def schedule_due_trip_polls(
         if first_leg is None:
             continue
         enqueue_job(session, first_leg.search_id, JobKind.POLL, run_after=now, trip_id=trip.id)
-        interval = poll_interval_minutes or trip.poll_interval_minutes
-        trip.next_poll_at = now + timedelta(minutes=interval)
+        trip.next_poll_at = next_poll_at(trip, now, poll_interval_minutes, cycle)
         queued += 1
     return queued
 
@@ -152,6 +172,7 @@ def request_trip_poll(
     now: datetime,
     *,
     poll_interval_minutes: int | None = None,
+    cycle: PollCycle | None = None,
 ) -> bool:
     """Queue a Trip poll now unless the same Trip already has an open job."""
     _lock_row(session, Trip, trip.id)
@@ -170,8 +191,7 @@ def request_trip_poll(
     if first_leg is None:
         return False
     enqueue_job(session, first_leg.search_id, JobKind.POLL, run_after=now, trip_id=trip.id)
-    interval = poll_interval_minutes or trip.poll_interval_minutes
-    trip.next_poll_at = now + timedelta(minutes=interval)
+    trip.next_poll_at = next_poll_at(trip, now, poll_interval_minutes, cycle)
     wake_worker(session)
     return True
 

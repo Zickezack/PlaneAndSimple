@@ -16,6 +16,7 @@ from flighttracker.services import jobs, quota
 from flighttracker.services.access import (
     Access,
 )
+from flighttracker.services.poll_plan import fit_returning, poll_cycle, poll_key
 from flighttracker.services.searches import (
     archive_search,
     clear_price_history,
@@ -62,6 +63,7 @@ def poll_now(
             trip,
             datetime.now(UTC),
             poll_interval_minutes=settings.default_poll_interval_minutes,
+            cycle=poll_cycle(settings),
         ):
             db.commit()
             flash(request, Msg("Trip poll queued."), "success")
@@ -75,6 +77,7 @@ def poll_now(
         search,
         datetime.now(UTC),
         poll_interval_minutes=settings.default_poll_interval_minutes,
+        cycle=poll_cycle(settings),
     ):
         db.commit()
         flash(request, Msg("Poll started. New prices are added to the history."), "success")
@@ -118,6 +121,7 @@ def clear_history(
             search,
             datetime.now(UTC),
             poll_interval_minutes=settings.default_poll_interval_minutes,
+            cycle=poll_cycle(settings),
         )
     )
     db.commit()
@@ -189,6 +193,8 @@ def status_action(
                 flash(request, error, "error")
             return redirect(f"/searches/{search.id}")
     handler(search)
+    if action in ("resume", "restore"):
+        fit_returning(db, settings, datetime.now(UTC), poll_key("search", search.id))
     db.commit()
     flash(request, message, "success")
     return redirect(f"/searches/{search.id}")

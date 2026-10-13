@@ -26,19 +26,32 @@ def catalog(locale: str) -> dict[str, str]:
 
 
 @cache
-def country_catalog(locale: str) -> dict[str, str]:
-    """Country names by ISO code (`locales/countries.<locale>.json`, generated once from CLDR).
-
-    The English names come from the airport data (OurAirports), which has no translations.
-    """
-    path = LOCALE_DIR / f"countries.{locale}.json"
+def _code_catalog(kind: str, locale: str) -> dict[str, str]:
+    path = LOCALE_DIR / f"{kind}.{locale}.json"
     if locale == DEFAULT_LOCALE or not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def country_catalog(locale: str) -> dict[str, str]:
+    """Country names by ISO code (`locales/countries.<locale>.json`, generated once from CLDR).
+
+    The English names come from the airport data (OurAirports), which has no translations.
+    """
+    return _code_catalog("countries", locale)
+
+
 def country_name(code: str, english_name: str, locale: str) -> str:
     return country_catalog(locale).get(code, english_name)
+
+
+def currency_catalog(locale: str) -> dict[str, str]:
+    """Currency names by ISO 4217 code (`locales/currencies.<locale>.json`, from CLDR)."""
+    return _code_catalog("currencies", locale)
+
+
+def currency_name(code: str, english_name: str, locale: str) -> str:
+    return currency_catalog(locale).get(code, english_name)
 
 
 def translate(text: str, locale: str, **params) -> str:

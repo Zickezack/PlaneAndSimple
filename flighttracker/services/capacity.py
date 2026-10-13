@@ -49,6 +49,8 @@ class PollLoad:
     # Duration of the latest completed poll; None if it was never polled.
     measured_seconds: float | None
     seconds: float
+    # Planned start in the poll schedule (services/poll_plan.py); None until placed.
+    offset_minutes: int | None = None
 
     @property
     def url(self) -> str:
@@ -143,12 +145,22 @@ def overview(session: Session, settings: Settings, now: datetime) -> Capacity:
             s.owner_id,
             search_requests(spec_of(s), settings),
             search_seconds.get(s.id),
+            s.poll_offset_minutes,
         )
         for s in searches
     ] + [
-        ("trip", t.id, t.name, t.owner_id, trip_requests(t), trip_seconds.get(t.id)) for t in trips
+        (
+            "trip",
+            t.id,
+            t.name,
+            t.owner_id,
+            trip_requests(t),
+            trip_seconds.get(t.id),
+            t.poll_offset_minutes,
+        )
+        for t in trips
     ]
-    measured = [(requests, seconds) for *_, requests, seconds in raw if seconds is not None]
+    measured = [(requests, seconds) for *_, requests, seconds, _ in raw if seconds is not None]
     measured_requests = sum(requests for requests, _ in measured)
     per_request = (
         sum(seconds for _, seconds in measured) / measured_requests if measured_requests else None
@@ -163,8 +175,9 @@ def overview(session: Session, settings: Settings, now: datetime) -> Capacity:
             requests,
             seconds,
             seconds if seconds is not None else requests * (per_request or fallback),
+            offset,
         )
-        for kind, item_id, name, owner_id, requests, seconds in raw
+        for kind, item_id, name, owner_id, requests, seconds, offset in raw
     ]
 
     waiting = select(FetchJob).where(FetchJob.status == JobStatus.QUEUED, FetchJob.run_after <= now)

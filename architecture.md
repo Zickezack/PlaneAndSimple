@@ -58,7 +58,21 @@ Worker behaviour (single worker process):
   queue). At start the worker requeues jobs left `running` by a killed process without counting
   the attempt. A resumed job skips the queries it already completed.
 - **Global search settings:** all active Suchabos and Trips use the same platform poll interval
-  and provider currency. Historical prices keep their recorded currency; there is no conversion.
+  and provider currency (a dropdown of all current national currencies, ISO 4217 from CLDR,
+  `domain/currencies.py`; prices show the currency's decimals). Historical prices keep their
+  recorded currency; there is no conversion.
+- **Poll schedule:** every active Suchabo and Trip has a planned start inside the poll interval
+  (`poll_offset_minutes`, counted in local wall-clock time of `DISPLAY_TIMEZONE` – with 24 h a
+  time of day, stable across DST; `domain/poll_plan.py`). Each worker tick first places those
+  without one (new, imported, resumed) in the middle of the largest free gap, using the Worker
+  load durations (`services/poll_plan.py`). After a poll is queued, `next_poll_at` is the next
+  planned start at least half an interval later, so an extra poll (new, broadened, "poll now")
+  is not followed by the planned one minutes later. Admins move starts on Platform Settings →
+  Poll schedule (drag and drop timeline, start time fields without JavaScript, "Spread evenly");
+  a changed interval scales all starts proportionally. A resumed or restored one keeps its start
+  unless it would overlap another poll; then it moves to the largest free gap (`fit_returning`). Polls never run at the same time: the
+  single worker runs one job after the other, a start that comes during another poll waits
+  (the page shows the expected wait).
 - **Poll Log:** `query_log` is global and append-only (menu "Poll Log"), with the Suchabo name as a
   snapshot, so entries survive even a permanent deletion.
 - **Cancelling:** the Poll Log lists queued and running jobs. Cancelling sets the job to
@@ -114,6 +128,7 @@ Where new code goes (dependencies only point downwards):
 | Poll now, pause, archive, delete | `web/routes/searches/actions.py`, `services/jobs.py` |
 | Sharing, owners, quotas | `web/routes/searches/shares.py`, `web/sharing.py`, `services/access.py`, `services/quota.py` |
 | Worker load (Platform Settings) | `services/capacity.py`, `web/routes/settings.py`, `templates/settings/index.html` |
+| Poll schedule (Platform Settings) | `domain/poll_plan.py`, `services/poll_plan.py`, `web/routes/schedule.py`, `templates/settings/schedule.html`, `static/js/poll-schedule.js`; scheduler in `services/jobs.py` |
 | Trips | `web/routes/trips.py`, `web/trip_forms.py`, `services/trips.py`, `domain/trips.py` |
 | Polling | `worker/*`, `services/ingestion.py`, `services/day_selection.py`, `domain/sampling.py`, `services/trip_polling.py`, `providers/*` (Google Flights: package `providers/google_flights/` – `results` list, `page` fallback, `price_calendar`, `provider`) |
 | Import/export | `services/data_export.py`, `services/data_import.py` |
@@ -134,7 +149,9 @@ for messages created in Python (validation errors, flash messages – rendered p
 tables in `web/labels.py`. Add the German translation to `flighttracker/locales/de.json` (keyed
 by the English text); `tests/unit/test_i18n.py` fails on missing or stale entries. Country
 names come from OurAirports in English; German ones are in `flighttracker/locales/countries.de.json`
-(ISO code → name, generated once from CLDR), used for labels and for matching suggestions. Logs, CLI
+(ISO code → name, generated once from CLDR), used for labels and for matching suggestions.
+Currency names likewise: English in `domain/currencies.py`, German in
+`flighttracker/locales/currencies.de.json`. Personal time zone: dropdown of all IANA zones. Logs, CLI
 output and stored error texts (`fetch_jobs.last_error`) are English only.
 
 **Price chart:** `static/js/price-chart.js` draws the detail page's chart as plain SVG (no

@@ -307,8 +307,6 @@ def test_suggestions(client, db):
     assert locations[0] == {"value": "ES", "label": "Spain", "kind": "Country"}
     airports = client.get("/api/suggest/locations", params={"q": "zrh"}).json()
     assert airports[0]["value"] == "ZRH" and airports[0]["kind"] == "Airport"
-    currencies = client.get("/api/suggest/currencies", params={"q": "fr"}).json()
-    assert {"value": "CHF", "label": "Swiss franc", "kind": ""} in currencies
 
     client.get("/language/de")
     assert client.get("/api/suggest/locations", params={"q": "es"}).json()[0]["kind"] == "Land"

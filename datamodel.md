@@ -24,6 +24,7 @@ The code and docs use "Suchabo" for a tracked search.
 | Return flights | Rückflüge laden | `return_flights` | Round trips: also load the return flight of every price (one more request each; default from the Platform Setting) |
 | Adults / Children | Erwachsene / Kinder | `adults` / `children` | Passengers; children aged 2–11, at most 9 passengers in total |
 | Poll interval | Abfrage-Intervall | `default_poll_interval_minutes` | One platform-wide cadence for active Suchabos and Trips, in minutes (default 1440) |
+| Poll schedule | Abfrage-Zeitplan | `searches.poll_offset_minutes`, `trips.poll_offset_minutes` | Planned start of the poll within the interval (minutes after local midnight with 24 h); placed automatically, moved by admins |
 | Price history | Preis-Historie | `PriceHistory` / `price_history` | Append-only observed prices |
 | Revision / Change history | Revision / Änderungsverlauf | `SearchRevision` / `search_revisions` | Immutable snapshot after each change |
 | Airports per country | Flughäfen je Land | `search_locations.airport_codes` | Airports of a country location that are queried |
@@ -66,13 +67,13 @@ erDiagram
 
     countries { char2 code PK; string name; char2 continent }
     airports { char3 iata_code PK; string name; string city; char2 country_code FK; string airport_type; bool has_scheduled_service; bigint passengers }
-    searches { bigint id PK; bigint owner_id FK; string name; enum status; jsonb filters; int poll_interval_minutes; int revision_no; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
+    searches { bigint id PK; bigint owner_id FK; string name; enum status; jsonb filters; int poll_interval_minutes; int revision_no; int poll_offset_minutes; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
     search_locations { bigint id PK; bigint search_id FK; enum role; char3 airport_code FK; char2 country_code FK; char3_array airport_codes }
     search_revisions { bigint id PK; bigint search_id FK; int revision_no; jsonb snapshot }
     price_history { bigint id PK; bigint search_id FK; bigint search_revision_id FK; enum source; string provider; char3 origin_iata; char3 destination_iata; date departure_date; date return_date; enum cabin_class; smallint stops; numeric price; char3 currency; smallint adults; smallint children; string airline; jsonb details; timestamptz observed_at; timestamptz fetched_at }
     price_calendar { bigint id PK; bigint search_id FK; string provider; char3 origin_iata; char3 destination_iata; enum cabin_class; date departure_date; date return_date; numeric price; char3 currency; smallint adults; smallint children; timestamptz observed_at }
     fetch_jobs { bigint id PK; bigint search_id FK; bigint trip_id FK; enum kind; enum status; timestamptz run_after; int attempts; int queries_total; int queries_failed; int quotes_stored; text last_error; timestamptz created_at; timestamptz started_at; timestamptz finished_at }
-    trips { bigint id PK; bigint owner_id FK; string name; date starts_on; date ends_on; int poll_interval_minutes; enum status; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
+    trips { bigint id PK; bigint owner_id FK; string name; date starts_on; date ends_on; int poll_interval_minutes; enum status; int poll_offset_minutes; timestamptz next_poll_at; timestamptz last_polled_at; timestamptz archived_at }
     trip_legs { bigint id PK; bigint trip_id FK; bigint search_id FK; int position; int min_layover_days; int max_layover_days }
     query_log { bigint id PK; bigint job_id; bigint search_id; string search_name; string provider; enum kind; char3 origin_iata; char3 destination_iata; date departure_month; enum cabin_class; enum outcome; int quotes_found; int quotes_stored; text error; jsonb results; timestamptz started_at; int duration_ms; timestamptz logged_at }
     platform_settings { string key PK; text value; timestamptz updated_at }
@@ -89,6 +90,9 @@ erDiagram
   imported records. Scheduling and new provider queries use global platform settings instead.
   Global currency selects future provider quotes; stored price rows retain their observed currency
   and are never converted retroactively.
+- `poll_offset_minutes` (`searches`, `trips`, migration `0012`): `>= 0` (CHECK), below the poll
+  interval; `NULL` until the worker places the record (also after import – the export does not
+  carry it). Trip legs never get one; they are polled through their Trip.
 - `search_locations`: exactly one of `airport_code` / `country_code` is set (CHECK); unique per
   Suchabo and role (`NULLS NOT DISTINCT`). Country rows carry the selected airports in
   `airport_codes` (CHECK: set exactly for country rows); origin and destination rows of the same

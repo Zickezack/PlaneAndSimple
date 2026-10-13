@@ -29,6 +29,7 @@ class Trip(Base):
     __table_args__ = (
         CheckConstraint("ends_on >= starts_on", name="date_window"),
         CheckConstraint("poll_interval_minutes >= 15", name="poll_interval_min"),
+        CheckConstraint("poll_offset_minutes >= 0", name="poll_offset_non_negative"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -40,6 +41,8 @@ class Trip(Base):
         str_enum(SearchStatus, "trip_status"), default=SearchStatus.ACTIVE
     )
     next_poll_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Planned start within the poll interval (domain/poll_plan.py); None until placed.
+    poll_offset_minutes: Mapped[int | None] = mapped_column(Integer)
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -21,7 +21,15 @@
   const MARGIN = { top: 24, right: 20, bottom: 36 };
 
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
-  const exactNumber = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Decimals of the currency (JPY 0, CHF 2, KWD 3), as the browser knows them from ISO 4217.
+  const currencyDigits = (() => {
+    try {
+      return new Intl.NumberFormat("en", { style: "currency", currency: data.currency }).resolvedOptions().maximumFractionDigits;
+    } catch {
+      return 2;
+    }
+  })();
+  const exactNumber = new Intl.NumberFormat(locale, { minimumFractionDigits: currencyDigits, maximumFractionDigits: currencyDigits });
   const formatPrice = (value) => `${number.format(value)} ${data.currency}`;
   const formatChangePrice = (value) => `${exactNumber.format(value)} ${data.currency}`;
   const utc = { timeZone: "UTC" };

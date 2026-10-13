@@ -33,7 +33,10 @@ class Search(Base):
     """A Suchabo. Soft-deleted via `archived_at`; hard delete cascades to all its history."""
 
     __tablename__ = "searches"
-    __table_args__ = (CheckConstraint("poll_interval_minutes >= 15", name="poll_interval_min"),)
+    __table_args__ = (
+        CheckConstraint("poll_interval_minutes >= 15", name="poll_interval_min"),
+        CheckConstraint("poll_offset_minutes >= 0", name="poll_offset_non_negative"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
@@ -44,6 +47,8 @@ class Search(Base):
     poll_interval_minutes: Mapped[int] = mapped_column(Integer)
     revision_no: Mapped[int] = mapped_column(Integer, default=1)
     next_poll_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Planned start within the poll interval (domain/poll_plan.py); None until placed.
+    poll_offset_minutes: Mapped[int | None] = mapped_column(Integer)
     last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
