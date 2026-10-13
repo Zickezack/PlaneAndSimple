@@ -1,10 +1,12 @@
-// Poll schedule: drag the bars of the timeline to move a poll's start. Progressive
-// enhancement – the bars mirror the start fields of the form below, which alone work too.
+// Poll schedule timeline: redrawn in screen pixels; on the edit page its bars can be dragged
+// to move a poll's start. Progressive enhancement – the bars mirror the start fields of the
+// form below, which alone work too. Read-only (Settings → Worker load) without that form.
 (() => {
   const dataNode = document.getElementById("schedule-data");
   const svgRoot = document.querySelector("[data-schedule-timeline]");
   const form = document.getElementById("schedule-form");
-  if (!dataNode || !svgRoot || !form) return;
+  if (!dataNode || !svgRoot) return;
+  const editable = Boolean(form) && svgRoot.classList.contains("is-editable");
 
   const { interval, days, geometry, polls } = JSON.parse(dataNode.textContent);
   const { width: UNITS, axis: AXIS, lane: LANE, bar: BAR } = geometry;
@@ -28,8 +30,10 @@
   const writeStart = (key, start) => {
     const day = Math.floor(start / DAY);
     const minute = start % DAY;
-    field("start", key).value = `${pad(Math.floor(minute / 60))}:${pad(minute % 60)}`;
+    const label = `${pad(Math.floor(minute / 60))}:${pad(minute % 60)}`;
+    field("start", key).value = label;
     if (days) field("day", key).value = String(day + 1);
+    return label;
   };
 
   // Rows of the timeline: overlapping polls below each other, a poll running past the end of
@@ -103,9 +107,13 @@
       element("rect", { x, y, width: Math.min(w, WIDTH - x), height: BAR, rx: 3 }, group);
       if (x + w > WIDTH) element("rect", { x: 0, y, width: x + w - WIDTH, height: BAR, rx: 3 }, group);
       element("text", { x: x + 3, y: y + 14 }, group).textContent = poll.number;
-      element("title", {}, group).textContent = `${poll.number}. ${poll.name} · ${field("start", poll.key).value}`;
+      element("title", {}, group).textContent = `${poll.number}. ${poll.name} · ${poll.label}`;
     }
   };
+
+  window.addEventListener("resize", render);
+  render();
+  if (!editable) return;
 
   // Dragging: horizontal movement only, snapped to whole minutes.
   let drag = null;
@@ -124,7 +132,7 @@
     const start = mod(Math.round((drag.start + minutes) / SNAP) * SNAP);
     if (start === drag.poll.start) return;
     drag.poll.start = start;
-    writeStart(drag.poll.key, start);
+    drag.poll.label = writeStart(drag.poll.key, start);
     render();
   });
   const endDrag = () => {
@@ -141,10 +149,9 @@
     if (!row) return;
     const poll = polls.find((p) => p.key === row.dataset.key);
     poll.start = readStart(poll.key);
+    poll.label = field("start", poll.key).value;
     row.classList.add("is-changed");
     render();
   });
 
-  window.addEventListener("resize", render);
-  render();
 })();

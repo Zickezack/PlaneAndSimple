@@ -467,7 +467,6 @@
   "Worker load": "Auslastung des Workers",
   "Overloaded": "Überlastet",
   "Tight": "Knapp",
-  "The worker runs one poll after the other. If one round of all active tracked searches and Trips takes longer than the poll interval, polls back up and run later than planned.": "Der Worker führt einen Durchlauf nach dem anderen aus. Dauert eine Runde aller aktiven Suchabos und Trips länger als das Abfrage-Intervall, stauen sich die Durchläufe und laufen später als geplant.",
   "One round of polls": "Eine Runde Durchläufe",
   "of {interval} poll interval ({percent} %)": "von {interval} Abfrage-Intervall ({percent} %)",
   "Reserve": "Reserve",
@@ -510,5 +509,9 @@
   "Spread evenly: keeps the order and gives every poll the same free time before the next one.": "Gleichmässig verteilen: behält die Reihenfolge und gibt jedem Durchlauf gleich viel freie Zeit bis zum nächsten.",
   "The schedule repeats every {interval}.": "Der Zeitplan wiederholt sich alle {interval}.",
   "Drag a bar or change a start time, then save. Times in {zone}; bar length = duration of the latest poll (or an estimate).": "Balken ziehen oder Startzeit ändern, dann speichern. Zeiten in {zone}; Balkenlänge = Dauer des letzten Durchlaufs (oder eine Schätzung).",
-  "The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap.": "Der Worker führt einen Durchlauf nach dem anderen aus. Ein Durchlauf, dessen Startzeit kommt, während ein anderer läuft, wartet, bis dieser fertig ist – Durchläufe laufen nie gleichzeitig. Neue Suchabos und Trips werden automatisch in die grösste freie Lücke eingeplant."
+  "The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.": "Der Worker führt einen Durchlauf nach dem anderen aus. Ein Durchlauf, dessen Startzeit kommt, während ein anderer läuft, wartet, bis dieser fertig ist – Durchläufe laufen nie gleichzeitig. Neue Suchabos und Trips werden automatisch in die grösste freie Lücke eingeplant. Dauert eine Runde länger als das Abfrage-Intervall, stauen sich die Durchläufe und laufen später als geplant.",
+  "Edit poll schedule": "Abfrage-Zeitplan bearbeiten",
+  "Edit schedule": "Zeitplan bearbeiten",
+  "Worker load and poll schedule": "Auslastung des Workers und Abfrage-Zeitplan",
+  "Times in {zone}; bar length = duration of the latest poll (or an estimate).": "Zeiten in {zone}; Balkenlänge = Dauer des letzten Durchlaufs (oder eine Schätzung)."
 }

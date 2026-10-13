@@ -24,7 +24,7 @@ from flighttracker.domain.poll_plan import (
     waits,
 )
 from flighttracker.models import Search, SearchStatus, Trip, TripLeg
-from flighttracker.services.capacity import PollLoad, overview
+from flighttracker.services.capacity import Capacity, PollLoad, overview
 
 
 def poll_cycle(settings: Settings) -> PollCycle:
@@ -42,15 +42,18 @@ def _row(session: Session, key: str) -> Search | Trip | None:
     return session.get(model, int(item_id)) if model and item_id.isdigit() else None
 
 
-def _loads(session: Session, settings: Settings, now: datetime) -> list[PollLoad]:
+def _loads(
+    session: Session, settings: Settings, now: datetime, load: Capacity | None = None
+) -> list[PollLoad]:
     """Active Suchabos and Trips with their durations; starts inside the current interval (a
     start stored for a longer interval, e.g. from before an `.env` change, wraps around)."""
     interval = settings.default_poll_interval_minutes
+    load = load or overview(session, settings, now)
     return [
         replace(item, offset_minutes=item.offset_minutes % interval)
         if item.offset_minutes is not None
         else item
-        for item in overview(session, settings, now).items
+        for item in load.items
     ]
 
 
@@ -205,10 +208,13 @@ class Schedule:
         return max((poll.lane for poll in self.polls), default=0) + 1
 
 
-def schedule(session: Session, settings: Settings, now: datetime) -> Schedule:
-    """Active Suchabos and Trips in the order of their planned start; not placed ones last."""
+def schedule(
+    session: Session, settings: Settings, now: datetime, load: Capacity | None = None
+) -> Schedule:
+    """Active Suchabos and Trips in the order of their planned start; not placed ones last.
+    `load`: the Worker load overview, if already at hand."""
     cycle = poll_cycle(settings)
-    items = _loads(session, settings, now)
+    items = _loads(session, settings, now, load)
     planned = [item for item in items if item.offset_minutes is not None]
     slots = [_slot(item) for item in planned]
     late = waits(slots, cycle.interval_minutes)

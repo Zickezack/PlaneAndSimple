@@ -67,8 +67,10 @@ Worker behaviour (single worker process):
   without one (new, imported, resumed) in the middle of the largest free gap, using the Worker
   load durations (`services/poll_plan.py`). After a poll is queued, `next_poll_at` is the next
   planned start at least half an interval later, so an extra poll (new, broadened, "poll now")
-  is not followed by the planned one minutes later. Admins move starts on Platform Settings →
-  Poll schedule (drag and drop timeline, start time fields without JavaScript, "Spread evenly");
+  is not followed by the planned one minutes later. Platform Settings → "Worker load and poll
+  schedule" shows the load, a read-only timeline and one table (start, requests, duration,
+  share, expected wait); "Edit schedule" opens `/settings/schedule` to move starts (drag and drop
+  timeline, start time fields without JavaScript, "Spread evenly");
   a changed interval scales all starts proportionally. A resumed or restored one keeps its start
   unless it would overlap another poll; then it moves to the largest free gap (`fit_returning`). Polls never run at the same time: the
   single worker runs one job after the other, a start that comes during another poll waits
@@ -128,7 +130,7 @@ Where new code goes (dependencies only point downwards):
 | Poll now, pause, archive, delete | `web/routes/searches/actions.py`, `services/jobs.py` |
 | Sharing, owners, quotas | `web/routes/searches/shares.py`, `web/sharing.py`, `services/access.py`, `services/quota.py` |
 | Worker load (Platform Settings) | `services/capacity.py`, `web/routes/settings.py`, `templates/settings/index.html` |
-| Poll schedule (Platform Settings) | `domain/poll_plan.py`, `services/poll_plan.py`, `web/routes/schedule.py`, `templates/settings/schedule.html`, `static/js/poll-schedule.js`; scheduler in `services/jobs.py` |
+| Poll schedule (Platform Settings) | `domain/poll_plan.py`, `services/poll_plan.py`, `web/routes/schedule.py`, `web/schedule_view.py`, `templates/settings/schedule.html` + `_timeline.html`, `static/js/poll-schedule.js`; scheduler in `services/jobs.py` |
 | Trips | `web/routes/trips.py`, `web/trip_forms.py`, `services/trips.py`, `domain/trips.py` |
 | Polling | `worker/*`, `services/ingestion.py`, `services/day_selection.py`, `domain/sampling.py`, `services/trip_polling.py`, `providers/*` (Google Flights: package `providers/google_flights/` – `results` list, `page` fallback, `price_calendar`, `provider`) |
 | Import/export | `services/data_export.py`, `services/data_import.py` |

@@ -187,3 +187,16 @@ def test_resume_button_fits_the_search_in(client, db):  # noqa: F811
     client.post(f"/searches/{paused.id}/resume", data={"csrf_token": token})
     db.refresh(paused)
     assert paused.poll_offset_minutes != 60
+
+
+def test_settings_page_shows_the_schedule_read_only(client, db):  # noqa: F811
+    search = create(db)
+    search.poll_offset_minutes = 90
+    db.commit()
+    login(client)
+    page = client.get("/settings").text
+    assert "Worker load and poll schedule" in page
+    assert 'class="schedule-timeline"' in page  # without "is-editable"
+    assert 'href="/settings/schedule"' in page and "Edit schedule" in page
+    assert "<td>01:30</td>" in page
+    assert 'name="start-search-' not in page

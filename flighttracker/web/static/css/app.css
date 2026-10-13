@@ -299,7 +299,7 @@ details.more[open] > summary { margin-bottom: .75rem; }
 .schedule-tick { stroke: var(--border); }
 .schedule-tick-label { font-size: 11px; fill: var(--muted); }
 .schedule-now { stroke: var(--danger); stroke-dasharray: 3 3; }
-.schedule-bar { cursor: grab; }
+.schedule-timeline.is-editable .schedule-bar { cursor: grab; }
 .schedule-bar rect { fill: var(--primary); }
 .schedule-bar text { font-size: 11px; fill: #fff; pointer-events: none; }
 .schedule-bar.is-late rect { fill: var(--warning); }

@@ -51,6 +51,7 @@ from flighttracker.web.deps import (
     require_admin,
     require_login,
 )
+from flighttracker.web.schedule_view import timeline
 from flighttracker.web.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_login)])
@@ -120,7 +121,11 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
     settings = effective_settings(db, request.app.state.settings)
     locale = current_locale(request)
     sections = []
+    load = schedule_context = None
     if user.is_admin:
+        now = datetime.now(UTC)
+        load = capacity.overview(db, settings, now)
+        schedule_context = timeline(poll_plan.schedule(db, settings, now, load))
         overrides = load_overrides(db)
         sections = [
             {
@@ -140,9 +145,10 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "provider_options": sorted(PROVIDERS),
             "user": user,
             "usage": quota.usage(db, user, settings),
-            "capacity": capacity.overview(db, settings, datetime.now(UTC))
-            if user.is_admin
-            else None,
+            "capacity": load,
+            # Read-only poll schedule inside the Worker load card.
+            **(schedule_context or {}),
+            "zone": settings.display_timezone,
             "duration": format_seconds,
             "locale_options": list(SUPPORTED_LOCALES.items()),
             "currency_options": currency_options(locale, settings.default_currency),

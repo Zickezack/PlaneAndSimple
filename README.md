@@ -83,10 +83,10 @@ tracked search can cancel its poll there (prices fetched so far are kept).
 
 The single worker runs one poll after the other, so the real ceiling is time: **Platform
 Settings → Worker load** shows how long one round of all polls takes (measured) against the poll
-interval, how many more requests fit before polls back up, and each search's share. Its **Poll
-schedule** places every tracked search and Trip at a start time of its own (new ones go into the
-largest free gap); admins drag the bars of the timeline or type the start times, or spread all
-polls evenly.
+interval, how many more requests fit before polls back up, and each search's share, together
+with the **poll schedule**: every tracked search and Trip has a start time of its own (new ones go
+into the largest free gap). "Edit schedule" lets admins drag the bars of the timeline or type the
+start times, or spread all polls evenly.
 
 ![Worker load: one round of polls takes part of the 24-hour interval, with the reserve in time and requests, waiting polls, and each tracked search's and Trip's share](docs/screenshots/worker-load.png)
 

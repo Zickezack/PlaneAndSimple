@@ -1,40 +1,18 @@
 {% extends "base.html" %}
 {% import "_macros.html" as ui with context %}
-{% block title %}{{ _("Poll schedule") }}{% endblock %}
-{% macro offset_label(offset) -%}
-{%- set day, clock = offset_parts(offset) -%}
-{%- if day %}{{ _("Day {n}", n=day) }} {% endif %}{{ clock }}
-{%- endmacro %}
+{% block title %}{{ _("Edit poll schedule") }}{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>{{ _("Poll schedule") }}</h1>
+  <h1>{{ _("Edit poll schedule") }}</h1>
   {{ ui.link_button(_("Back to settings"), "/settings") }}
 </div>
 
 <section class="card">
-  <p class="hint">{{ _("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap.") }}</p>
   <p class="hint">{{ _("Drag a bar or change a start time, then save. Times in {zone}; bar length = duration of the latest poll (or an estimate).", zone=zone) }}
     {%- if interval < 1440 %} {{ _("The schedule repeats every {interval}.", interval=duration(interval * 60)) }}{% endif %}</p>
 
   {% if plan.polls %}
-  <svg class="schedule-timeline" viewBox="0 0 {{ geometry.width }} {{ height }}" height="{{ height }}" preserveAspectRatio="none" role="img" aria-label="{{ _('Poll schedule') }}" data-schedule-timeline>
-    {% for tick in ticks %}
-    <line class="schedule-tick" data-x="{{ tick.x }}" x1="{{ tick.x }}" x2="{{ tick.x }}" y1="{{ geometry.axis - 6 }}" y2="{{ height }}"></line>
-    <text class="schedule-tick-label" data-x="{{ tick.x }}" x="{{ tick.x + 3 }}" y="{{ geometry.axis - 9 }}">{% if tick.day %}{{ _("Day {n}", n=tick.day) }} {% endif %}{{ tick.clock }}</text>
-    {% endfor %}
-    <g data-schedule-bars>
-    {% for bar in bars %}
-      <g class="schedule-bar{% if bar.poll.wait_minutes >= 1 %} is-late{% endif %}" data-key="{{ bar.poll.key }}">
-        {% for x, width in bar.segments %}
-        <rect x="{{ x }}" y="{{ bar.y }}" width="{{ width }}" height="{{ geometry.bar }}" rx="3"></rect>
-        {% endfor %}
-        <text x="{{ bar.segments[0][0] + 3 }}" y="{{ bar.y + 14 }}">{{ bar.number }}</text>
-        <title>{{ bar.number }}. {{ bar.poll.load.name }} · {{ offset_label(bar.poll.offset) }} · {{ duration(bar.poll.load.seconds) }}</title>
-      </g>
-    {% endfor %}
-    </g>
-    <line class="schedule-now" data-x="{{ now_x }}" x1="{{ now_x }}" x2="{{ now_x }}" y1="{{ geometry.axis - 6 }}" y2="{{ height }}"><title>{{ _("Now") }}</title></line>
-  </svg>
+  {% with editable=true %}{% include "settings/_timeline.html" %}{% endwith %}
 
   <form method="post" action="/settings/schedule" class="form" id="schedule-form">
     {{ ui.csrf_field() }}
@@ -71,7 +49,6 @@
     </div>
     <small class="hint">{{ _("Spread evenly: keeps the order and gives every poll the same free time before the next one.") }}</small>
   </form>
-  <script type="application/json" id="schedule-data">{{ {"interval": interval, "days": days, "geometry": geometry, "polls": model} | tojson }}</script>
   {% else %}
   <p class="empty">{{ _("No active tracked searches or Trips.") }}</p>
   {% endif %}

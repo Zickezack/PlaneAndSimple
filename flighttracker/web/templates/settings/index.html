@@ -43,9 +43,9 @@
 
 {% set c = capacity %}
 <section class="card capacity">
-  <h2>{{ _("Worker load") }}
+  <h2>{{ _("Worker load and poll schedule") }}
     {% if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}</h2>
-  <p class="hint">{{ _("The worker runs one poll after the other. If one round of all active tracked searches and Trips takes longer than the poll interval, polls back up and run later than planned.") }}</p>
+  <p class="hint">{{ _("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.") }}</p>
   <meter class="load-meter" min="0" max="1" low="0.8" high="1" optimum="0" value="{{ [c.utilization, 1] | min }}" aria-label="{{ _('Worker load') }}"></meter>
   <dl class="facts">
     <dt>{{ _("One round of polls") }}</dt>
@@ -60,21 +60,31 @@
     <dt>{{ _("Waiting now") }}</dt>
     <dd>{% if c.queued %}{{ _("{n} polls, the oldest for {time}", n=c.queued, time=duration(c.longest_wait_seconds)) }}{% else %}{{ _("none") }}{% endif %}</dd>
   </dl>
-  <div class="actions">{{ ui.link_button(_("Poll schedule"), "/settings/schedule") }}</div>
-  {% if c.items %}
+  {% if plan.polls %}
+  <h3>{{ _("Poll schedule") }}</h3>
+  <p class="hint">{{ _("Times in {zone}; bar length = duration of the latest poll (or an estimate).", zone=zone) }}
+    {%- if interval < 1440 %} {{ _("The schedule repeats every {interval}.", interval=duration(interval * 60)) }}{% endif %}</p>
+  {% with editable=false %}{% include "settings/_timeline.html" %}{% endwith %}
+  <div class="actions">{{ ui.link_button(_("Edit schedule"), "/settings/schedule") }}</div>
   <details class="more">
     <summary>{{ _("Per tracked search and Trip") }}</summary>
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Owner") }}</th><th class="num">{{ _("Requests per poll") }}</th><th class="num">{{ _("Poll duration") }}</th><th class="num">{{ _("Share of the round") }}</th></tr></thead>
+        <thead><tr><th class="num">#</th><th>{{ _("Start") }}</th><th>{{ _("Name") }}</th><th>{{ _("Owner") }}</th><th class="num">{{ _("Requests per poll") }}</th><th class="num">{{ _("Poll duration") }}</th><th class="num">{{ _("Share of the round") }}</th><th>{{ _("Status") }}</th></tr></thead>
         <tbody>
-        {% for item in c.items %}
+        {% for poll in plan.polls %}
+          {% set item = poll.load %}
           <tr>
+            <td class="num">{{ loop.index }}</td>
+            <td>{% if poll.offset is none %}–{% else %}{% set day, clock = offset_parts(poll.offset) %}{% if day %}{{ _("Day {n}", n=day) }} {% endif %}{{ clock }}{% endif %}</td>
             <td><a href="{{ item.url }}">{{ item.name }}</a>{% if item.kind == "trip" %} <small class="hint">Trip</small>{% endif %}</td>
             <td>{{ item.owner or "–" }}</td>
             <td class="num">{{ item.requests }}</td>
             <td class="num">{% if item.measured_seconds is none %}<span class="hint" title="{{ _('Estimate – not polled yet') }}">≈ {{ duration(item.seconds) }}</span>{% else %}{{ duration(item.seconds) }}{% endif %}</td>
             <td class="num">{{ (item.seconds / c.round_seconds * 100) | round | int if c.round_seconds else 0 }} %</td>
+            <td>{% if poll.offset is none %}{{ ui.badge(_("Not placed yet"), "muted") }}
+              {%- elif poll.wait_minutes >= 1 %}{{ ui.badge(_("Waits ≈ {time}", time=duration(poll.wait_minutes * 60)), "warning") }}
+              {%- else %}{{ ui.badge(_("On time"), "success") }}{% endif %}</td>
           </tr>
         {% endfor %}
         </tbody>
@@ -84,6 +94,7 @@
   </details>
   {% endif %}
 </section>
+<script src="{{ static_url('js/poll-schedule.js') }}" defer></script>
 
 <section class="card">
   <h2>{{ _("Export and import") }}</h2>

@@ -1,0 +1,22 @@
+{#- Poll schedule timeline (context from web/schedule_view.timeline). `editable`: bars can be
+    dragged (edit page); otherwise read-only. static/js/poll-schedule.js redraws it. -#}
+<svg class="schedule-timeline{% if editable %} is-editable{% endif %}" viewBox="0 0 {{ geometry.width }} {{ height }}" height="{{ height }}" preserveAspectRatio="none" role="img" aria-label="{{ _('Poll schedule') }}" data-schedule-timeline>
+  {% for tick in ticks %}
+  <line class="schedule-tick" data-x="{{ tick.x }}" x1="{{ tick.x }}" x2="{{ tick.x }}" y1="{{ geometry.axis - 6 }}" y2="{{ height }}"></line>
+  <text class="schedule-tick-label" data-x="{{ tick.x }}" x="{{ tick.x + 3 }}" y="{{ geometry.axis - 9 }}">{% if tick.day %}{{ _("Day {n}", n=tick.day) }} {% endif %}{{ tick.clock }}</text>
+  {% endfor %}
+  <g data-schedule-bars>
+  {% for bar in bars %}
+    {%- set day, clock = offset_parts(bar.poll.offset) %}
+    <g class="schedule-bar{% if bar.poll.wait_minutes >= 1 %} is-late{% endif %}" data-key="{{ bar.poll.key }}">
+      {% for x, width in bar.segments %}
+      <rect x="{{ x }}" y="{{ bar.y }}" width="{{ width }}" height="{{ geometry.bar }}" rx="3"></rect>
+      {% endfor %}
+      <text x="{{ bar.segments[0][0] + 3 }}" y="{{ bar.y + 14 }}">{{ bar.number }}</text>
+      <title>{{ bar.number }}. {{ bar.poll.load.name }} · {% if day %}{{ _("Day {n}", n=day) }} {% endif %}{{ clock }} · {{ duration(bar.poll.load.seconds) }}</title>
+    </g>
+  {% endfor %}
+  </g>
+  <line class="schedule-now" data-x="{{ now_x }}" x1="{{ now_x }}" x2="{{ now_x }}" y1="{{ geometry.axis - 6 }}" y2="{{ height }}"><title>{{ _("Now") }}</title></line>
+</svg>
+<script type="application/json" id="schedule-data">{{ {"interval": interval, "days": days, "geometry": geometry, "polls": model} | tojson }}</script>
