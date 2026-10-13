@@ -47,6 +47,22 @@
     if (named && foldable(named)) foldable(named).open = true;
   });
 
+  // Platform Settings → Mail: a provider preset fills in host, port and encryption right away
+  // and shows the provider's note (without JavaScript the server applies it on saving).
+  document.querySelectorAll("[data-mail-preset]").forEach((select) => {
+    const fields = select.form.elements;
+    const hint = select.form.querySelector("[data-mail-preset-hint]");
+    const defaultHint = hint ? hint.textContent : "";
+    select.addEventListener("change", () => {
+      const option = select.selectedOptions[0];
+      if (hint) hint.textContent = option.value ? option.dataset.hint : defaultHint;
+      if (!option.value) return;
+      fields.smtp_host.value = option.dataset.host;
+      fields.smtp_port.value = option.dataset.port;
+      fields.smtp_security.value = option.dataset.security;
+    });
+  });
+
   const tripLegList = document.querySelector("[data-trip-legs]");
   const addTripLeg = document.querySelector("[data-add-trip-leg]");
   const tripLegTemplate = document.querySelector("[data-trip-leg-template]");

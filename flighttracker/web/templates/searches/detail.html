@@ -48,6 +48,7 @@
 {% if hidden_passenger_prices %}<p class="hint">{{ _("{n} prices observed for a different number of passengers are not shown – they are not comparable.", n=hidden_passenger_prices) }}</p>{% endif %}
 
 {% set nav = [("prices", "Prices"), ("search-settings", "Settings"), ("polls", "Recent polls"), ("history", "Change history")] %}
+{% if alerts %}{% set nav = nav + [("alerts", "Price alerts")] %}{% endif %}
 {% if sharing %}{% set nav = nav + [("sharing", "Sharing")] %}{% endif %}
 {% if access >= Access.OWN and not trip %}{% set nav = nav + [("danger-zone", "Archive or delete")] %}{% endif %}
 {{ ui.section_nav(nav) }}
@@ -107,7 +108,8 @@
           <td>
             {% if s %}
             {{ s.airlines | join(", ") }}{% if s.flights %} · {{ s.flights | join(", ") }}{% endif %}
-            <br><small class="hint">{% if s.departure_time %}{{ s.departure_time }}–{{ s.arrival_time }}{% if s.arrival_day_offset %}<sup>+{{ s.arrival_day_offset }}</sup>{% endif %} · {% endif %}{{ duration(s.duration_min) }} · {{ stops_text(p.stops) }}{% for layover in s.layovers %} · {{ layover.airport }} {{ duration(layover.minutes) }}{% endfor %}</small>
+            <br><small class="hint">{% if s.departure_time %}{{ s.departure_time }}–{{ s.arrival_time }}{% if s.arrival_day_offset %}<sup>+{{ s.arrival_day_offset }}</sup>{% endif %} · {% endif %}{{ duration(s.duration_min) }} · {{ stops_text(p.stops) }}{% for layover in s.layovers %} · {{ ui.layover_place(layover) }} {{ duration(layover.minutes) }}{% endfor %}</small>
+            {%- if s.warnings %}<br>{% for warning in s.warnings %}{{ ui.layover_warning(warning) }} {% endfor %}{% endif %}
             {% else %}
             {{ p.airline or "–" }}<br><small class="hint">{{ stops_text(p.stops) }}</small>
             {% endif %}
@@ -180,6 +182,48 @@
     {% endfor %}
   </ul>
 </details>
+
+{% if alerts %}
+<details class="card more" id="alerts">
+  <summary>{{ _("Price alerts") }}{% if alerts["items"] %} <small class="hint">({{ alerts["items"] | length }})</small>{% endif %}</summary>
+  <p class="hint">{{ _("A mail when a flight costs at most your price – once per flight, and again only when it gets cheaper. Your alerts are your own; nobody else sees them.") }}</p>
+  {% if not alerts.mail_enabled %}<p class="note">{{ _("Mail is not set up on this server yet: alerts are only sent once an admin sets it up (Platform Settings → Mail).") }}</p>{% endif %}
+  {% if alerts["items"] %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th class="num">{{ _("Up to") }}</th><th>{{ _("Route") }}</th><th>{{ _("Cabin class") }}</th><th></th></tr></thead>
+      <tbody>
+      {% for alert in alerts["items"] %}
+        <tr>
+          <td class="num"><strong>{{ alert.max_price | price(alert.currency) }}</strong></td>
+          <td>{% if alert.origin_iata %}{{ alert.origin_iata }} → {{ alert.destination_iata }}{% else %}{{ _("All routes") }}{% endif %}</td>
+          <td>{% if alert.cabin_class %}{{ _(labels.CABIN_LABELS[alert.cabin_class]) }}{% else %}{{ _("All cabin classes") }}{% endif %}</td>
+          <td>{{ ui.action_form("/searches/%d/alerts/%d/delete" % (search.id, alert.id), _("Delete")) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if alerts.has_email %}
+  <form method="post" action="/searches/{{ search.id }}/alerts" class="form">
+    {{ ui.csrf_field() }}
+    <div class="grid-3">
+      {{ ui.number_field("max_price", _("Price up to ({currency})", currency=alerts.currency), min=1) }}
+      {% if alerts.routes | length > 1 %}
+      {{ ui.select_field("route", _("Route"), [("", _("All routes"))] + alerts.routes, "") }}
+      {% endif %}
+      {% if alerts.cabins | length > 1 %}
+      {{ ui.select_field("cabin", _("Cabin class"), [("", _("All cabin classes"))] + alerts.cabins | tr_options, "") }}
+      {% endif %}
+    </div>
+    <div class="actions">{{ ui.button(_("Add alert"), "secondary") }}</div>
+  </form>
+  {% else %}
+  <p>{{ _("Add your e-mail address under Settings to get price alerts.") }} <a href="/settings#personal">{{ _("Settings") }}</a></p>
+  {% endif %}
+</details>
+{% endif %}
 
 {% if sharing %}{% include "_sharing.html" %}{% endif %}
 

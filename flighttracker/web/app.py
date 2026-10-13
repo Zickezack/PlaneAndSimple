@@ -12,6 +12,7 @@ from flighttracker.web.routes import (
     auth,
     health,
     log,
+    password,
     preferences,
     schedule,
     searches,
@@ -74,6 +75,7 @@ def create_app(
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(password.router)
     app.include_router(preferences.router)
     app.include_router(suggest.router)
     app.include_router(searches.router)

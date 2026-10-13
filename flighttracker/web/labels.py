@@ -87,6 +87,25 @@ CHART_LABELS = {
     "calendarHint": "From the source's price calendar, without flight details. "
     "Days with a dot have flights above – click one to keep it below the chart.",
     "calendarDay": "{date}: {price}",
+    # Layover warnings (domain/layovers.py), as in LAYOVER_WARNING_LABELS.
+    "warn_airport_change": "Airport change",
+    "warn_short": "Short layover",
+    "warn_overnight": "Overnight layover",
+    "warn_long": "Long layover",
+}
+
+# Warnings next to a flight's layovers (domain/layovers.py); hints explain them on hover.
+LAYOVER_WARNING_LABELS = {
+    "airport_change": "Airport change",
+    "short": "Short layover",
+    "overnight": "Overnight layover",
+    "long": "Long layover",
+}
+LAYOVER_WARNING_HINTS = {
+    "airport_change": "The next flight leaves from another airport – allow time to get there.",
+    "short": "Little time to change planes; a delay can cost the connection.",
+    "overnight": "The next flight leaves the following day – you may need a place to stay.",
+    "long": "A long wait between the flights.",
 }
 
 
@@ -101,6 +120,7 @@ SETTINGS_SECTION_LABELS = {
     "worker": "Worker",
     "airport_import": "Airport import",
     "users": "User limits",
+    "mail": "Mail",
 }
 SETTINGS_FIELD_LABELS = {
     "flight_provider": "Active flight data provider",
@@ -114,6 +134,13 @@ SETTINGS_FIELD_LABELS = {
     "max_route_pairs_per_search": "Max. route pairs per tracked search",
     "country_default_airports": "Airports preselected per country",
     "wikidata_contact": "Wikidata contact (URL or e-mail)",
+    "public_base_url": "Public address of this server",
+    "smtp_host": "SMTP server",
+    "smtp_port": "SMTP port",
+    "smtp_security": "Encryption",
+    "smtp_username": "SMTP username",
+    "smtp_password": "SMTP password",
+    "mail_from": "Sender address",
     "max_searches_per_user": "Max. tracked searches and Trips per user",
     "max_requests_per_user": "Max. provider requests per poll per user",
 }
@@ -159,4 +186,17 @@ SETTINGS_FIELD_HINTS = {
         "Provider requests of one poll of all of a user's tracked searches and Trips "
         "together – the real cost. 600 take about 40 minutes with a 3 s pause."
     ),
+    "public_base_url": (
+        "For the links in mails, e.g. https://flights.example.ch. Empty: the address the "
+        "page was opened with (price alert mails then have no link)."
+    ),
+    "smtp_host": "Mail server for outgoing mail; a provider preset above fills it in.",
+    "smtp_port": "Usually 587 with STARTTLS or 465 with SSL.",
+    "smtp_security": "starttls (port 587), ssl (port 465) or none (local test catcher only).",
+    "smtp_username": "Usually the full e-mail address of the sending account.",
+    "smtp_password": (
+        "Stored encrypted (key from SECRET_KEY). Gmail, iCloud and Yahoo need an app "
+        "password, not the normal one."
+    ),
+    "mail_from": "Sender of every mail, normally the address of the SMTP account.",
 }

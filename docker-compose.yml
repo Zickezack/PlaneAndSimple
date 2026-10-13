@@ -29,6 +29,14 @@ x-app: &app
     WIKIDATA_CONTACT: ${WIKIDATA_CONTACT:-}
     DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-CHF}
     DISPLAY_TIMEZONE: ${DISPLAY_TIMEZONE:-Europe/Zurich}
+    # Mail (optional; also editable under Platform Settings → Mail).
+    PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+    SMTP_HOST: ${SMTP_HOST:-}
+    SMTP_PORT: ${SMTP_PORT:-587}
+    SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+    SMTP_USERNAME: ${SMTP_USERNAME:-}
+    SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    MAIL_FROM: ${MAIL_FROM:-}
     # Reverse proxy IPs whose X-Forwarded-For uvicorn trusts (for login throttling per client).
     FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
   depends_on:
@@ -79,6 +87,16 @@ services:
     command: ["python", "-m", "flighttracker.worker"]
     # The worker stops between two provider queries; one query takes up to ~30 s.
     stop_grace_period: 60s
+
+  # Optional mail catcher instead of a real mail server (`docker compose --profile mailpit up -d`,
+  # then Platform Settings → Mail → preset "Mailpit"). Its web view is only published on the
+  # host's loopback interface – reach it through an SSH tunnel.
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    restart: unless-stopped
+    profiles: ["mailpit"]
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
 
 volumes:
   pgdata:

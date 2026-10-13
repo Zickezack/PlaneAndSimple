@@ -3,10 +3,11 @@
 import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 
 from markupsafe import Markup
 
+from flighttracker.domain.layovers import Layover, itinerary_warnings, layovers
 from flighttracker.services.history import CalendarDay, PricePoint
 from flighttracker.services.price_trends import FlightKey, FlightTrend, flight_key
 
@@ -39,12 +40,6 @@ def sparkline(values: Sequence, width: int = 84, height: int = 24) -> Markup:
 
 
 @dataclass(frozen=True)
-class Layover:
-    airport: str
-    minutes: int | None
-
-
-@dataclass(frozen=True)
 class FlightSummary:
     """What a reader needs to judge one price: which flight, when, how long, how many stops."""
 
@@ -56,13 +51,9 @@ class FlightSummary:
     arrival_day_offset: int
     duration_min: int | None
     layovers: list[Layover]
+    # Layover warnings of the outbound and the loaded return flight (domain/layovers.py).
+    warnings: tuple[str, ...]
     url: str | None
-
-
-def _moment(day: str | None, time: str | None) -> datetime | None:
-    if not day or not time:
-        return None
-    return datetime.fromisoformat(f"{day}T{time}")
 
 
 def summarize(point: PricePoint) -> FlightSummary | None:
@@ -71,14 +62,6 @@ def summarize(point: PricePoint) -> FlightSummary | None:
     if not details:
         return None
     segments = details.get("segments") or []
-    layovers = []
-    for arriving, leaving in zip(segments, segments[1:], strict=False):
-        arrival = _moment(arriving.get("arrival_date"), arriving.get("arrival_time"))
-        departure = _moment(leaving.get("departure_date"), leaving.get("departure_time"))
-        minutes = (
-            int((departure - arrival).total_seconds() // 60) if arrival and departure else None
-        )
-        layovers.append(Layover(arriving.get("to") or "?", minutes))
     arrival_date = details.get("arrival_date")
     offset = (date.fromisoformat(arrival_date) - point.departure_date).days if arrival_date else 0
     return FlightSummary(
@@ -88,7 +71,8 @@ def summarize(point: PricePoint) -> FlightSummary | None:
         arrival_time=details.get("arrival_time"),
         arrival_day_offset=max(offset, 0),
         duration_min=details.get("duration_min"),
-        layovers=layovers,
+        layovers=layovers(segments),
+        warnings=itinerary_warnings(details),
         url=details.get("url"),
     )
 
@@ -117,20 +101,17 @@ class SegmentView:
     aircraft: str | None
     # Layover after this segment (None for the last one).
     layover: str | None
+    layover_info: Layover | None = None
 
 
 def segments(details: dict | None) -> list[SegmentView]:
     """Segments of an itinerary (outbound, or the return flight if loaded) for the flight page."""
     items = (details or {}).get("segments") or []
+    stops = layovers(items)
     result = []
     for index, segment in enumerate(items):
-        layover = None
-        if index + 1 < len(items):
-            arrival = _moment(segment.get("arrival_date"), segment.get("arrival_time"))
-            nxt = items[index + 1]
-            departure = _moment(nxt.get("departure_date"), nxt.get("departure_time"))
-            if arrival and departure:
-                layover = format_duration(int((departure - arrival).total_seconds() // 60))
+        stop = stops[index] if index < len(stops) else None
+        layover = format_duration(stop.minutes) if stop and stop.minutes is not None else None
         result.append(
             SegmentView(
                 flight=segment.get("flight"),
@@ -146,6 +127,7 @@ def segments(details: dict | None) -> list[SegmentView]:
                 duration=format_duration(segment.get("duration_min")),
                 aircraft=segment.get("aircraft"),
                 layover=layover,
+                layover_info=stop,
             )
         )
     return result
@@ -213,7 +195,12 @@ def _chart_point(
         "arrDays": summary.arrival_day_offset if summary else 0,
         "dur": format_duration(summary.duration_min) if summary and summary.duration_min else None,
         "via": [
-            {"airport": lay.airport, "wait": format_duration(lay.minutes)}
+            {
+                "airport": lay.arrival_airport,
+                "to": lay.departure_airport if lay.airport_change else None,
+                "wait": format_duration(lay.minutes),
+                "warn": list(lay.warnings),
+            }
             for lay in (summary.layovers if summary else [])
         ],
         "url": summary.url if summary else None,

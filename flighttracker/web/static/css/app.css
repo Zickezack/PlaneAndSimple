@@ -327,3 +327,5 @@ tr.is-changed td { background: var(--info-bg); }
 /* Jump targets: keep the section's top visible below the sticky top bar. */
 .card[id] { scroll-margin-top: 6rem; }
 .capacity > summary .badge { margin-left: .4rem; }
+/* Layover warnings next to a flight (domain/layovers.py). */
+.layover-warning { white-space: nowrap; }

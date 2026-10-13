@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from flighttracker.config import Settings
 from flighttracker.domain.locations import describe_locations
 from flighttracker.i18n import translate
+from flighttracker.models import User
 from flighttracker.providers.registry import FAKE_DATA_PROVIDERS
 from flighttracker.services import history, jobs, price_trends
 from flighttracker.services.access import (
@@ -37,6 +38,7 @@ from flighttracker.web.routes.searches._common import (
     estimate,
     load_search,
 )
+from flighttracker.web.routes.searches.alerts import alerts_view
 from flighttracker.web.sharing import sharing_view
 from flighttracker.web.templating import templates
 
@@ -130,6 +132,9 @@ def detail(
             "Access": Access,
             "sharing": sharing_view(db, user, search.owner_id, search_id=search.id)
             if trip is None and access >= Access.OWN
+            else None,
+            "alerts": alerts_view(db, search, db.get(User, user.id), settings)
+            if trip is None
             else None,
         },
     )

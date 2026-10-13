@@ -111,7 +111,7 @@ Where new code goes (dependencies only point downwards):
   matches in registration order; `tests/unit/test_route_order.py` guards the searches package).
   Helpers shared inside the package live in `_common.py`.
 - Form parsing: one module per feature (`web/forms.py` for Suchabos, `web/trip_forms.py` for
-  Trips); routes only call them and render.
+  Trips, `web/settings_forms.py` for the Settings page); routes only call them and render.
 - Worker: `__main__.py` is only the entry point; `loop.py` (scheduling, dispatch), `wake.py`
   (LISTEN/NOTIFY), `job_control.py` (stop/cancel checks), one module per job kind
   (`trip_job.py`). Rules about *what* to query and store live in services (`ingestion.py`,
@@ -138,6 +138,9 @@ Where new code goes (dependencies only point downwards):
 | Trips | `web/routes/trips.py`, `web/trip_forms.py`, `services/trips.py`, `domain/trips.py` |
 | Polling | `worker/*`, `services/ingestion.py`, `services/day_selection.py`, `domain/sampling.py`, `services/trip_polling.py`, `providers/*` (Google Flights: package `providers/google_flights/` – `results` list, `page` fallback, `price_calendar`, `provider`) |
 | Import/export | `services/data_export.py`, `services/data_import.py` |
+| Mail, password links | `services/mail.py`, `services/mail_messages.py`, `services/password_tokens.py`, `web/mails.py`, `web/routes/password.py`, `security/secrets.py` |
+| Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker hook in `worker/loop.py` |
+| Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
 
 **Plane and simple (UI principle):** every page shows the essentials first and folds the rest
 away. Suchabo detail: summary line, "Poll now", chart and a lean flights table; settings, recent
@@ -287,6 +290,24 @@ legs, then polled again) ask for the exact name.
   airports: the `COUNTRY_DEFAULT_AIRPORTS` largest (Wikidata passenger numbers) are preselected
   and shown as checkboxes before saving; routes are capped by `MAX_ROUTE_PAIRS_PER_SEARCH`.
 
+## Mail
+
+Optional; "on" once SMTP host and sender are set (`.env` or Platform Settings → Mail, with
+provider presets in `domain/mail_providers.py`). `services/mail.py` sends plain-text mails with
+`smtplib` (STARTTLS, SSL or none; 15 s timeout); texts in `services/mail_messages.py`, in the
+recipient's language. Account mails are sent from the web request that triggers them
+(`web/mails.py`): welcome mail, "Forgot password?" and the notice after any password change.
+Price alerts (`services/price_alerts.py`) are checked by the worker after every completed poll
+of a Suchabo; a failure is logged and never fails the job. Links use `PUBLIC_BASE_URL`, in the
+web also the request's address. Dev stack: every mail goes to Mailpit (web view on the
+forwarded port 8025); production: optional `mailpit` compose profile.
+
+**Price alerts:** per user and Suchabo, a highest price in the platform currency, optionally
+one route and/or cabin. Only current, upcoming, real (not invented) prices for the Suchabo's
+passengers count. A flight (route, cabin, departure and return date) is reported once and again
+only below the price last reported (`price_alert_notifications`); it counts as reported only
+after its mail went out, so a failed mail is retried after the next poll.
+
 ## Security
 
 - No secrets in the repository or image: `.env` is git- and docker-ignored; `alembic.ini`
@@ -301,6 +322,13 @@ legs, then polled again) ask for the exact name.
   5 failures per client IP (in-memory, per process; behind a reverse proxy only correct when
   `FORWARDED_ALLOW_IPS` names the address the proxy connects from), strict CSP, no
   OpenAPI/docs endpoints.
+- Password links: random 32-byte tokens, only their SHA-256 stored (`password_tokens`), valid
+  once and 1 hour (reset) or 7 days (welcome); a new link or a set password voids the older
+  ones. "Forgot password?" answers the same for every input and shares the login lockout per
+  client; the `.env` admin cannot reset by mail.
+- The SMTP password entered under Platform Settings is stored Fernet-encrypted with a key
+  derived from `SECRET_KEY` (`security/secrets.py`); after a key change it is ignored and
+  must be entered again. SMTP errors never contain credentials.
 - Provider tokens are sent as headers and never written into error messages or logs. A token
   entered under Platform Settings is stored in plain text in `platform_settings`; set it in
   `.env` instead if the database should hold no credentials.

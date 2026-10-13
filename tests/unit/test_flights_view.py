@@ -60,9 +60,10 @@ def test_summary_with_layover_and_arrival_two_days_later():
     summary = summarize(point())
     assert summary.flights == ["QR 96", "QR 832"]
     assert summary.arrival_day_offset == 2
-    assert [(lay.airport, format_duration(lay.minutes)) for lay in summary.layovers] == [
+    assert [(lay.arrival_airport, format_duration(lay.minutes)) for lay in summary.layovers] == [
         ("DOH", "33h 30m")
     ]
+    assert summary.warnings == ("overnight", "long")
     assert summary.url.startswith("https://www.google.com/travel/flights")
 
 
@@ -90,7 +91,9 @@ def test_chart_data_upcoming_in_search_currency_with_previous_year():
         480.0,
         530.0,
     )
-    assert only["via"] == [{"airport": "DOH", "wait": "33h 30m"}]
+    assert only["via"] == [
+        {"airport": "DOH", "to": None, "wait": "33h 30m", "warn": ["overnight", "long"]}
+    ]
     assert data["routes"] == ["ZRH-BKK"]
 
 

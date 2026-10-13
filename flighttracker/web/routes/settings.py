@@ -4,29 +4,21 @@ defaults (flight data providers, worker, airport import, user limits)."""
 
 import json
 from datetime import UTC, datetime
-from zoneinfo import available_timezones
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData, UploadFile
 
-from flighttracker.domain.currencies import CURRENCIES
-from flighttracker.i18n import SUPPORTED_LOCALES, Msg, currency_name, translate
+from flighttracker.domain.mail_providers import MAIL_PROVIDERS
+from flighttracker.i18n import SUPPORTED_LOCALES, Msg
 from flighttracker.models import User
-from flighttracker.providers.registry import PROVIDERS
 from flighttracker.services import capacity, poll_plan, quota
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_export import export_all
 from flighttracker.services.data_import import import_payload
 from flighttracker.services.settings import (
-    AIRPORT_IMPORT_SECTION,
-    PROVIDERS_SECTION,
-    SEARCHES_SECTION,
     SETTING_FIELDS,
-    USERS_SECTION,
-    WORKER_SECTION,
-    SettingField,
     SettingValidationError,
     clear_override,
     effective_settings,
@@ -36,6 +28,7 @@ from flighttracker.services.settings import (
 from flighttracker.services.users import (
     UserValidationError,
     change_own_password,
+    set_email,
     set_preferences,
 )
 from flighttracker.web import labels
@@ -51,56 +44,20 @@ from flighttracker.web.deps import (
     require_admin,
     require_login,
 )
+from flighttracker.web.mails import send_password_changed
 from flighttracker.web.schedule_view import timeline
+from flighttracker.web.settings_forms import (
+    SECTIONS,
+    currency_options,
+    field_view,
+    mail_preset,
+    section_fields,
+    timezone_options,
+)
 from flighttracker.web.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_login)])
 admin_only = [Depends(require_admin)]
-
-_SECTIONS = (
-    PROVIDERS_SECTION,
-    SEARCHES_SECTION,
-    WORKER_SECTION,
-    AIRPORT_IMPORT_SECTION,
-    USERS_SECTION,
-)
-
-
-def _section_fields(section: str) -> list[SettingField]:
-    return [field for field in SETTING_FIELDS if field.section == section]
-
-
-def _field_view(field: SettingField, overrides: dict, settings) -> dict:
-    value = getattr(settings, field.key)
-    is_secret = field.kind == "secret"
-    return {
-        "key": field.key,
-        "label": labels.SETTINGS_FIELD_LABELS[field.key],
-        "hint": labels.SETTINGS_FIELD_HINTS[field.key],
-        "is_secret": is_secret,
-        "is_choice": field.key == "flight_provider",
-        "is_currency": field.kind == "currency",
-        "is_bool": field.kind == "bool",
-        "is_overridden": field.key in overrides,
-        "value": "" if is_secret else value,
-        "has_value": bool(value.get_secret_value()) if is_secret and value else False,
-    }
-
-
-def currency_options(locale: str, current: str) -> list[tuple[str, str]]:
-    """Every national currency as "CHF – Swiss Franc"; a legacy `.env` value stays selectable."""
-    codes = sorted(CURRENCIES.keys() | {current})
-    return [
-        (code, f"{code} – {currency_name(code, CURRENCIES.get(code, code), locale)}")
-        for code in codes
-    ]
-
-
-def timezone_options(platform_default: str, locale: str) -> list[tuple[str, str]]:
-    """Empty value = the platform's zone; then every IANA zone of a region ("Europe/Zurich")."""
-    zones = sorted(zone for zone in available_timezones() if "/" in zone and "Etc/" not in zone)
-    default = translate("{zone} (platform default)", locale, zone=platform_default)
-    return [("", default)] + [(zone, zone) for zone in zones]
 
 
 def format_seconds(seconds: float) -> str:
@@ -133,17 +90,16 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
                 "key": section,
                 "label": labels.SETTINGS_SECTION_LABELS[section],
                 "fields": [
-                    _field_view(field, overrides, settings) for field in _section_fields(section)
+                    field_view(field, overrides, settings) for field in section_fields(section)
                 ],
             }
-            for section in _SECTIONS
+            for section in SECTIONS
         ]
     return templates.TemplateResponse(
         request,
         "settings/index.html",
         {
             "sections": sections,
-            "provider_options": sorted(PROVIDERS),
             "user": user,
             "usage": quota.usage(db, user, settings),
             "capacity": load,
@@ -165,6 +121,7 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "duration": format_seconds,
             "locale_options": list(SUPPORTED_LOCALES.items()),
             "currency_options": currency_options(locale, settings.default_currency),
+            "mail_providers": MAIL_PROVIDERS,
             "timezone_options": timezone_options(settings.display_timezone, locale),
         },
     )
@@ -184,6 +141,7 @@ def save_personal(
             locale=locale or None,
             timezone=str(form.get("timezone", "")).strip(),
         )
+        set_email(db, user, str(form.get("email", "")))
     except UserValidationError as exc:
         for error in exc.errors:
             flash(request, error, "error")
@@ -213,6 +171,7 @@ def change_password(
             flash(request, error, "error")
         return _redirect("password")
     db.commit()
+    send_password_changed(request, effective_settings(db, request.app.state.settings), user)
     # Other sessions of this user end; this one continues.
     request.session[SESSION_AUTH_VERSION] = user.auth_version
     flash(request, Msg("Password changed. Other sessions were logged out."), "success")
@@ -226,19 +185,22 @@ def save_section(
     form: FormData = Depends(csrf_form),
     db: Session = Depends(get_db),
 ):
-    if section not in _SECTIONS:
+    if section not in SECTIONS:
         raise HTTPException(status_code=404)
     old_interval = effective_settings(db, request.app.state.settings).default_poll_interval_minutes
     errors: list[str] = []
-    for field in _section_fields(section):
+    values = {field.key: str(form.get(field.key, "")).strip() for field in SETTING_FIELDS}
+    values |= mail_preset(str(form.get("smtp_preset", "")))
+    secret_key = request.app.state.settings.secret_key.get_secret_value()
+    for field in section_fields(section):
         if field.kind == "secret" and form.get(f"{field.key}_clear") == "1":
             clear_override(db, field.key)
             continue
-        raw = str(form.get(field.key, "")).strip()
+        raw = values[field.key]
         if field.kind == "secret" and not raw:
             continue  # blank means "keep the current value", not "clear it"
         try:
-            set_override(db, field.key, raw)
+            set_override(db, field.key, raw, secret_key=secret_key)
         except SettingValidationError as exc:
             errors.append(f"{labels.SETTINGS_FIELD_LABELS[field.key]}: {exc}")
     if errors:

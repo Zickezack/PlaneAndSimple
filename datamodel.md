@@ -37,7 +37,10 @@ The code and docs use "Suchabo" for a tracked search.
 | – | – | `price_history.source` | New rows are always `live`; `backfill` only in rows from before migration `0002` |
 | Trip | Trip | `Trip` / `trips` | Bounded planner window; uses the global polling cadence |
 | Trip leg | Teilstrecke | `TripLeg` / `trip_legs` | Ordered link to an ordinary one-way Suchabo; calendar-day stay bounds apply before this leg |
-| User | Benutzer | `User` / `users` | Login with role `admin` or `user`, personal settings and quota overrides |
+| User | Benutzer | `User` / `users` | Login with role `admin` or `user`, optional e-mail address, personal settings and quota overrides |
+| Password link | Passwort-Link | `PasswordToken` / `password_tokens` | One-time link to set a password (`reset` or `welcome`); only the token's SHA-256 is stored |
+| Price alert | Preisalarm | `PriceAlert` / `price_alerts` | A user's highest price for a Suchabo, optionally one route and cabin |
+| – | – | `PriceAlertNotification` / `price_alert_notifications` | Flight and price an alert already reported |
 | Owner | Besitzer | `searches.owner_id`, `trips.owner_id` | User a Suchabo/Trip belongs to; `NULL` only until the env admin's next login |
 | Sharing | Teilen | `Share` / `shares` | Access of one user to one Suchabo or Trip: view only (`can_edit` false) or view and edit |
 | Cancelled | Abgebrochen | `fetch_jobs.status = 'cancelled'` | Poll stopped from the Poll Log |
@@ -62,6 +65,10 @@ erDiagram
     users |o--o{ searches : owns
     users |o--o{ trips : owns
     users ||--o{ shares : "has access"
+    users ||--o{ password_tokens : "one-time links"
+    users ||--o{ price_alerts : "own"
+    searches ||--o{ price_alerts : "watched"
+    price_alerts ||--o{ price_alert_notifications : "reported"
     searches |o--o{ shares : "shared"
     trips |o--o{ shares : "shared"
 
@@ -77,7 +84,10 @@ erDiagram
     trip_legs { bigint id PK; bigint trip_id FK; bigint search_id FK; int position; int min_layover_days; int max_layover_days }
     query_log { bigint id PK; bigint job_id; bigint search_id; string search_name; string provider; enum kind; char3 origin_iata; char3 destination_iata; date departure_month; enum cabin_class; enum outcome; int quotes_found; int quotes_stored; text error; jsonb results; timestamptz started_at; int duration_ms; timestamptz logged_at }
     platform_settings { string key PK; text value; timestamptz updated_at }
-    users { bigint id PK; string username; text password_hash; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; int auth_version; timestamptz created_at; timestamptz last_login_at }
+    users { bigint id PK; string username; text password_hash; string email; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; int auth_version; timestamptz created_at; timestamptz last_login_at }
+    password_tokens { bigint id PK; bigint user_id FK; char64 token_hash; enum purpose; timestamptz expires_at; timestamptz used_at }
+    price_alerts { bigint id PK; bigint search_id FK; bigint user_id FK; numeric max_price; char3 currency; char3 origin_iata; char3 destination_iata; string cabin_class }
+    price_alert_notifications { bigint id PK; bigint alert_id FK; char3 origin_iata; char3 destination_iata; string cabin_class; date departure_date; date return_date; numeric price; char3 currency; timestamptz notified_at }
     shares { bigint id PK; bigint search_id FK; bigint trip_id FK; bigint user_id FK; bool can_edit; timestamptz created_at }
 ```
 
@@ -128,7 +138,9 @@ erDiagram
   requires that capability (Google Flights and the deterministic mock provider provide it).
 - A displayed complete-option price is the sum of the individual one-way prices. It is not a
   through-ticket fare, and connections may involve separately booked tickets and self-transfers.
-- `users.username` is unique ignoring case (`uq_users_username_lower`). `password_hash` is
+- `users.username` is unique ignoring case (`uq_users_username_lower`), `users.email` too
+  (`uq_users_email_lower`, migration `0013`). A database user without `password_hash` (created
+  with a welcome link) cannot log in until the link is used. `password_hash` is
   `NULL` only for the admin from `.env`, whose password lives in `ADMIN_PASSWORD_HASH`.
   `max_searches` / `max_requests` `NULL` = the Platform Settings defaults; `locale` /
   `timezone` `NULL` = the platform defaults. `auth_version` is raised on password, role and
@@ -191,12 +203,18 @@ jobs and the query log stay; an active Suchabo or Trip is polled again right awa
 
 ## Privacy
 
-**Personal data:** `users` (username, scrypt password hash, last login, language and time
-zone) and indirectly `shares`, `searches.owner_id` and `trips.owner_id` (what a user tracks and
+**Personal data:** `users` (username, optional e-mail address, scrypt password hash, last
+login, language and time zone), `password_tokens` (hashes only) and `price_alerts` (what a
+user wants to be told about) and indirectly `shares`, `searches.owner_id` and `trips.owner_id` (what a user tracks and
 with whom they share it). Deleting a user removes the row and their shares; their Suchabos and
 Trips stay without owner. Usernames are shown to other users only where they share something
 (owner, share list). The JSON export contains no user data.
 
-The env admin's password hash lives in environment variables. The only other credential that can
-end up in the database is a Travelpayouts token entered under Platform Settings
-(`platform_settings`, plain text).
+E-mail addresses are optional, unique ignoring case, shown only to the user and to admins, used
+only for the user's own mails, and not part of the JSON export; deleting a user deletes their
+tokens and alerts.
+
+The env admin's password hash lives in environment variables. Other credentials that can end up
+in the database: a Travelpayouts token entered under Platform Settings (`platform_settings`,
+plain text) and the SMTP password entered there (Fernet-encrypted with a key from
+`SECRET_KEY`).

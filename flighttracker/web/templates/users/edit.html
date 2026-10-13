@@ -31,6 +31,7 @@
     </div>
     <p class="hint">{{ _("Deactivating pauses the user's tracked searches and Trips, except those another active user may edit – these keep running until no such editor is left. Reactivating does not resume them.") }}</p>
     {% endif %}
+    {{ ui.text_field("email", _("E-mail address"), user.email or "", type="email", autocomplete="off", hint=_("Optional. For the user's mails (password links, price alerts).")) }}
     <div class="grid-2">
       {{ ui.number_field("max_searches", _("Max. tracked searches and Trips"), user.max_searches if user.max_searches is not none else "", min=0, hint=_("Empty: platform default ({n}). Admins have no limit.", n=defaults[0])) }}
       {{ ui.number_field("max_requests", _("Max. provider requests per poll"), user.max_requests if user.max_requests is not none else "", min=0, hint=_("Empty: platform default ({n}).", n=defaults[1])) }}

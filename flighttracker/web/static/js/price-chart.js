@@ -183,7 +183,11 @@
     if (point.dur) parts.push(point.dur);
     const stops = stopsText(point.stops);
     if (stops) parts.push(stops);
-    point.via.forEach((layover) => parts.push(`${labels.via} ${layover.airport} (${layover.wait})`));
+    point.via.forEach((layover) => {
+      const place = layover.to ? `${layover.airport} → ${layover.to}` : layover.airport;
+      const warnings = (layover.warn || []).map((key) => ` ⚠ ${labels[`warn_${key}`]}`).join("");
+      parts.push(`${labels.via} ${place} (${layover.wait})${warnings}`);
+    });
     return parts.join(" · ");
   }
 

@@ -13,9 +13,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from flighttracker.config import Settings, get_settings
 from flighttracker.db.session import create_db_engine, create_session_factory
-from flighttracker.models import FetchJob, JobStatus
+from flighttracker.models import FetchJob, JobStatus, Search
 from flighttracker.providers.base import FlightPriceProvider, ProviderError
 from flighttracker.providers.registry import get_provider, provider_config
+from flighttracker.services import price_alerts
 from flighttracker.services.day_selection import uses_calendar_days, with_calendar_days
 from flighttracker.services.ingestion import (
     all_queries_failed,
@@ -146,6 +147,8 @@ def process_next_job(
                     job.quotes_stored,
                 )
             session.commit()
+            if job.status is JobStatus.DONE and effective is not None:
+                send_price_alerts(session, effective, job.search_id, clock())
         except Exception as exc:
             session.rollback()
             job = session.get(FetchJob, job_id)
@@ -157,6 +160,19 @@ def process_next_job(
             session.commit()
             log.exception("Job %d failed", job_id)
     return True
+
+
+def send_price_alerts(session: Session, settings: Settings, search_id: int, now: datetime) -> None:
+    """After a completed poll: mails for prices at or below an alert. Never fails the job."""
+    try:
+        sent = price_alerts.notify(session, settings, session.get(Search, search_id), now)
+        session.commit()
+    except Exception:
+        session.rollback()
+        log.exception("Price alerts of search %d failed", search_id)
+        return
+    if sent:
+        log.info("%d price alert mails sent for search %d", sent, search_id)
 
 
 def refresh_provider(

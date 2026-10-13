@@ -27,6 +27,10 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
   buy*.
 - **Flight details:** segments, layovers, aircraft, Flightradar24 and Google Flights links, every
   poll's price for these dates; optionally the return flight (one more request per price).
+  Warnings for airport changes, short, overnight and long layovers.
+- **Price alerts by mail** per search (optionally per route and cabin): once per flight and
+  price drop. Mail via any SMTP account (presets for Gmail, Outlook, iCloud, Infomaniak, …),
+  also for welcome mails and "Forgot password?"; Mailpit catches all mails in the dev stack.
 - **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
 - **[Users](#users-and-operation)** with sharing and per-user limits; Poll Log and worker load
   for admins.

@@ -41,6 +41,7 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         Index("uq_users_username_lower", text("lower(username)"), unique=True),
+        Index("uq_users_email_lower", text("lower(email)"), unique=True),
         CheckConstraint("max_searches IS NULL OR max_searches >= 0", name="max_searches"),
         CheckConstraint("max_requests IS NULL OR max_requests >= 0", name="max_requests"),
     )
@@ -48,6 +49,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     username: Mapped[str] = mapped_column(String(60))
     password_hash: Mapped[str | None] = mapped_column(Text)
+    # Optional; without it the user gets no mails (password reset, price alerts).
+    email: Mapped[str | None] = mapped_column(String(254))
     role: Mapped[UserRole] = mapped_column(str_enum(UserRole, "user_role"), default=UserRole.USER)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Per-user quota overrides; None = the platform defaults (Platform Settings → Users).

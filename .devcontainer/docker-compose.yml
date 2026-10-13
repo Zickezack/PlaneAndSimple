@@ -18,6 +18,11 @@ x-dev-runtime: &dev-runtime
     SESSION_COOKIE_SECURE: "false"
     # Bind mounts from Windows/WSL often deliver no file events – poll for changes instead.
     WATCHFILES_FORCE_POLLING: "true"
+    # Every mail goes to Mailpit (web view: forwarded port 8025); Platform Settings can override.
+    SMTP_HOST: mailpit
+    SMTP_PORT: "1025"
+    SMTP_SECURITY: none
+    MAIL_FROM: plane-and-simple@example.test
   restart: unless-stopped
   # Only "started", not "completed": a failing migration must never block the whole dev
   # container from starting. Until it is done, requests fail and the worker retries each tick.
@@ -99,6 +104,11 @@ services:
       - >-
         until [ -f .env ]; do echo "Waiting for .env (python -m flighttracker.cli init-dev-env) ..."; sleep 3; done;
         exec watchfiles "python -m flighttracker.worker" flighttracker .env
+
+  # Catches every mail of the dev stack; web view on port 8025 (forwarded by VS Code).
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    restart: unless-stopped
 
 volumes:
   pgdata-dev:

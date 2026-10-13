@@ -9,9 +9,10 @@
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
   },
-  "forwardPorts": ["web:8000"],
+  "forwardPorts": ["web:8000", "mailpit:8025"],
   "portsAttributes": {
-    "web:8000": { "label": "Plane and simple", "onAutoForward": "notify" }
+    "web:8000": { "label": "Plane and simple", "onAutoForward": "notify" },
+    "mailpit:8025": { "label": "Mailpit (dev mails)", "onAutoForward": "silent" }
   },
   "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude && pip install --user -e '.[dev,scraper]' && python -m flighttracker.cli init-dev-env",
   "customizations": {

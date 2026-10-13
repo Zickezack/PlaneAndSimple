@@ -14,6 +14,7 @@ from sqlalchemy import exists, func, select, update
 from sqlalchemy.orm import Session, aliased
 
 from flighttracker.config import Settings
+from flighttracker.domain.emails import is_valid_email
 from flighttracker.i18n import SUPPORTED_LOCALES, Msg
 from flighttracker.models import Search, SearchStatus, Share, Trip, TripLeg, User, UserRole
 from flighttracker.security.passwords import hash_password, verify_password
@@ -113,21 +114,53 @@ def _password_errors(password: str) -> list[Msg]:
     return []
 
 
+def _email_errors(session: Session, email: str, user_id: int | None = None) -> list[Msg]:
+    if not is_valid_email(email):
+        return [Msg('"{email}" is not a valid e-mail address.', email=email)]
+    taken = session.scalar(
+        select(User.id).where(func.lower(User.email) == email.lower(), User.id != (user_id or 0))
+    )
+    if taken is not None:
+        return [Msg("This e-mail address is already used by another user.")]
+    return []
+
+
+def set_email(session: Session, user: User, raw: str) -> None:
+    """Optional address for mails; empty removes it (no mails for this user then)."""
+    email = raw.strip() or None
+    errors = _email_errors(session, email, user.id) if email else []
+    if errors:
+        raise UserValidationError(errors)
+    user.email = email
+
+
 def create_user(
-    session: Session, settings: Settings, username: str, password: str, role: UserRole
+    session: Session,
+    settings: Settings,
+    username: str,
+    password: str,
+    role: UserRole,
+    *,
+    email: str = "",
 ) -> User:
-    username = username.strip()
+    """`password` may stay empty when an `email` is given: the user then sets it through the
+    link of the welcome mail and cannot log in before."""
+    username, email = username.strip(), email.strip()
     errors: list[Msg] = []
     if not USERNAME_PATTERN.match(username):
         errors.append(Msg("Usernames have 2–60 characters: letters, digits and . _ @ - only."))
     elif username.lower() == settings.admin_username.lower() or find_user(session, username):
         errors.append(Msg('The username "{name}" is already taken.', name=username))
-    errors.extend(_password_errors(password))
+    if email:
+        errors.extend(_email_errors(session, email))
+    if password or not email:
+        errors.extend(_password_errors(password))
     if errors:
         raise UserValidationError(errors)
     user = User(
         username=username,
-        password_hash=hash_password(password),
+        password_hash=hash_password(password) if password else None,
+        email=email or None,
         role=role,
         is_active=True,
         auth_version=1,

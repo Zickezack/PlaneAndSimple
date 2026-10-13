@@ -30,9 +30,10 @@
   <h2>{{ _("New user") }}</h2>
   <form method="post" action="/users" class="form">
     {{ ui.csrf_field() }}
-    <div class="grid-3">
+    <div class="grid-2">
       {{ ui.text_field("username", _("Username"), required=True, autocomplete="off") }}
-      {{ ui.text_field("password", _("Initial password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters. Users can change it under Settings.")) }}
+      {{ ui.text_field("email", _("E-mail address"), type="email", autocomplete="off", hint=_("Optional. With mail set up, the user gets a welcome mail.")) }}
+      {{ ui.text_field("password", _("Initial password"), type="password", autocomplete="new-password", hint=_("At least 12 characters. Leave empty to let the user set it through the link in the welcome mail.") if mail_enabled else _("At least 12 characters. Users can change it under Settings.")) }}
       {{ ui.select_field("role", _("Role"), labels.ROLE_LABELS.items() | tr_options, "user") }}
     </div>
     <div class="actions">{{ ui.button(_("Create user")) }}</div>

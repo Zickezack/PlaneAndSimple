@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("Set a new password") }}{% endblock %}
+{% block content %}
+<section class="card card-narrow">
+  <h1>{{ _("Set a new password") }}</h1>
+  {% if valid %}
+  {% for error in errors %}{{ ui.alert(error, "error") }}{% endfor %}
+  <form method="post" action="/password/reset/{{ token }}" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("new_password", _("New password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters.")) }}
+    {{ ui.text_field("repeat_password", _("Repeat new password"), type="password", required=True, autocomplete="new-password") }}
+    <div class="actions">{{ ui.button(_("Set password")) }}</div>
+  </form>
+  {% else %}
+  <p>{{ _("This link is no longer valid: it was already used or has expired.") }}</p>
+  <p><a href="/password/forgot">{{ _("Request a new link") }}</a> · <a href="/login">{{ _("Back to login") }}</a></p>
+  {% endif %}
+</section>
+{% endblock %}

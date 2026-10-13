@@ -137,3 +137,13 @@
   <button type="button" class="section-nav-all" data-section-nav-all hidden>{{ _("Show all") }}</button>
 </nav>
 {%- endmacro %}
+
+{#- Warning next to a layover (domain/layovers.py key), explained on hover. -#}
+{% macro layover_warning(key) -%}
+<span class="badge badge-warning layover-warning" title="{{ _(labels.LAYOVER_WARNING_HINTS[key]) }}">⚠ {{ _(labels.LAYOVER_WARNING_LABELS[key]) }}</span>
+{%- endmacro %}
+
+{#- "BCN 1h 30m", or "LHR → LGW 4h 05m" when the next flight leaves from another airport. -#}
+{% macro layover_place(layover) -%}
+{{ layover.arrival_airport }}{% if layover.airport_change %} → {{ layover.departure_airport }}{% endif %}
+{%- endmacro %}

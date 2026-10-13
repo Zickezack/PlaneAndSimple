@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from flighttracker.domain.currencies import CURRENCIES, currency_decimals
+from flighttracker.domain.mail_providers import MAIL_PROVIDERS
 from flighttracker.i18n import (
     Msg,
     catalog,
@@ -72,6 +73,8 @@ def ui_texts() -> set[str]:
         labels.ROLE_LABELS,
         labels.OUTCOME_LABELS,
         labels.CHART_LABELS,
+        labels.LAYOVER_WARNING_LABELS,
+        labels.LAYOVER_WARNING_HINTS,
         labels.DAYS_PER_MONTH_LABELS,
         labels.SETTINGS_SECTION_LABELS,
         labels.SETTINGS_FIELD_LABELS,
@@ -80,6 +83,7 @@ def ui_texts() -> set[str]:
     ):
         texts.update(table.values())
     texts.update(text for _, text in labels.STOPS_OPTIONS)
+    texts.update(provider.hint for provider in MAIL_PROVIDERS)
     return texts
 
 

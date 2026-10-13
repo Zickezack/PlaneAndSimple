@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("Forgot password?") }}{% endblock %}
+{% block content %}
+<section class="card card-narrow">
+  <h1>{{ _("Forgot password?") }}</h1>
+  {% if mail_enabled %}
+  <p class="hint">{{ _("Enter your username or e-mail address. If your account has an e-mail address, you get a link to set a new password.") }}</p>
+  <form method="post" action="/password/forgot" class="form">
+    {{ ui.csrf_field() }}
+    {{ ui.text_field("login", _("Username or e-mail address"), required=True, autocomplete="username") }}
+    <div class="actions">{{ ui.button(_("Send link")) }} <a href="/login">{{ _("Back to login") }}</a></div>
+  </form>
+  {% else %}
+  <p>{{ _("Mail is not set up on this server. Please ask your admin to set a new password.") }}</p>
+  <p><a href="/login">{{ _("Back to login") }}</a></p>
+  {% endif %}
+</section>
+{% endblock %}

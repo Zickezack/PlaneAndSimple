@@ -17,6 +17,7 @@
       {{ ui.select_field("locale", _("Language"), locale_options, user.locale or locale) }}
       {{ ui.select_field("timezone", _("Time zone"), timezone_options, user.timezone or "") }}
     </div>
+    {{ ui.text_field("email", _("E-mail address"), user.email or "", type="email", autocomplete="email", hint=_("Optional. Needed for price alerts and to reset a forgotten password; never shown to other users.")) }}
     <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
   </form>
 </details>
@@ -143,12 +144,25 @@
   <summary>{{ _(section.label) }}</summary>
   <form method="post" action="/settings/section/{{ section.key }}" class="form">
     {{ ui.csrf_field() }}
+    {% if section.key == "mail" %}
+    <p class="hint">{{ _("Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.") }}</p>
+    <div class="field">
+      <label for="f-smtp_preset">{{ _("Provider preset") }}</label>
+      <select class="input" id="f-smtp_preset" name="smtp_preset" data-mail-preset>
+        <option value="">{{ _("Keep the fields below") }}</option>
+        {% for preset in mail_providers %}
+        <option value="{{ preset.key }}" data-host="{{ preset.host }}" data-port="{{ preset.port }}" data-security="{{ preset.security }}" data-hint="{{ _(preset.hint) }}">{{ preset.label }}</option>
+        {% endfor %}
+      </select>
+      <small class="hint" data-mail-preset-hint>{{ _("Fills in host, port and encryption on saving; your address and (app) password are still needed.") }}</small>
+    </div>
+    {% endif %}
     {% for field in section.fields %}
       {% if field.is_choice %}
       <div class="field">
         <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
         <select class="input" id="f-{{ field.key }}" name="{{ field.key }}">
-          {% for option in provider_options %}
+          {% for option in field.options %}
           <option value="{{ option }}"{% if option == field.value %} selected{% endif %}>{{ option }}</option>
           {% endfor %}
         </select>
@@ -181,6 +195,13 @@
     {% endfor %}
     <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
   </form>
+  {% if section.key == "mail" %}
+  <form method="post" action="/settings/mail/test" class="inline-form">
+    {{ ui.csrf_field() }}
+    {{ ui.button(_("Send a test mail"), "secondary") }}
+    <small class="hint">{{ _("To your own address (Personal settings), with the saved settings.") }}</small>
+  </form>
+  {% endif %}
   {% if section.key == "airport_import" %}
   <form method="post" action="/settings/airport-import/run" class="inline-form">
     {{ ui.csrf_field() }}

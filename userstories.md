@@ -6,18 +6,27 @@
 1. Rename users (today only possible by creating a new user and changing the owner).
 
 ### Epic Benachrichtigungen
-1. Mail delivery via SMTP, with Mailpit as the server in the dev stack (and as an optional
-   self-hosted catcher): account mails (welcome mail on creation, self-service password reset
-   with a one-time, expiring link, notice after a password change) and Suchabo messages.
-   Needs an e-mail address per user (personal data, see datamodel.md) and SMTP settings in
-   `.env` / Platform Settings; mails in the user's language.
-2. Price alerts per Suchabo: the user sets a price (per Suchabo, optionally per route or
-   cabin) below which a message is sent; at most one message per flight and price drop, so
-   repeated polls do not spam.
-3. Price digest: daily or weekly mail per user (chosen in the personal settings) with how the
+(Mail, account mails and price alerts are implemented – see 42–43.)
+1. Price digest: daily or weekly mail per user (chosen in the personal settings) with how the
    prices of their Suchabos changed since the last digest – cheapest per month, biggest drops
    and rises, new lowest prices – optionally with the price chart as an embedded image (mail
-   clients do not run JavaScript, so it must be rendered server-side, e.g. PNG).
+   clients do not run JavaScript, so it must be rendered server-side, e.g. PNG – needs a new
+   dependency such as Pillow or matplotlib).
+2. Price alerts for Trips (complete options below a total price); today only Suchabos.
+3. Admin: send the welcome mail again (e.g. after its link expired), and show on the user list
+   who has not set a password yet.
+4. HTML mails (today plain text) and a mail log (sent / failed) for admins.
+
+### Epic Zusatzattribute zu Verbindungen
+(Layover warnings are implemented – see 41.)
+1. "Operated by" per segment (Google Flights segment field 2, e.g. Air Dolomiti for Lufthansa)
+   on the flight page.
+2. Comfort and emissions per segment: legroom, Wi-Fi/power, CO₂ (in Google's segment data).
+3. Self-transfer / separately sold tickets within one Google itinerary: a flag was not
+   identified reliably in the result list; needs an example Google marks as "self transfer"
+   to map it.
+4. Delay and disruption warnings ("often delayed", strikes, airport problems) are not in
+   Google's data; would need a flight status source (e.g. AeroDataBox, FlightAware – paid).
 
 ### Epic Internationalisierung
 1. More UI languages (e.g. French, Italian, Spanish): today English and German. Needs a
@@ -138,3 +147,14 @@
     "Show all" unfolds everything; saving returns to the section that was saved.
 41. Price calendar no longer fails on Google's intermittent error response: every calendar
     request is retried like the result list (4, 8, 12 s), with a clear message if it still fails.
+41. Layover warnings next to every flight with details (flights table, flight page, chart
+    panel): airport change, short connection (< 1 h, < 3 h with an airport change), overnight
+    and long (≥ 5 h) layover – computed from the stored segments, so old prices get them too.
+42. Mail: SMTP under Platform Settings → Mail with presets (Gmail, Outlook, iCloud, Yahoo,
+    Infomaniak, GMX, Swisscom, Proton, Mailpit), password stored encrypted, test mail; Mailpit
+    in the dev stack (optional in production); optional e-mail address per user; welcome mail
+    (with a one-time link to set the password if the admin left it empty), "Forgot password?"
+    with a one-time link (1 h), notice after every password change; mails in the user's
+    language.
+43. Price alerts per tracked search (optionally per route and cabin), by mail after each poll:
+    at most one mail per flight and price drop, one mail per user and poll.

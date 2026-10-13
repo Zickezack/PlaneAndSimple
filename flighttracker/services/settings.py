@@ -17,9 +17,11 @@ from sqlalchemy.orm import Session
 
 from flighttracker.config import Settings
 from flighttracker.domain.currencies import is_known_currency
+from flighttracker.domain.emails import is_valid_email
 from flighttracker.models import PlatformSetting
+from flighttracker.security.secrets import decrypt, encrypt
 
-Kind = Literal["str", "int", "float", "bool", "secret", "currency"]
+Kind = Literal["str", "int", "float", "bool", "secret", "currency", "email", "url", "choice"]
 
 # Sections shown on the Platform Settings page, in this order.
 PROVIDERS_SECTION = "providers"
@@ -27,6 +29,10 @@ SEARCHES_SECTION = "searches"
 WORKER_SECTION = "worker"
 AIRPORT_IMPORT_SECTION = "airport_import"
 USERS_SECTION = "users"
+MAIL_SECTION = "mail"
+
+# Allowed values of "choice" settings.
+CHOICES = {"smtp_security": ("starttls", "ssl", "none")}
 
 
 @dataclass(frozen=True)
@@ -36,6 +42,8 @@ class SettingField:
     kind: Kind
     min: float | None = None
     max: float | None = None
+    # Secrets stored encrypted with a key from SECRET_KEY (security/secrets.py).
+    encrypted: bool = False
 
 
 SETTING_FIELDS: tuple[SettingField, ...] = (
@@ -52,6 +60,13 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("wikidata_contact", AIRPORT_IMPORT_SECTION, "str"),
     SettingField("max_searches_per_user", USERS_SECTION, "int", min=0, max=1000),
     SettingField("max_requests_per_user", USERS_SECTION, "int", min=0, max=1_000_000),
+    SettingField("public_base_url", MAIL_SECTION, "url"),
+    SettingField("smtp_host", MAIL_SECTION, "str"),
+    SettingField("smtp_port", MAIL_SECTION, "int", min=1, max=65535),
+    SettingField("smtp_security", MAIL_SECTION, "choice"),
+    SettingField("smtp_username", MAIL_SECTION, "str"),
+    SettingField("smtp_password", MAIL_SECTION, "secret", encrypted=True),
+    SettingField("mail_from", MAIL_SECTION, "email"),
 )
 
 _FIELDS_BY_KEY = {field.key: field for field in SETTING_FIELDS}
@@ -70,6 +85,18 @@ def _parse(field: SettingField, raw: str) -> object:
             raise SettingValidationError("Choose a currency from the list.")
         return raw
     if field.kind == "str":
+        return raw
+    if field.kind == "email":
+        if not is_valid_email(raw):
+            raise SettingValidationError("Enter a valid e-mail address.")
+        return raw
+    if field.kind == "url":
+        if not raw.startswith(("https://", "http://")) or " " in raw:
+            raise SettingValidationError("Enter an address starting with https://.")
+        return raw.rstrip("/")
+    if field.kind == "choice":
+        if raw not in CHOICES[field.key]:
+            raise SettingValidationError(f"Choose one of: {', '.join(CHOICES[field.key])}.")
         return raw
     if field.kind == "bool":
         if raw.lower() not in ("true", "false"):
@@ -108,15 +135,24 @@ def load_overrides(session: Session) -> dict[str, str]:
     return {row.key: row.value for row in rows}
 
 
-def set_override(session: Session, key: str, raw: str) -> None:
-    """Validates and stores one override; an empty value clears it (falls back to `.env`)."""
-    if key not in _FIELDS_BY_KEY:
+def set_override(session: Session, key: str, raw: str, *, secret_key: str | None = None) -> None:
+    """Validates and stores one override; an empty value clears it (falls back to `.env`).
+    `secret_key`: needed for encrypted settings (the SMTP password)."""
+    field = _FIELDS_BY_KEY.get(key)
+    if field is None:
         raise SettingValidationError(f"Unknown setting: {key}")
     if not raw.strip():
         clear_override(session, key)
         return
-    validate(key, raw)  # raises on invalid input, nothing is stored
-    statement = insert(PlatformSetting).values(key=key, value=raw.strip())
+    value = validate(key, raw)  # raises on invalid input, nothing is stored
+    stored = str(value).lower() if field.kind == "bool" else raw.strip()
+    if field.kind in ("url", "choice", "email"):
+        stored = str(value)
+    if field.encrypted:
+        if not secret_key:
+            raise SettingValidationError("Encrypted settings need the secret key.")
+        stored = encrypt(raw, secret_key)
+    statement = insert(PlatformSetting).values(key=key, value=stored)
     statement = statement.on_conflict_do_update(
         index_elements=[PlatformSetting.key], set_={"value": statement.excluded.value}
     )
@@ -141,6 +177,10 @@ def effective_settings(session: Session, base: Settings) -> Settings:
             value = validate(key, raw)
         except SettingValidationError:
             continue  # a stored value that no longer validates is ignored, not fatal
+        if field.encrypted:
+            value = decrypt(value, base.secret_key.get_secret_value())
+            if value is None:
+                continue  # stored with another SECRET_KEY: unusable, `.env` applies
         if field.kind == "secret":
             update[key] = SecretStr(value) if value else None
         else:

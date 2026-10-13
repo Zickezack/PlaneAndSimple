@@ -34,7 +34,8 @@
           <td>{{ s.duration }}</td>
           <td>{{ s.aircraft or "–" }}</td>
         </tr>
-        {% if s.layover %}<tr class="layover-row"><td colspan="6">{{ _("Layover in {airport}: {duration}", airport=s.destination, duration=s.layover) }}</td></tr>{% endif %}
+        {% if s.layover_info %}<tr class="layover-row"><td colspan="6">{{ _("Layover in {airport}: {duration}", airport=ui.layover_place(s.layover_info), duration=s.layover or "–") }}
+          {%- for warning in s.layover_info.warnings %} {{ ui.layover_warning(warning) }}{% endfor %}</td></tr>{% endif %}
         {% endfor %}
       </tbody>
     </table>

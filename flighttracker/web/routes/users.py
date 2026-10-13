@@ -9,12 +9,14 @@ from flighttracker.config import Settings
 from flighttracker.i18n import Msg
 from flighttracker.models import User, UserRole
 from flighttracker.services import quota
+from flighttracker.services.mail import mail_enabled
 from flighttracker.services.users import (
     UserValidationError,
     create_user,
     delete_user,
     is_env_admin,
     list_users,
+    set_email,
     set_password,
     update_user,
 )
@@ -26,6 +28,7 @@ from flighttracker.web.deps import (
     get_user,
     require_admin,
 )
+from flighttracker.web.mails import send_password_changed, send_welcome
 from flighttracker.web.templating import templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -85,6 +88,7 @@ def user_list(
             "users": users,
             "usage": {user.id: quota.usage(db, user, settings) for user in users},
             "env_admin": {user.id for user in users if is_env_admin(user, settings)},
+            "mail_enabled": mail_enabled(settings),
         },
     )
 
@@ -96,19 +100,29 @@ def create(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
 ):
+    password, email = str(form.get("password", "")), str(form.get("email", "")).strip()
+    if not password and email and not mail_enabled(settings):
+        flash(request, Msg("Mail is not set up: enter an initial password."), "error")
+        return _redirect()
     try:
         user = create_user(
             db,
             settings,
             str(form.get("username", "")),
-            str(form.get("password", "")),
+            password,
             _role(form.get("role")),
+            email=email,
         )
     except UserValidationError as exc:
         _flash_errors(request, exc)
         return _redirect()
     db.commit()
     flash(request, Msg('User "{name}" created.', name=user.username), "success")
+    if user.email and mail_enabled(settings):
+        if send_welcome(request, db, settings, user):
+            flash(request, Msg("Welcome mail sent to {email}.", email=user.email), "success")
+        else:
+            flash(request, Msg("The welcome mail could not be sent (see the server log)."), "error")
     return _redirect()
 
 
@@ -155,6 +169,7 @@ def edit(
             max_searches=_optional_limit(form.get("max_searches")),
             max_requests=_optional_limit(form.get("max_requests")),
         )
+        set_email(db, user, str(form.get("email", "")))
     except UserValidationError as exc:
         db.rollback()
         _flash_errors(request, exc)
@@ -184,6 +199,7 @@ def reset_password(
         _flash_errors(request, exc)
         return _redirect(f"/users/{user_id}")
     db.commit()
+    send_password_changed(request, settings, user)
     flash(request, Msg("Password set. The user's sessions were logged out."), "success")
     return _redirect(f"/users/{user_id}")
 

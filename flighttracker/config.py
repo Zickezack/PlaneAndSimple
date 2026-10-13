@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     # 40 minutes of scraper time per poll with the default 3 s pause.
     max_searches_per_user: int = Field(default=10, ge=0, le=1000)
     max_requests_per_user: int = Field(default=600, ge=0, le=1_000_000)
+    # Mail (SMTP); all can also be set under Platform Settings → Mail. Without host and sender
+    # no mails are sent and the mail features stay hidden.
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    # "starttls" (port 587), "ssl" (port 465) or "none" (local catcher such as Mailpit).
+    smtp_security: str = Field(default="starttls", pattern=r"^(starttls|ssl|none)$")
+    smtp_username: str = ""
+    smtp_password: SecretStr | None = None
+    mail_from: str = ""
+    # Public address of the app for links in mails, e.g. https://flights.example.ch.
+    public_base_url: str = ""
     # Timestamps are stored in UTC and shown in this time zone.
     display_timezone: str = "Europe/Zurich"
 
