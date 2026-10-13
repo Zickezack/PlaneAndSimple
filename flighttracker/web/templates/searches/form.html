@@ -10,6 +10,22 @@
 {{ ui.error_list(errors) }}
 {% if notice %}{{ ui.alert(notice) }}{% endif %}
 
+{% if ai_drafts %}
+{#- AI draft: fills the form below; nothing is saved until the form itself is submitted. -#}
+<details class="card more" id="describe"{% if not wish %} open{% endif %}>
+  <summary>{{ _("Describe your trip") }}</summary>
+  <form method="post" action="/searches/draft" class="form">
+    {{ ui.csrf_field() }}
+    <div class="field">
+      <label for="f-wish">{{ _("Your travel wish in your own words") }}</label>
+      <textarea class="input" id="f-wish" name="wish" rows="3" maxlength="2000" required placeholder="{{ _('e.g. Two of us from Zurich or Basel to Lisbon for about a week in October, direct flights preferred') }}">{{ wish }}</textarea>
+      <small class="hint">{{ _("The AI fills in the form below as a draft. Check every field – nothing is saved until you create the tracked search.") }}</small>
+    </div>
+    <div class="actions">{{ ui.button(_("Create a draft"), "secondary") }}</div>
+  </form>
+</details>
+{% endif %}
+
 {% if overlaps %}
 {#- Outside the form so that Enter never triggers a merge; buttons attach via form="search-form". -#}
 <section class="card overlaps">

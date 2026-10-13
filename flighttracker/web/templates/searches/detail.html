@@ -119,6 +119,7 @@
           <td class="num">
             <strong>{{ p.price | price(p.currency) }}</strong>{% if p.fake %} {{ ui.fake_tag() }}{% endif %}
             {% set trend = trend_for(p) %}{% if trend %}<br>{{ ui.trend_spark(trend) }}{% endif %}
+            {% set advice = advice_for(p) %}{% if advice %}<br>{{ ui.advice_badge(advice) }}{% endif %}
             {% if last_year %}<br><small class="hint">{{ _("Previous year") }}: {{ last_year.price | price(p.currency) }}</small>{% endif %}
           </td>
         </tr>

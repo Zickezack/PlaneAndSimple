@@ -20,6 +20,7 @@ from flighttracker.services.access import (
     search_access,
     visible_searches,
 )
+from flighttracker.services.ai import ai_enabled
 from flighttracker.services.locations import airport_options, country_names, with_default_airports
 from flighttracker.services.searches import (
     SearchValidationError,
@@ -68,7 +69,7 @@ def _days_per_month_options(current: str) -> list[tuple[str, str]]:
     return options
 
 
-def _render_form(
+def render_form(
     request: Request,
     db: Session,
     values: dict,
@@ -79,6 +80,7 @@ def _render_form(
     overlaps: list[dict] | None = None,
     notice: Msg | None = None,
     status_code: int = 200,
+    wish: str = "",
 ) -> Response:
     countries = set(values["airport_countries"])
     settings = get_effective_settings(request, db)
@@ -99,6 +101,9 @@ def _render_form(
             "airport_field_name": airport_field_name,
             "days_per_month_options": _days_per_month_options(values.get("days_per_month", "")),
             "estimate": estimate(spec, settings) if spec is not None else None,
+            # "Describe your trip" (AI draft) on the new-search page only.
+            "ai_drafts": search is None and ai_enabled(settings) and settings.ai_drafts,
+            "wish": wish,
         },
         status_code=status_code,
     )
@@ -130,7 +135,7 @@ def _review_airports(
             "The largest airports of each country are preselected. "
             "Please check the selection and save again."
         )
-    return _render_form(
+    return render_form(
         request,
         db,
         parsed.values | airport_values(spec),
@@ -174,7 +179,7 @@ def new_search(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
 ):
-    return _render_form(request, db, default_values(settings))
+    return render_form(request, db, default_values(settings))
 
 
 @router.post("/searches")
@@ -191,7 +196,7 @@ def create(
         poll_interval_minutes=settings.default_poll_interval_minutes,
     )
     if parsed.data is None:
-        return _render_form(request, db, parsed.values, errors=parsed.errors, status_code=422)
+        return render_form(request, db, parsed.values, errors=parsed.errors, status_code=422)
     review = _review_airports(
         request, db, settings, parsed, refresh=form.get("refresh_airports") == "1"
     )
@@ -201,7 +206,7 @@ def create(
     if form.get("confirm_overlap") != "1":
         matches = find_overlapping_searches(db, spec, visible=visible_searches(user))
         if matches:
-            return _render_form(
+            return render_form(
                 request,
                 db,
                 parsed.values,
@@ -216,7 +221,7 @@ def create(
         added_requests=quota.search_requests(spec, settings),
     )
     if quota_errors:
-        return _render_form(
+        return render_form(
             request, db, parsed.values, spec=spec, errors=quota_errors, status_code=422
         )
     try:
@@ -224,7 +229,7 @@ def create(
             db, parsed.data, max_route_pairs=settings.max_route_pairs_per_search, owner_id=user.id
         )
     except SearchValidationError as exc:
-        return _render_form(
+        return render_form(
             request, db, parsed.values, spec=spec, errors=exc.errors, status_code=422
         )
     db.commit()
@@ -256,7 +261,7 @@ def merge(
         poll_interval_minutes=settings.default_poll_interval_minutes,
     )
     if parsed.data is None:
-        return _render_form(request, db, parsed.values, errors=parsed.errors, status_code=422)
+        return render_form(request, db, parsed.values, errors=parsed.errors, status_code=422)
     review = _review_airports(request, db, settings, parsed)
     if review is not None:
         return review
@@ -268,14 +273,14 @@ def merge(
         db, settings, target.owner_id, added_requests=added_requests(target, merged, settings)
     )
     if quota_errors:
-        return _render_form(request, db, parsed.values, errors=quota_errors, status_code=422)
+        return render_form(request, db, parsed.values, errors=quota_errors, status_code=422)
     try:
         merge_into(
             db, target, parsed.data.spec, max_route_pairs=settings.max_route_pairs_per_search
         )
     except SearchValidationError as exc:
         db.rollback()
-        return _render_form(request, db, parsed.values, errors=exc.errors, status_code=422)
+        return render_form(request, db, parsed.values, errors=exc.errors, status_code=422)
     db.commit()
     flash(
         request,
@@ -296,9 +301,7 @@ def edit_form(
     trip = get_trip_for_search(db, search_id)
     if trip is not None:
         return redirect(f"/trips/{trip.id}")
-    return _render_form(
-        request, db, values_from_search(search), search=search, spec=spec_of(search)
-    )
+    return render_form(request, db, values_from_search(search), search=search, spec=spec_of(search))
 
 
 @router.post("/searches/{search_id}/edit")
@@ -321,7 +324,7 @@ def edit(
         poll_interval_minutes=settings.default_poll_interval_minutes,
     )
     if parsed.data is None:
-        return _render_form(
+        return render_form(
             request, db, parsed.values, search=search, errors=parsed.errors, status_code=422
         )
     review = _review_airports(
@@ -336,7 +339,7 @@ def edit(
         added_requests=added_requests(search, parsed.data.spec, settings),
     )
     if quota_errors:
-        return _render_form(
+        return render_form(
             request,
             db,
             parsed.values,
@@ -351,7 +354,7 @@ def edit(
         )
     except SearchValidationError as exc:
         db.rollback()
-        return _render_form(
+        return render_form(
             request,
             db,
             parsed.values,

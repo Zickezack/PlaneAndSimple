@@ -63,6 +63,21 @@
     });
   });
 
+  // Platform Settings → AI: a provider preset fills in provider, API URL and model right away.
+  document.querySelectorAll("[data-ai-preset]").forEach((select) => {
+    const fields = select.form.elements;
+    const hint = select.form.querySelector("[data-ai-preset-hint]");
+    const defaultHint = hint ? hint.textContent : "";
+    select.addEventListener("change", () => {
+      const option = select.selectedOptions[0];
+      if (hint) hint.textContent = option.value ? option.dataset.hint : defaultHint;
+      if (!option.value) return;
+      fields.ai_provider.value = option.value;
+      fields.ai_base_url.value = option.dataset.url;
+      if (option.dataset.model || !fields.ai_model.value) fields.ai_model.value = option.dataset.model;
+    });
+  });
+
   const tripLegList = document.querySelector("[data-trip-legs]");
   const addTripLeg = document.querySelector("[data-add-trip-leg]");
   const tripLegTemplate = document.querySelector("[data-trip-leg-template]");

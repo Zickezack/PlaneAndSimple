@@ -10,10 +10,12 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData, UploadFile
 
+from flighttracker.domain.ai_providers import AI_PRESETS
 from flighttracker.domain.mail_providers import MAIL_PROVIDERS
 from flighttracker.i18n import SUPPORTED_LOCALES, Msg
 from flighttracker.models import User
 from flighttracker.services import capacity, poll_plan, quota
+from flighttracker.services.ai_prompts import DEFAULT_SYSTEM_PROMPT
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_export import export_all
 from flighttracker.services.data_import import import_payload
@@ -48,6 +50,7 @@ from flighttracker.web.mails import send_password_changed
 from flighttracker.web.schedule_view import timeline
 from flighttracker.web.settings_forms import (
     SECTIONS,
+    ai_preset,
     currency_options,
     field_view,
     mail_preset,
@@ -122,6 +125,8 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "locale_options": list(SUPPORTED_LOCALES.items()),
             "currency_options": currency_options(locale, settings.default_currency),
             "mail_providers": MAIL_PROVIDERS,
+            "ai_presets": AI_PRESETS,
+            "default_ai_prompt": DEFAULT_SYSTEM_PROMPT,
             "timezone_options": timezone_options(settings.display_timezone, locale),
         },
     )
@@ -191,6 +196,7 @@ def save_section(
     errors: list[str] = []
     values = {field.key: str(form.get(field.key, "")).strip() for field in SETTING_FIELDS}
     values |= mail_preset(str(form.get("smtp_preset", "")))
+    values |= ai_preset(str(form.get("ai_preset", "")))
     secret_key = request.app.state.settings.secret_key.get_secret_value()
     for field in section_fields(section):
         if field.kind == "secret" and form.get(f"{field.key}_clear") == "1":

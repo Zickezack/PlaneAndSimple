@@ -157,15 +157,35 @@
       <small class="hint" data-mail-preset-hint>{{ _("Fills in host, port and encryption on saving; your address and (app) password are still needed.") }}</small>
     </div>
     {% endif %}
+    {% if section.key == "ai" %}
+    <p class="hint">{{ _("Optional. The AI drafts tracked searches from a plain-language wish and explains the “when to book” advice. It never calculates: every number comes from the app, and drafts are only saved after you check them.") }}</p>
+    <p class="note">{{ _("With a cloud provider, the facts of a request (routes, dates, prices – no user data) are sent to it; a local Ollama keeps everything on your server.") }}</p>
+    <div class="field">
+      <label for="f-ai_preset">{{ _("Provider preset") }}</label>
+      <select class="input" id="f-ai_preset" name="ai_preset" data-ai-preset>
+        <option value="">{{ _("Keep the fields below") }}</option>
+        {% for preset in ai_presets %}
+        <option value="{{ preset.key }}" data-url="{{ preset.base_url }}" data-model="{{ preset.model }}" data-hint="{{ _(preset.hint) }}">{{ preset.label }}</option>
+        {% endfor %}
+      </select>
+      <small class="hint" data-ai-preset-hint>{{ _("Fills in provider, API URL and a model on saving; an API key is still needed for cloud providers.") }}</small>
+    </div>
+    {% endif %}
     {% for field in section.fields %}
       {% if field.is_choice %}
       <div class="field">
         <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
         <select class="input" id="f-{{ field.key }}" name="{{ field.key }}">
           {% for option in field.options %}
-          <option value="{{ option }}"{% if option == field.value %} selected{% endif %}>{{ option }}</option>
+          <option value="{{ option }}"{% if option == field.value %} selected{% endif %}>{{ option or _("Off") }}</option>
           {% endfor %}
         </select>
+        <small class="hint">{{ _(field.hint) }}</small>
+      </div>
+      {% elif field.is_text %}
+      <div class="field">
+        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <textarea class="input" id="f-{{ field.key }}" name="{{ field.key }}" rows="8" placeholder="{{ default_ai_prompt if field.key == 'ai_system_prompt' else '' }}">{{ field.value }}</textarea>
         <small class="hint">{{ _(field.hint) }}</small>
       </div>
       {% elif field.is_bool %}
@@ -200,6 +220,13 @@
     {{ ui.csrf_field() }}
     {{ ui.button(_("Send a test mail"), "secondary") }}
     <small class="hint">{{ _("To your own address (Personal settings), with the saved settings.") }}</small>
+  </form>
+  {% endif %}
+  {% if section.key == "ai" %}
+  <form method="post" action="/settings/ai/test" class="inline-form">
+    {{ ui.csrf_field() }}
+    {{ ui.button(_("Test the connection"), "secondary") }}
+    <small class="hint">{{ _("Sends a one-word request with the saved settings.") }}</small>
   </form>
   {% endif %}
   {% if section.key == "airport_import" %}

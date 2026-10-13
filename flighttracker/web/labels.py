@@ -124,6 +124,7 @@ SETTINGS_SECTION_LABELS = {
     "airport_import": "Airport import",
     "users": "User limits",
     "mail": "Mail",
+    "ai": "AI",
 }
 SETTINGS_FIELD_LABELS = {
     "flight_provider": "Active flight data provider",
@@ -144,6 +145,15 @@ SETTINGS_FIELD_LABELS = {
     "smtp_username": "SMTP username",
     "smtp_password": "SMTP password",
     "mail_from": "Sender address",
+    "ai_provider": "AI provider",
+    "ai_base_url": "API URL",
+    "ai_model": "Model",
+    "ai_api_key": "API key",
+    "ai_max_input_tokens": "Token limit per request",
+    "ai_max_output_tokens": "Response tokens",
+    "ai_system_prompt": "Instructions (system prompt)",
+    "ai_drafts": "Drafts from a description",
+    "ai_explanations": 'Explain "when to book"',
     "max_searches_per_user": "Max. tracked searches and Trips per user",
     "max_requests_per_user": "Max. provider requests per poll per user",
 }
@@ -202,4 +212,35 @@ SETTINGS_FIELD_HINTS = {
         "password, not the normal one."
     ),
     "mail_from": "Sender of every mail, normally the address of the SMTP account.",
+    "ai_provider": "Off: no AI features; the rule-based advice works without AI.",
+    "ai_base_url": "Filled in by the preset; for OpenAI-compatible providers it ends in /v1.",
+    "ai_model": "The provider's model ID.",
+    "ai_api_key": "Stored encrypted (key from SECRET_KEY). Not needed for a local Ollama.",
+    "ai_max_input_tokens": "Requests longer than this are not sent (the prompts here are short).",
+    "ai_max_output_tokens": (
+        "Upper limit of an answer. Models that think first (e.g. Claude) count their "
+        "thinking too – keep a few thousand."
+    ),
+    "ai_system_prompt": (
+        "Empty: the built-in template (shown as placeholder). The rules that numbers come only "
+        "from the app are always added."
+    ),
+    "ai_drafts": '"Describe your trip" on the new tracked search page.',
+    "ai_explanations": "A button on the flight page that puts the advice into sentences.",
+}
+
+# "When to book" (domain/booking_advice.py): verdict badges and what each signal means.
+ADVICE_LABELS = {
+    "book": "Good moment to book",
+    "wait": "Likely to get cheaper",
+    "watch": "Keep watching",
+}
+ADVICE_VARIANTS = {"book": "success", "wait": "warning", "watch": "neutral"}
+ADVICE_SIGNAL_LABELS = {
+    "lowest": "The lowest price seen so far.",
+    "below_average": "Below the average of all polls.",
+    "above_average": "Above the average of all polls.",
+    "rising": "Rising since the poll before.",
+    "falling": "Falling since the poll before.",
+    "soon": "Departure is near – fares usually rise from now on.",
 }

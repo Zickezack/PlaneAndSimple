@@ -21,7 +21,9 @@ from flighttracker.domain.emails import is_valid_email
 from flighttracker.models import PlatformSetting
 from flighttracker.security.secrets import decrypt, encrypt
 
-Kind = Literal["str", "int", "float", "bool", "secret", "currency", "email", "url", "choice"]
+Kind = Literal[
+    "str", "text", "int", "float", "bool", "secret", "currency", "email", "url", "choice"
+]
 
 # Sections shown on the Platform Settings page, in this order.
 PROVIDERS_SECTION = "providers"
@@ -30,9 +32,13 @@ WORKER_SECTION = "worker"
 AIRPORT_IMPORT_SECTION = "airport_import"
 USERS_SECTION = "users"
 MAIL_SECTION = "mail"
+AI_SECTION = "ai"
 
-# Allowed values of "choice" settings.
-CHOICES = {"smtp_security": ("starttls", "ssl", "none")}
+# Allowed values of "choice" settings ("" = off where listed).
+CHOICES = {
+    "smtp_security": ("starttls", "ssl", "none"),
+    "ai_provider": ("", "ollama", "openai", "anthropic"),
+}
 
 
 @dataclass(frozen=True)
@@ -67,6 +73,15 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("smtp_username", MAIL_SECTION, "str"),
     SettingField("smtp_password", MAIL_SECTION, "secret", encrypted=True),
     SettingField("mail_from", MAIL_SECTION, "email"),
+    SettingField("ai_provider", AI_SECTION, "choice"),
+    SettingField("ai_base_url", AI_SECTION, "url"),
+    SettingField("ai_model", AI_SECTION, "str"),
+    SettingField("ai_api_key", AI_SECTION, "secret", encrypted=True),
+    SettingField("ai_max_input_tokens", AI_SECTION, "int", min=1000, max=2_000_000),
+    SettingField("ai_max_output_tokens", AI_SECTION, "int", min=256, max=128_000),
+    SettingField("ai_system_prompt", AI_SECTION, "text"),
+    SettingField("ai_drafts", AI_SECTION, "bool"),
+    SettingField("ai_explanations", AI_SECTION, "bool"),
 )
 
 _FIELDS_BY_KEY = {field.key: field for field in SETTING_FIELDS}
@@ -85,6 +100,10 @@ def _parse(field: SettingField, raw: str) -> object:
             raise SettingValidationError("Choose a currency from the list.")
         return raw
     if field.kind == "str":
+        return raw
+    if field.kind == "text":
+        if len(raw) > 20_000:
+            raise SettingValidationError("At most 20000 characters.")
         return raw
     if field.kind == "email":
         if not is_valid_email(raw):

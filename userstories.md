@@ -41,20 +41,18 @@
    CHF) – no token available yet.
 
 ### Epic AI-gestützte Planung
-1. Optional Ollama-assisted drafting: turn plain-language travel intent into a search or Trip
-   draft, validate it with existing deterministic rules, and require confirmation before saving
-   or polling. AI is not a fare source and does not replace airport suggestions.
-2. "When to book" decision: the price history per flight (first price, curve, current price) is
-   the basis for a booking recommendation, per flight or for the whole Suchabo (open). A
-   rule-based first version works without AI: compare the current price with the flight's own
-   minimum/average and its trend, plus days to departure ("lowest seen", "above average",
-   "rising"). AI could later weigh these signals and explain the advice.
-3. AI-written price digest and alerts (builds on Epic Benachrichtigungen 1–3): summarise in
-   plain language what changed and why it matters ("Barcelona in May is 18 % below last
-   year's level, the cheapest it has been in 6 weeks"), point out patterns across Suchabos
-   (weekday effects, routes that move together) and add the "when to book" advice. The numbers
-   always come from the deterministic digest; AI only phrases and prioritises them, and every
-   statement links to the underlying prices.
+(AI setup, rule-based "when to book" with AI explanation and search drafts are implemented –
+see 49.)
+1. Trip drafts from a plain-language wish (legs, stays, window), checked by the Trip rules and
+   saved only after confirmation.
+2. AI-worded price alert mails and (with the digest, Epic Benachrichtigungen 1) a digest in
+   plain language: what changed and why it matters, patterns across Suchabos, the "when to
+   book" advice. Numbers always from the app; every statement links to the underlying prices.
+   Fixed texts (password links etc.) stay fixed.
+3. "When to book" for the whole tracked search (e.g. "3 dates at their lowest price") and an
+   AI weighting of the signals beyond the fixed rules.
+4. Optional per-feature model choice (e.g. a cheaper model for drafts) and a usage log
+   (requests, tokens, errors) for admins.
 
 ## Planned
 
@@ -175,3 +173,9 @@
 48. Flights table fits without horizontal scrolling on desktop and tablet (the flight column,
     the return line and the 1d/1w/1m changes wrap); a Trip's working options show one line per
     leg with its date, route and flight times instead of a separate first-departure column.
+49. AI (optional) under Platform Settings → AI: presets for Ollama (local), any OpenAI-compatible
+    API and Anthropic (Claude); API URL, model, encrypted API key, token and response limits,
+    editable instructions with a built-in template, per-feature switches, connection test.
+    Rule-based "when to book" advice (badge in the flights table, section on the flight page)
+    with an optional AI explanation; "Describe your trip" turns a plain-language wish into a
+    draft of the new tracked search form, saved only by the user.

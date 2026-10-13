@@ -8,8 +8,17 @@ with the catch-all POST /searches/{search_id}/{action}, so it must be included l
 from fastapi import APIRouter, Depends
 
 from flighttracker.web.deps import require_login
-from flighttracker.web.routes.searches import actions, alerts, detail, form, listing, shares
+from flighttracker.web.routes.searches import (
+    actions,
+    advice,
+    alerts,
+    detail,
+    draft,
+    form,
+    listing,
+    shares,
+)
 
 router = APIRouter(dependencies=[Depends(require_login)])
-for module in (listing, form, detail, shares, alerts, actions):
+for module in (listing, form, draft, detail, advice, shares, alerts, actions):
     router.include_router(module.router)

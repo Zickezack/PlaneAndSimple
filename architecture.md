@@ -142,6 +142,7 @@ Where new code goes (dependencies only point downwards):
 | Mail, password links | `services/mail.py`, `services/mail_messages.py`, `services/password_tokens.py`, `web/mails.py`, `web/routes/password.py`, `security/secrets.py` |
 | Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker hook in `worker/loop.py` |
 | Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
+| AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_prompts.py`, `web/routes/ai.py`, `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
 
 **Plane and simple (UI principle):** every page shows the essentials first and folds the rest
 away. Suchabo detail: summary line, "Poll now", chart and a lean flights table; settings, recent
@@ -319,6 +320,29 @@ one route and/or cabin. Only current, upcoming, real (not invented) prices for t
 passengers count. A flight (route, cabin, departure and return date) is reported once and again
 only below the price last reported (`price_alert_notifications`); it counts as reported only
 after its mail went out, so a failed mail is retried after the next poll.
+
+## AI (optional)
+
+Off until a provider is set (`.env` `AI_*` or Platform Settings → AI, presets in
+`domain/ai_providers.py`). `services/ai.py` speaks two wire formats over plain `httpx` (no
+provider SDK, no new dependency): Anthropic's Messages API (`POST /v1/messages`, JSON drafts via
+`output_config.format`) and the OpenAI-compatible chat completions API (OpenAI, Ollama, LM Studio,
+Mistral, Groq, OpenRouter …; JSON mode). Synchronous in the web request, 90 s timeout; the token
+limit refuses over-long requests, the response limit caps answers (thinking models count their
+thinking). The API key is stored Fernet-encrypted like the SMTP password; errors never contain it.
+
+What the AI is asked lives in `services/ai_prompts.py`: an editable system prompt (built-in
+template as default) plus fixed guardrails – use only the given facts, never invent numbers,
+answer in the user's language. The AI never calculates and never saves anything:
+- **"When to book"** is rule-based (`domain/booking_advice.py`: lowest price seen, below/above
+  average, rising/falling since the poll before, departure within 21 days → book / wait / watch)
+  and shown without AI as a badge in the flights table and as a section on the flight page;
+  "Explain with AI" there only puts the same facts into sentences.
+- **Draft from a wish** ("Describe your trip" on the new tracked search page): the model returns
+  a JSON draft that fills the form – place names are looked up as airports/countries, values
+  clamped – and the user saves it through the normal form with all its validation.
+With a cloud provider the facts of a request (routes, dates, prices; no user data) leave the
+server; a local Ollama keeps them.
 
 ## Security
 

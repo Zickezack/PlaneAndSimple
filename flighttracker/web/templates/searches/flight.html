@@ -56,6 +56,33 @@
   {% endif %}
 </section>
 
+{% if advice %}
+<section class="card" id="advice">
+  <h2>{{ _("When to book") }} {{ ui.advice_badge(advice) }}</h2>
+  {% if advice.signals %}
+  <ul class="advice-signals">{% for s in advice.signals %}<li>{{ _(labels.ADVICE_SIGNAL_LABELS[s]) }}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="hint">{{ _("Only one price so far – the advice gets meaningful after a few polls.") }}</p>
+  {% endif %}
+  <dl class="facts">
+    <dt>{{ _("Current") }}</dt><dd><strong>{{ advice.current | price(observed.currency) }}</strong></dd>
+    <dt>{{ _("First seen") }}</dt><dd>{{ advice.first | price(observed.currency) }}</dd>
+    <dt>{{ _("Lowest / highest") }}</dt><dd>{{ advice.lowest | price(observed.currency) }} / {{ advice.highest | price(observed.currency) }}</dd>
+    <dt>{{ _("Average") }}</dt><dd>{{ _("{price} over {n} polls", price=advice.average | price(observed.currency), n=advice.observations) }}</dd>
+    <dt>{{ _("Until departure") }}</dt><dd>{{ _("{n} days", n=advice.days_to_departure) }}</dd>
+  </dl>
+  <p class="hint">{{ _("A rule-based reading of the prices observed so far – not a forecast.") }}</p>
+  {% if explanation %}<div class="advice-ai"><p>{{ explanation }}</p><small class="hint">{{ _("Written by AI from the numbers above.") }}</small></div>{% endif %}
+  {% if explanation_error %}{{ ui.alert(explanation_error, "error") }}{% endif %}
+  {% if ai_explain and not explanation %}
+  <form method="post" action="/searches/{{ search.id }}/flights/{{ observed.id }}/explain#advice" class="inline-form">
+    {{ ui.csrf_field() }}
+    {{ ui.button(_("Explain with AI"), "secondary") }}
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="card">
   <h2>{{ _("Price history of these dates") }}</h2>
   <p class="hint">{{ _("Every poll's cheapest flight for exactly these dates – newest first.") }}</p>

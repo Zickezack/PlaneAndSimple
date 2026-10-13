@@ -347,3 +347,7 @@ tr.is-changed td { background: var(--info-bg); }
 .flights-table td.date-cell strong { white-space: nowrap; }
 /* Working options of a Trip: one line per leg. */
 .trip-option-leg { display: block; }
+/* "When to book" on the flight page; the AI text is set off from the app's own facts. */
+.advice-signals { margin: 0 0 .75rem; padding-left: 1.2rem; }
+.advice-ai { margin: .75rem 0; padding: .6rem .8rem; border-left: 3px solid var(--primary); background: var(--info-bg); }
+.advice-ai p { margin: 0 0 .3rem; white-space: pre-line; }

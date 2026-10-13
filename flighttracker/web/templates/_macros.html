@@ -147,3 +147,8 @@
 {% macro layover_place(layover) -%}
 {{ layover.arrival_airport }}{% if layover.airport_change %} → {{ layover.departure_airport }}{% endif %}
 {%- endmacro %}
+
+{#- "When to book" verdict (domain/booking_advice.py) as a badge; the title lists the reasons. -#}
+{% macro advice_badge(advice) -%}
+{% if advice %}<span class="badge badge-{{ labels.ADVICE_VARIANTS[advice.verdict] }}" title="{% for s in advice.signals %}{{ _(labels.ADVICE_SIGNAL_LABELS[s]) }} {% endfor %}">{{ _(labels.ADVICE_LABELS[advice.verdict]) }}</span>{% endif %}
+{%- endmacro %}

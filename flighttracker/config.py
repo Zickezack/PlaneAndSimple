@@ -49,6 +49,18 @@ class Settings(BaseSettings):
     mail_from: str = ""
     # Public address of the app for links in mails, e.g. https://flights.example.ch.
     public_base_url: str = ""
+    # AI (optional; Platform Settings → AI). Empty provider = no AI features.
+    ai_provider: str = Field(default="", pattern=r"^(|ollama|openai|anthropic)$")
+    ai_base_url: str = ""
+    ai_model: str = ""
+    ai_api_key: SecretStr | None = None
+    # Upper limit of a request (prompt) and of an answer, in tokens.
+    ai_max_input_tokens: int = Field(default=16000, ge=1000, le=2_000_000)
+    ai_max_output_tokens: int = Field(default=8000, ge=256, le=128_000)
+    # Empty: the built-in template (services/ai_prompts.py).
+    ai_system_prompt: str = ""
+    ai_drafts: bool = True
+    ai_explanations: bool = True
     # Timestamps are stored in UTC and shown in this time zone.
     display_timezone: str = "Europe/Zurich"
 

@@ -8,6 +8,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from flighttracker.config import Settings
+from flighttracker.domain.booking_advice import advise
 from flighttracker.domain.locations import describe_locations
 from flighttracker.i18n import translate
 from flighttracker.models import User
@@ -17,6 +18,7 @@ from flighttracker.services.access import (
     Access,
     search_access,
 )
+from flighttracker.services.ai import ai_enabled
 from flighttracker.services.data_export import export_search
 from flighttracker.services.searches import (
     spec_of,
@@ -43,6 +45,13 @@ from flighttracker.web.sharing import sharing_view
 from flighttracker.web.templating import templates
 
 router = APIRouter()
+
+
+def _advice(trend, point, today):
+    """'When to book' for a table row: only once the flight has more than one price."""
+    if trend is None or len(trend.values) < 2:
+        return None
+    return advise([value.price for value in trend.values], point.departure_date, today)
 
 
 def _ascii_filename(name: str) -> str:
@@ -101,6 +110,7 @@ def detail(
             "points": upcoming,
             "previous_year": flights.previous_year_lookup(points),
             "trend_for": lambda p: trends.get(price_trends.flight_key(p)),
+            "advice_for": lambda p: _advice(trends.get(price_trends.flight_key(p)), p, today),
             "has_fake_prices": any(p.fake for p in upcoming),
             "multiple_cabins": len({p.cabin_class for p in upcoming}) > 1,
             "filter_stays": [
@@ -162,12 +172,27 @@ def flight_detail(
     price_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_effective_settings),
     user: AuthUser = Depends(require_login),
 ):
+    return flight_page(request, db, settings, user, search_id, price_id)
+
+
+def flight_page(
+    request: Request,
+    db: Session,
+    settings: Settings,
+    user: AuthUser,
+    search_id: int,
+    price_id: int,
+    **extra,
+) -> Response:
+    """The flight page; `extra`: e.g. the AI explanation of the advice (routes/searches/advice)."""
     search = load_search(db, search_id, user)
     observed = history.observation(db, search.id, price_id)
     if observed is None:
         raise HTTPException(status_code=404, detail="Price not found.")
+    observations = history.flight_history(db, observed)
     return templates.TemplateResponse(
         request,
         "searches/flight.html",
@@ -177,7 +202,15 @@ def flight_detail(
             "segments": flights.segments(observed.details),
             "return_segments": flights.segments((observed.details or {}).get("return")),
             "url": (observed.details or {}).get("url"),
-            "history": history.flight_history(db, observed),
+            "history": observations,
+            # "When to book" from every price of these dates (oldest first).
+            "advice": advise(
+                [row.price for row in reversed(observations)],
+                observed.departure_date,
+                datetime.now(UTC).date(),
+            ),
+            "ai_explain": ai_enabled(settings) and settings.ai_explanations,
+            **extra,
             "fake": observed.provider in FAKE_DATA_PROVIDERS,
             # The passengers this price was observed for (the Suchabo may have changed since).
             "passengers": observed.adults + observed.children,

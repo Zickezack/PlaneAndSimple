@@ -31,6 +31,9 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
 - **Price alerts by mail** per search (optionally per route and cabin): once per flight and
   price drop. Mail via any SMTP account (presets for Gmail, Outlook, iCloud, Infomaniak, …),
   also for welcome mails and "Forgot password?"; Mailpit catches all mails in the dev stack.
+- **When to book:** a rule-based reading of every flight's prices (lowest seen, above average,
+  rising …) – optionally explained by an AI (local Ollama, any OpenAI-compatible API or
+  Claude), which can also turn a plain-language travel wish into a draft tracked search.
 - **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
 - **[Users](#users-and-operation)** with sharing and per-user limits; Poll Log and worker load
   for admins.

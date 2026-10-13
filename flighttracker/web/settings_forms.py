@@ -3,11 +3,13 @@ lists (currencies, time zones) and the SMTP provider presets."""
 
 from zoneinfo import available_timezones
 
+from flighttracker.domain.ai_providers import PRESETS_BY_KEY as AI_PRESETS_BY_KEY
 from flighttracker.domain.currencies import CURRENCIES
 from flighttracker.domain.mail_providers import PROVIDERS_BY_KEY
 from flighttracker.i18n import currency_name, translate
 from flighttracker.providers.registry import PROVIDERS
 from flighttracker.services.settings import (
+    AI_SECTION,
     AIRPORT_IMPORT_SECTION,
     CHOICES,
     MAIL_SECTION,
@@ -27,6 +29,7 @@ SECTIONS = (
     AIRPORT_IMPORT_SECTION,
     USERS_SECTION,
     MAIL_SECTION,
+    AI_SECTION,
 )
 
 
@@ -46,10 +49,19 @@ def field_view(field: SettingField, overrides: dict, settings) -> dict:
         "options": sorted(PROVIDERS) if field.key == "flight_provider" else CHOICES.get(field.key),
         "is_currency": field.kind == "currency",
         "is_bool": field.kind == "bool",
+        "is_text": field.kind == "text",
         "is_overridden": field.key in overrides,
         "value": "" if is_secret else value,
         "has_value": bool(value.get_secret_value()) if is_secret and value else False,
     }
+
+
+def ai_preset(key: str) -> dict[str, str]:
+    """Base URL and model of a chosen AI provider preset (they win over the form fields)."""
+    preset = AI_PRESETS_BY_KEY.get(key)
+    if preset is None:
+        return {}
+    return {"ai_provider": preset.key, "ai_base_url": preset.base_url, "ai_model": preset.model}
 
 
 def mail_preset(key: str) -> dict[str, str]:
