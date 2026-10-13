@@ -83,7 +83,8 @@ def test_send_errors_are_safe_and_logged(fake_smtp):
     with pytest.raises(mail.MailError, match="rejected the login") as error:
         mail.send(settings(smtp_password="wrong"), mail.Mail("you@example.test", "Hi", "x"))
     assert "wrong" not in str(error.value)
-    assert not mail.send_logged(settings(smtp_host=""), mail.Mail("you@example.test", "Hi", "x"))
+    with pytest.raises(mail.MailError, match="not set up"):
+        mail.send(settings(smtp_host=""), mail.Mail("you@example.test", "Hi", "x"))
 
 
 def test_links_use_the_public_address():
@@ -125,3 +126,22 @@ def test_email_addresses():
     assert is_valid_email("reto@example.ch")
     assert not is_valid_email("reto@example")
     assert not is_valid_email("re to@example.ch")
+
+
+def test_every_mail_has_an_html_part_made_from_the_text(monkeypatch):
+    sent = []
+
+    class Capture(FakeSMTP):
+        def send_message(self, message):
+            sent.append(message)
+
+    monkeypatch.setattr(mail.smtplib, "SMTP", Capture)
+    body = "Hello <you>\n\n• ZRH → BCN: 120.00 CHF\n• ZRH → MAD: 99.00 CHF\n\nAll prices:\nhttps://f.example/x?a=1&b=2"
+    mail.send(settings(), mail.Mail("you@example.test", "Price alert", body))
+    (message,) = sent
+    assert message.get_content_type() == "multipart/alternative"
+    text, html = (part.get_content() for part in message.iter_parts())
+    assert text.startswith("Hello <you>")
+    assert "Hello &lt;you&gt;" in html  # escaped
+    assert "<li>ZRH → BCN: 120.00 CHF</li>" in html
+    assert '<a href="https://f.example/x?a=1&amp;b=2"' in html

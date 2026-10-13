@@ -29,6 +29,7 @@ def test_mail(to: str, locale: str) -> Mail:
         to,
         translate("Test mail from Plane and simple", locale),
         _body(translate("Mail is set up correctly: this test mail arrived.", locale)),
+        kind="test",
     )
 
 
@@ -56,6 +57,8 @@ def welcome_mail(
             if login_link and not password_link
             else None,
         ),
+        kind="welcome",
+        user_id=user.id,
     )
 
 
@@ -74,6 +77,8 @@ def reset_mail(user: User, link: str, valid_minutes: int) -> Mail:
             ),
             translate("If that was not you, ignore this mail – your password stays.", locale),
         ),
+        kind="reset",
+        user_id=user.id,
     )
 
 
@@ -96,6 +101,8 @@ def password_changed_mail(user: User, reset_link: str | None) -> Mail:
             if reset_link
             else translate("If that was not you, contact your admin right away.", locale),
         ),
+        kind="password_changed",
+        user_id=user.id,
     )
 
 
@@ -147,4 +154,6 @@ def price_alert_mail(
                 locale,
             ),
         ),
+        kind="price_alert",
+        user_id=user.id,
     )

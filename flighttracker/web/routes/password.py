@@ -1,6 +1,7 @@
 """Passwords by mail: "Forgot password?" (one-time link to set a new one), the page behind the
 link (also used by the welcome mail), and the admin's test mail. Only with mail set up."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -55,7 +56,8 @@ def forgot(
         token = password_tokens.issue(db, user, TokenPurpose.RESET, now)
         db.commit()
         link = mail_link(request, settings, f"/password/reset/{token}")
-        mail.send_logged(settings, mail_messages.reset_mail(user, link, RESET_MINUTES))
+        mail.deliver(db, settings, mail_messages.reset_mail(user, link, RESET_MINUTES))
+        db.commit()
     # The same answer for every input: it must not reveal which accounts exist.
     flash(
         request,
@@ -107,7 +109,7 @@ def reset(
     if user is None:
         return _reset_page(request, token, [], False, 404)
     db.commit()
-    send_password_changed(request, settings, user)
+    send_password_changed(request, db, settings, user)
     flash(request, Msg("Password set. You can log in now."), "success")
     return RedirectResponse("/login", status_code=303)
 
@@ -116,6 +118,7 @@ def reset(
 def test_mail(
     request: Request,
     form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
     settings: Settings = Depends(get_effective_settings),
     user: User = Depends(get_user),
 ):
@@ -123,10 +126,15 @@ def test_mail(
     if not user.email:
         flash(request, Msg("Add your e-mail address under Personal settings first."), "error")
         return RedirectResponse(target, status_code=303)
+    message = replace(
+        mail_messages.test_mail(user.email, mail_messages.locale_of(user)), user_id=user.id
+    )
     try:
-        mail.send(settings, mail_messages.test_mail(user.email, mail_messages.locale_of(user)))
+        mail.deliver(db, settings, message, raise_errors=True)
     except mail.MailError as exc:
+        db.commit()  # the failed attempt is in the mail log too
         flash(request, Msg("Test mail not sent: {error}", error=str(exc)), "error")
         return RedirectResponse(target, status_code=303)
+    db.commit()
     flash(request, Msg("Test mail sent to {email}.", email=user.email), "success")
     return RedirectResponse(target, status_code=303)

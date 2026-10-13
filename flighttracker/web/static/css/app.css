@@ -351,3 +351,6 @@ tr.is-changed td { background: var(--info-bg); }
 .advice-signals { margin: 0 0 .75rem; padding-left: 1.2rem; }
 .advice-ai { margin: .75rem 0; padding: .6rem .8rem; border-left: 3px solid var(--primary); background: var(--info-bg); }
 .advice-ai p { margin: 0 0 .3rem; white-space: pre-line; }
+/* Platform Settings: what is not set up yet. */
+.setup-list { margin: 0 0 .5rem; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .4rem; }
+.setup-status h2 { margin-top: 0; }

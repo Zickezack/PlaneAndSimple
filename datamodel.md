@@ -41,6 +41,8 @@ The code and docs use "Suchabo" for a tracked search.
 | Password link | Passwort-Link | `PasswordToken` / `password_tokens` | One-time link to set a password (`reset` or `welcome`); only the token's SHA-256 is stored |
 | Price alert | Preisalarm | `PriceAlert` / `price_alerts` | A user's highest price for a Suchabo, optionally one route and cabin |
 | – | – | `PriceAlertNotification` / `price_alert_notifications` | Flight and price an alert already reported |
+| Mail log | Mail-Protokoll | `MailLog` / `mail_log` | One mail: user, kind, subject, sent or error (no address) |
+| AI usage log | KI-Nutzungsprotokoll | `AIUsage` / `ai_usage` | One AI request: user, feature, model, tokens, duration, outcome (no prompt/answer) |
 | Owner | Besitzer | `searches.owner_id`, `trips.owner_id` | User a Suchabo/Trip belongs to; `NULL` only until the env admin's next login |
 | Sharing | Teilen | `Share` / `shares` | Access of one user to one Suchabo or Trip: view only (`can_edit` false) or view and edit |
 | Cancelled | Abgebrochen | `fetch_jobs.status = 'cancelled'` | Poll stopped from the Poll Log |
@@ -69,6 +71,8 @@ erDiagram
     users ||--o{ price_alerts : "own"
     searches ||--o{ price_alerts : "watched"
     price_alerts ||--o{ price_alert_notifications : "reported"
+    users |o--o{ mail_log : "recipient"
+    users |o--o{ ai_usage : "requested by"
     searches |o--o{ shares : "shared"
     trips |o--o{ shares : "shared"
 
@@ -88,6 +92,8 @@ erDiagram
     password_tokens { bigint id PK; bigint user_id FK; char64 token_hash; enum purpose; timestamptz expires_at; timestamptz used_at }
     price_alerts { bigint id PK; bigint search_id FK; bigint user_id FK; numeric max_price; char3 currency; char3 origin_iata; char3 destination_iata; string cabin_class }
     price_alert_notifications { bigint id PK; bigint alert_id FK; char3 origin_iata; char3 destination_iata; string cabin_class; date departure_date; date return_date; numeric price; char3 currency; timestamptz notified_at }
+    mail_log { bigint id PK; timestamptz sent_at; bigint user_id FK; string kind; string subject; bool ok; text error }
+    ai_usage { bigint id PK; timestamptz requested_at; bigint user_id FK; string feature; string provider; string model; int input_tokens; int output_tokens; int duration_ms; bool ok; text error }
     shares { bigint id PK; bigint search_id FK; bigint trip_id FK; bigint user_id FK; bool can_edit; timestamptz created_at }
 ```
 
@@ -210,6 +216,9 @@ user wants to be told about) and indirectly `shares`, `searches.owner_id` and `t
 with whom they share it). Deleting a user removes the row and their shares; their Suchabos and
 Trips stay without owner. Usernames are shown to other users only where they share something
 (owner, share list). The JSON export contains no user data.
+
+`mail_log` and `ai_usage` (migration `0014`) refer to users only by id (`ON DELETE SET NULL`),
+store no addresses, prompts or answers, and are pruned after half a year.
 
 E-mail addresses are optional, unique ignoring case, shown only to the user and to admins, used
 only for the user's own mails, and not part of the JSON export; deleting a user deletes their

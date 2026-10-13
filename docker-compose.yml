@@ -42,6 +42,9 @@ x-app: &app
     AI_BASE_URL: ${AI_BASE_URL:-}
     AI_MODEL: ${AI_MODEL:-}
     AI_API_KEY: ${AI_API_KEY:-}
+    AI_OLLAMA_NUM_CTX: ${AI_OLLAMA_NUM_CTX:-0}
+    AI_OLLAMA_KEEP_ALIVE: ${AI_OLLAMA_KEEP_ALIVE:-}
+    AI_OLLAMA_NO_THINKING: ${AI_OLLAMA_NO_THINKING:-false}
     # Reverse proxy IPs whose X-Forwarded-For uvicorn trusts (for login throttling per client).
     FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
   depends_on:

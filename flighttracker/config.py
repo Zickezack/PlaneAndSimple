@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     # Upper limit of a request (prompt) and of an answer, in tokens.
     ai_max_input_tokens: int = Field(default=16000, ge=1000, le=2_000_000)
     ai_max_output_tokens: int = Field(default=8000, ge=256, le=128_000)
+    # Ollama only: the context window (num_ctx) and keep-alive sent with every request – set
+    # them like the other clients of the same Ollama, or it reloads/unloads the model.
+    ai_ollama_num_ctx: int = Field(default=0, ge=0, le=1_048_576)  # 0: Ollama's default
+    ai_ollama_keep_alive: str = Field(default="", pattern=r"^(|-1|\d+(\.\d+)?(ms|s|m|h)?)$")
+    # Ollama only: ask thinking models (qwen3, deepseek-r1, …) not to think (`think: false`).
+    ai_ollama_no_thinking: bool = False
     # Empty: the built-in template (services/ai_prompts.py).
     ai_system_prompt: str = ""
     ai_drafts: bool = True

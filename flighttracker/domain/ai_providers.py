@@ -1,6 +1,6 @@
-"""AI provider presets for Platform Settings → AI. Two wire formats cover them: Anthropic's
-Messages API and the OpenAI-compatible chat completions API (OpenAI itself, Ollama, LM Studio,
-Mistral, Groq, OpenRouter, …)."""
+"""AI provider presets for Platform Settings → AI: Ollama (its own API), Anthropic's Messages
+API, and the OpenAI-compatible chat completions API (OpenAI itself, LM Studio, Mistral, Groq,
+OpenRouter, …)."""
 
 from dataclasses import dataclass
 
@@ -25,10 +25,11 @@ AI_PRESETS: tuple[AIPreset, ...] = (
     AIPreset(
         OLLAMA,
         "Ollama (local)",
-        "http://host.docker.internal:11434/v1",
+        "http://host.docker.internal:11434",
         "llama3.2",
         "Runs on your own machine; nothing leaves it. Use the model name from `ollama list`; "
-        "from inside Docker the host is host.docker.internal (or the Ollama container's name).",
+        "from inside Docker the host is host.docker.internal (or the Ollama container's name). "
+        "If other apps share the model, set the same context window and keep-alive below.",
         cloud=False,
     ),
     AIPreset(

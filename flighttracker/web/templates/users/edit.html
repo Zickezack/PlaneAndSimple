@@ -44,6 +44,15 @@
   </form>
 </section>
 
+{% if not is_env_admin and user.email and mail_enabled %}
+<details class="card more"{% if user.password_hash is none %} open{% endif %}>
+  <summary>{{ _("Welcome mail") }}</summary>
+  {% if user.password_hash is none %}<p>{{ ui.badge(_("No password yet"), "warning") }} {{ _("The user has not set a password through the welcome link yet.") }}</p>{% endif %}
+  <p class="hint">{{ _("Sends the welcome mail to {email} again. Without a password it carries a new one-time link to set one (valid 7 days); older links stop working.", email=user.email) }}</p>
+  {{ ui.action_form("/users/%d/welcome" % user.id, _("Send the welcome mail again")) }}
+</details>
+{% endif %}
+
 {% if not is_env_admin %}
 <details class="card more">
   <summary>{{ _("Set a new password") }}</summary>

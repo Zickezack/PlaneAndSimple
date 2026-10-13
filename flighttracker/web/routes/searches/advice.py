@@ -62,7 +62,10 @@ def explain(
             prices=[f"{row.observed_at.date().isoformat()}: {money(row.price)}" for row in rows],
             money=money,
             locale=current_locale(request),
+            usage=ai.UsageLog(db, "explain", user.id),
         )
     except ai.AIError as exc:
+        db.commit()  # the failed request is in the usage log
         return page(explanation_error=Msg("No explanation: {error}", error=str(exc)))
+    db.commit()
     return page(explanation=answer.text)

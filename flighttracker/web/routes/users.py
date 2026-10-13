@@ -123,7 +123,7 @@ def create(
         if send_welcome(request, db, settings, user):
             flash(request, Msg("Welcome mail sent to {email}.", email=user.email), "success")
         else:
-            flash(request, Msg("The welcome mail could not be sent (see the server log)."), "error")
+            flash(request, Msg("The welcome mail could not be sent (see the mail log)."), "error")
     return _redirect()
 
 
@@ -144,6 +144,7 @@ def edit_form(
             "usage": quota.usage(db, user, settings),
             "is_env_admin": is_env_admin(user, settings),
             "is_self": user.id == actor.id,
+            "mail_enabled": mail_enabled(settings),
             "defaults": (settings.max_searches_per_user, settings.max_requests_per_user),
         },
     )
@@ -201,8 +202,27 @@ def reset_password(
         _flash_errors(request, exc)
         return _redirect(f"/users/{user_id}")
     db.commit()
-    send_password_changed(request, settings, user)
+    send_password_changed(request, db, settings, user)
     flash(request, Msg("Password set. The user's sessions were logged out."), "success")
+    return _redirect(f"/users/{user_id}")
+
+
+@router.post("/users/{user_id}/welcome")
+def resend_welcome(
+    user_id: int,
+    request: Request,
+    form: FormData = Depends(csrf_form),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_effective_settings),
+):
+    """The welcome mail again, e.g. after its link expired; a new link replaces older ones."""
+    user = _load(db, user_id)
+    if is_env_admin(user, settings) or not user.email or not mail_enabled(settings):
+        flash(request, Msg("A welcome mail needs mail set up and an e-mail address."), "error")
+    elif send_welcome(request, db, settings, user):
+        flash(request, Msg("Welcome mail sent to {email}.", email=user.email), "success")
+    else:
+        flash(request, Msg("The welcome mail could not be sent (see the mail log)."), "error")
     return _redirect(f"/users/{user_id}")
 
 

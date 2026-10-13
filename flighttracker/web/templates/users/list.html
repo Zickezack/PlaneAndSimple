@@ -16,9 +16,10 @@
       <tr>
         <td><a href="/users/{{ u.id }}">{{ u.username }}</a>{% if u.id in env_admin %} <small class="hint">(.env)</small>{% endif %}</td>
         <td>{{ _(labels.ROLE_LABELS[u.role]) }}</td>
-        <td>{% if u.is_active %}{{ ui.badge(_("Active"), "success") }}{% else %}{{ ui.badge(_("Deactivated"), "muted") }}{% endif %}</td>
-        <td class="num">{{ use.searches | count }}{% if use.max_searches is not none %} / {{ use.max_searches | count }}{% endif %}</td>
-        <td class="num">{{ use.requests | count }}{% if use.max_requests is not none %} / {{ use.max_requests | count }}{% endif %}</td>
+        <td>{% if u.is_active %}{{ ui.badge(_("Active"), "success") }}{% else %}{{ ui.badge(_("Deactivated"), "muted") }}{% endif %}
+          {%- if u.password_hash is none and u.id not in env_admin %} {{ ui.badge(_("No password yet"), "warning") }}{% endif %}</td>
+        <td class="num">{{ use.searches | number }}{% if use.max_searches is not none %} / {{ use.max_searches | number }}{% endif %}</td>
+        <td class="num">{{ use.requests | number }}{% if use.max_requests is not none %} / {{ use.max_requests | number }}{% endif %}</td>
         <td>{{ u.last_login_at | datetime }}</td>
       </tr>
       {% endfor %}

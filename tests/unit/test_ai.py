@@ -67,17 +67,54 @@ def test_anthropic_request_and_json_output(post):
 def test_openai_compatible_request_without_key(post):
     fake = post(200, answer_openai('```json\n{"a": 1}\n```'))
     local = settings(
-        ai_provider="ollama",
-        ai_base_url="http://ollama:11434/v1/",
-        ai_model="llama3.2",
+        ai_provider="openai",
+        ai_base_url="http://lmstudio:1234/v1/",
+        ai_model="qwen",
         ai_api_key=None,
     )
     assert ai.complete_json(local, "s", "u", {"type": "object"}) == {"a": 1}
     call = fake.calls[0]
-    assert call["url"] == "http://ollama:11434/v1/chat/completions"
+    assert call["url"] == "http://lmstudio:1234/v1/chat/completions"
     assert call["headers"] == {}
     assert call["json"]["messages"][0] == {"role": "system", "content": "s"}
     assert call["json"]["response_format"] == {"type": "json_object"}
+
+
+def ollama(**overrides) -> Settings:
+    values = {
+        "ai_provider": "ollama",
+        "ai_base_url": "http://ollama:11434/v1",  # an OpenAI-style URL is accepted too
+        "ai_model": "llama3.1:8b",
+        "ai_api_key": None,
+        "ai_ollama_num_ctx": 8192,
+        "ai_ollama_keep_alive": "-1",
+    }
+    return settings(**(values | overrides))
+
+
+def test_ollama_keeps_the_shared_model_loaded(post):
+    fake = post(200, {"message": {"content": '{"a": 1}'}, "prompt_eval_count": 30, "eval_count": 5})
+    answer = ai.complete(ollama(), "s", "u", schema={"type": "object"})
+    assert (answer.text, answer.input_tokens, answer.output_tokens) == ('{"a": 1}', 30, 5)
+    call = fake.calls[0]
+    assert call["url"] == "http://ollama:11434/api/chat"
+    body = call["json"]
+    assert body["options"] == {"num_ctx": 8192, "num_predict": 8000}
+    assert body["keep_alive"] == -1 and body["stream"] is False
+    assert body["format"] == {"type": "object"}
+
+
+def test_ollama_without_fixed_values_and_a_tight_context(post):
+    fake = post(200, {"message": {"content": "ok"}})
+    ai.complete(ollama(ai_ollama_num_ctx=0, ai_ollama_keep_alive=""), "s", "u")
+    body = fake.calls[0]["json"]
+    assert "keep_alive" not in body and body["options"] == {"num_predict": 8000}
+    ai.complete(ollama(ai_ollama_num_ctx=1000, ai_ollama_keep_alive="30m"), "s" * 2000, "u")
+    body = fake.calls[1]["json"]
+    assert body["keep_alive"] == "30m"
+    assert body["options"]["num_predict"] < 1000  # the answer must fit next to the prompt
+    with pytest.raises(ai.AIError, match="does not fit"):
+        ai.complete(ollama(ai_ollama_num_ctx=600), "s" * 2000, "u")
 
 
 @pytest.mark.parametrize(
@@ -136,3 +173,14 @@ def test_draft_becomes_form_values(post):
     assert (values["stay_days_min"], values["stay_days_max"], values["adults"]) == ("6", "8", "2")
     one_way = ai_prompts.draft_values(draft | {"trip_type": "one_way"}, default_values(settings()))
     assert one_way[0]["stay_days_min"] == ""
+
+
+def test_thinking_is_never_part_of_the_answer(post):
+    assert ai.strip_thinking('<think>hmm, JSON?</think>{"a": 1}') == '{"a": 1}'
+    assert ai.strip_thinking("Fine.\n<Thinking>x</Thinking> Book now.") == "Fine.\n Book now."
+    assert ai.strip_thinking("Answer <think>cut off by the limit") == "Answer "
+    fake = post(200, {"message": {"content": '<think>let me see</think>{"a": 2}'}})
+    assert ai.complete_json(ollama(ai_ollama_no_thinking=True), "s", "u", {}) == {"a": 2}
+    assert fake.calls[0]["json"]["think"] is False
+    ai.complete(ollama(), "s", "u")
+    assert "think" not in fake.calls[1]["json"]  # only when switched on

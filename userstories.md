@@ -10,20 +10,15 @@
    clients do not run JavaScript, so it must be rendered server-side, e.g. PNG – needs a new
    dependency such as Pillow or matplotlib).
 2. Price alerts for Trips (complete options below a total price); today only Suchabos.
-3. Admin: send the welcome mail again (e.g. after its link expired), and show on the user list
-   who has not set a password yet.
-4. HTML mails (today plain text) and a mail log (sent / failed) for admins.
 
 ### Epic Zusatzattribute zu Verbindungen
 (Layover warnings are implemented – see 41.)
-1. "Operated by" per segment (Google Flights segment field 2, e.g. Air Dolomiti for Lufthansa)
-   on the flight page.
-2. Comfort and emissions per segment: legroom, Wi-Fi/power, CO₂ (in Google's segment data).
-3. Self-transfer / separately sold tickets within one Google itinerary: a flag was not
-   identified reliably in the result list; needs an example Google marks as "self transfer"
-   to map it.
-4. Delay and disruption warnings ("often delayed", strikes, airport problems) are not in
-   Google's data; would need a flight status source (e.g. AeroDataBox, FlightAware – paid).
+1. Self-transfer / separately sold tickets within one Google itinerary – open, decision
+   pending. Searched on 2026-10-14: 934 real results on 10 routes with likely low-cost
+   combinations (e.g. BSL–TFS, BSL–KRK, GVA–MLA, STN–AGP) contained no itinerary mixing carriers
+   outside an alliance or codeshare, so no flag could be mapped; Google does not seem to return
+   such itineraries for this request and market. Needs an itinerary Google itself marks as
+   "self transfer".
 
 ### Epic Internationalisierung
 1. More UI languages (e.g. French, Italian, Spanish): today English and German. Needs a
@@ -51,8 +46,7 @@ see 49.)
    Fixed texts (password links etc.) stay fixed.
 3. "When to book" for the whole tracked search (e.g. "3 dates at their lowest price") and an
    AI weighting of the signals beyond the fixed rules.
-4. Optional per-feature model choice (e.g. a cheaper model for drafts) and a usage log
-   (requests, tokens, errors) for admins.
+4. Optional per-feature model choice (e.g. a cheaper model for drafts).
 
 ## Planned
 
@@ -179,3 +173,16 @@ see 49.)
     Rule-based "when to book" advice (badge in the flights table, section on the flight page)
     with an optional AI explanation; "Describe your trip" turns a plain-language wish into a
     draft of the new tracked search form, saved only by the user.
+50. Mail: every mail also as HTML (made from the same text: paragraphs, lists, clickable links);
+    mail log for admins (Platform Settings → Mail: last 30 days sent/failed, latest 25 – user,
+    kind, subject, error; no addresses; kept half a year). Admins send the welcome mail again
+    (a new link voids older ones); "No password yet" on the user list and page.
+51. AI usage log for admins (Platform Settings → AI): per feature requests, failures, tokens as
+    reported by the provider and average time over 30 days, plus the latest 25 requests; no
+    prompts or answers stored; kept half a year.
+52. Ollama through its own API with a fixed context window (num_ctx) and keep-alive on every
+    request, so a model shared with other apps is not reloaded or unloaded; the connection test
+    shows how Ollama holds the model and warns about a different context window.
+53. "No thinking" for Ollama (`think: false`) and, for every provider, reasoning text removed from
+    answers; the top of the admins' Settings page lists the services not set up yet (flight
+    data, mail server, public address, AI, Wikidata contact) with their consequences and links.

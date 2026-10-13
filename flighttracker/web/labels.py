@@ -148,6 +148,9 @@ SETTINGS_FIELD_LABELS = {
     "ai_provider": "AI provider",
     "ai_base_url": "API URL",
     "ai_model": "Model",
+    "ai_ollama_num_ctx": "Ollama: context window (tokens)",
+    "ai_ollama_keep_alive": "Ollama: keep model loaded",
+    "ai_ollama_no_thinking": "Ollama: no thinking",
     "ai_api_key": "API key",
     "ai_max_input_tokens": "Token limit per request",
     "ai_max_output_tokens": "Response tokens",
@@ -215,6 +218,20 @@ SETTINGS_FIELD_HINTS = {
     "ai_provider": "Off: no AI features; the rule-based advice works without AI.",
     "ai_base_url": "Filled in by the preset; for OpenAI-compatible providers it ends in /v1.",
     "ai_model": "The provider's model ID.",
+    "ai_ollama_num_ctx": (
+        "Ollama only. Sent with every request as num_ctx – set it to the context the model is "
+        "loaded with (e.g. 8192), so Ollama does not reload it for requests from here. 0: "
+        "Ollama's default."
+    ),
+    "ai_ollama_keep_alive": (
+        "Ollama only. -1 keeps the model loaded until unloaded by hand, e.g. 30m or 24h for a "
+        "while. Empty: every request resets it to Ollama's default of 5 minutes."
+    ),
+    "ai_ollama_no_thinking": (
+        "Ollama only. Asks thinking models (qwen3, deepseek-r1, gpt-oss, …) not to think: faster, "
+        "and the answer's tokens go to the answer. Reasoning a model still writes into its answer "
+        "is removed for every provider."
+    ),
     "ai_api_key": "Stored encrypted (key from SECRET_KEY). Not needed for a local Ollama.",
     "ai_max_input_tokens": "Requests longer than this are not sent (the prompts here are short).",
     "ai_max_output_tokens": (
@@ -244,3 +261,22 @@ ADVICE_SIGNAL_LABELS = {
     "falling": "Falling since the poll before.",
     "soon": "Departure is near – fares usually rise from now on.",
 }
+
+# Admin logs: mail kinds (services/mail_messages.py) and AI features (routes calling the AI).
+MAIL_KIND_LABELS = {
+    "welcome": "Welcome",
+    "reset": "Password link",
+    "password_changed": "Password changed",
+    "price_alert": "Price alert",
+    "test": "Test mail",
+    "other": "Other",
+}
+AI_FEATURE_LABELS = {
+    "draft": "Draft from a description",
+    "explain": 'Explain "when to book"',
+    "test": "Connection test",
+}
+
+# How important a not yet set up platform service is (web/settings_forms.setup_status).
+SETUP_LEVEL_LABELS = {"needed": "Needed", "recommended": "Recommended", "optional": "Optional"}
+SETUP_LEVEL_VARIANTS = {"needed": "danger", "recommended": "warning", "optional": "neutral"}

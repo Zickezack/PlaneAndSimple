@@ -7,6 +7,7 @@ reads it, no restart needed.
 """
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -76,6 +77,9 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("ai_provider", AI_SECTION, "choice"),
     SettingField("ai_base_url", AI_SECTION, "url"),
     SettingField("ai_model", AI_SECTION, "str"),
+    SettingField("ai_ollama_num_ctx", AI_SECTION, "int", min=0, max=1_048_576),
+    SettingField("ai_ollama_keep_alive", AI_SECTION, "str"),
+    SettingField("ai_ollama_no_thinking", AI_SECTION, "bool"),
     SettingField("ai_api_key", AI_SECTION, "secret", encrypted=True),
     SettingField("ai_max_input_tokens", AI_SECTION, "int", min=1000, max=2_000_000),
     SettingField("ai_max_output_tokens", AI_SECTION, "int", min=256, max=128_000),
@@ -85,6 +89,9 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
 )
 
 _FIELDS_BY_KEY = {field.key: field for field in SETTING_FIELDS}
+
+
+KEEP_ALIVE = re.compile(r"^(-1|\d+(\.\d+)?(ms|s|m|h)?)$")
 
 
 class SettingValidationError(ValueError):
@@ -139,6 +146,8 @@ def validate(key: str, raw: str) -> object:
     field = _FIELDS_BY_KEY.get(key)
     if field is None:
         raise SettingValidationError(f"Unknown setting: {key}")
+    if key == "ai_ollama_keep_alive" and not KEEP_ALIVE.match(raw.strip()):
+        raise SettingValidationError("Use -1 (forever), 0, or a duration such as 30m or 24h.")
     if key == "flight_provider":
         from flighttracker.providers.registry import PROVIDERS
 

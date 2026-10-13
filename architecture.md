@@ -170,7 +170,7 @@ Currency names likewise: English in `domain/currencies.py`, German in
 `flighttracker/locales/currencies.de.json`. Personal time zone: dropdown of all IANA zones.
 Numbers look the same in every language: `i18n.format_number` (1'234.50 – ' between thousands,
 decimal point); integer parameters of translated texts get it automatically, raw counters use
-the `count` filter, prices the currency's decimals (`price` filter, chart). Logs, CLI output and
+the `number` filter, prices the currency's decimals (`price` filter, chart). Logs, CLI output and
 stored error texts (`fetch_jobs.last_error`) are English only.
 
 **Price chart:** `static/js/price-chart.js` draws the detail page's chart as plain SVG (no
@@ -253,6 +253,10 @@ legs, then polled again) ask for the exact name.
 
 ## Users and permissions
 
+- **Setup status:** the top of the admins' Settings page lists the platform services that are
+  not set up yet – needed (real flight data), recommended (mail server; public address once mail
+  is on), optional (AI, Wikidata contact) – with what is missing and a link to the section
+  (`web/settings_forms.setup_status`).
 - **Roles:** `admin` sees and manages everything (users, Platform Settings, export/import, all
   Suchabos and Trips). `user` sees their own Suchabos and Trips and those shared with them;
   the Settings page shows them only their personal settings (language, time zone, password).
@@ -306,9 +310,12 @@ legs, then polled again) ask for the exact name.
 ## Mail
 
 Optional; "on" once SMTP host and sender are set (`.env` or Platform Settings → Mail, with
-provider presets in `domain/mail_providers.py`). `services/mail.py` sends plain-text mails with
-`smtplib` (STARTTLS, SSL or none; 15 s timeout); texts in `services/mail_messages.py`, in the
-recipient's language. Account mails are sent from the web request that triggers them
+provider presets in `domain/mail_providers.py`). `services/mail.py` sends with `smtplib`
+(STARTTLS, SSL or none; 15 s timeout) a text part and an HTML part made from the same text
+(paragraphs, "• " lists, clickable links, inline styles); texts in `services/mail_messages.py`,
+in the recipient's language. `mail.deliver` logs every attempt in `mail_log` (user id, kind,
+subject, error – no address; pruned after half a year), shown to admins in the Mail section;
+the caller commits. Account mails are sent from the web request that triggers them
 (`web/mails.py`): welcome mail, "Forgot password?" and the notice after any password change.
 Price alerts (`services/price_alerts.py`) are checked by the worker after every completed poll
 of a Suchabo; a failure is logged and never fails the job. Links use `PUBLIC_BASE_URL`, in the
@@ -324,10 +331,18 @@ after its mail went out, so a failed mail is retried after the next poll.
 ## AI (optional)
 
 Off until a provider is set (`.env` `AI_*` or Platform Settings → AI, presets in
-`domain/ai_providers.py`). `services/ai.py` speaks two wire formats over plain `httpx` (no
+`domain/ai_providers.py`). `services/ai.py` speaks three wire formats over plain `httpx` (no
 provider SDK, no new dependency): Anthropic's Messages API (`POST /v1/messages`, JSON drafts via
-`output_config.format`) and the OpenAI-compatible chat completions API (OpenAI, Ollama, LM Studio,
-Mistral, Groq, OpenRouter …; JSON mode). Synchronous in the web request, 90 s timeout; the token
+`output_config.format`), Ollama's own chat API (`POST /api/chat`, JSON schema in `format`) and the
+OpenAI-compatible chat completions API (OpenAI, LM Studio, Mistral, Groq, OpenRouter …; JSON
+mode). For Ollama every request carries the configured context window (`options.num_ctx`) and
+`keep_alive`: a model shared with other apps (e.g. loaded with 8192 tokens and `-1` = forever)
+is then neither reloaded nor unloaded early – a different `num_ctx` makes Ollama reload it, a
+missing `keep_alive` resets its lifetime to 5 minutes. The answer is capped to what fits next to
+the prompt in that window; the connection test reads `/api/ps` and warns about a mismatch.
+"No thinking" (Ollama only) sends `think: false`; for every provider, reasoning a model writes
+into its answer (`<think>…</think>`) is removed before a draft is parsed or an explanation shown
+(Anthropic returns thinking in separate blocks, which are not read). Synchronous in the web request, 90 s timeout; the token
 limit refuses over-long requests, the response limit caps answers (thinking models count their
 thinking). The API key is stored Fernet-encrypted like the SMTP password; errors never contain it.
 
@@ -342,7 +357,9 @@ answer in the user's language. The AI never calculates and never saves anything:
   a JSON draft that fills the form – place names are looked up as airports/countries, values
   clamped – and the user saves it through the normal form with all its validation.
 With a cloud provider the facts of a request (routes, dates, prices; no user data) leave the
-server; a local Ollama keeps them.
+server; a local Ollama keeps them. Every request is logged in `ai_usage` (feature, user, model,
+tokens as reported by the provider, duration, outcome – never prompt or answer; pruned after
+half a year) and summarised for admins in the AI section (`services/usage_logs.py`).
 
 ## Security
 

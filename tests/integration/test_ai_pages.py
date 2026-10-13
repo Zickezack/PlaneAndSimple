@@ -26,6 +26,8 @@ def ai_settings(**overrides) -> Settings:
         "ai_provider": "ollama",
         "ai_base_url": "http://ollama:11434/v1",
         "ai_model": "llama3.2",
+        "flight_provider": "mock",  # not from the container's environment
+        "wikidata_contact": "",
     }
     return Settings(**(values | overrides))
 
@@ -44,7 +46,7 @@ def model(monkeypatch):
     def answer(text):
         def post(url, json=None, headers=None, timeout=None):
             prompts.append(json["messages"][-1]["content"])
-            return httpx.Response(200, json={"choices": [{"message": {"content": text}}]})
+            return httpx.Response(200, json={"message": {"content": text}})
 
         monkeypatch.setattr(ai.httpx, "post", post)
         return prompts
@@ -112,3 +114,63 @@ def test_connection_test_reports_errors(client, db, monkeypatch):
     token = login(client)
     response = client.post("/settings/ai/test", data={"csrf_token": token})
     assert "AI not reachable" in response.text and "No connection" in response.text
+
+
+def test_usage_log_records_requests_without_their_content(client, db, monkeypatch):
+    from sqlalchemy import select
+
+    from flighttracker.models import AIUsage
+
+    def answer(url, json=None, headers=None, timeout=None):
+        return httpx.Response(
+            200, json={"message": {"content": "OK"}, "prompt_eval_count": 12, "eval_count": 1}
+        )
+
+    monkeypatch.setattr(ai.httpx, "post", answer)
+    monkeypatch.setattr(ai, "ollama_loaded", lambda settings: [])
+    token = login(client)
+    client.post("/settings/ai/test", data={"csrf_token": token})
+    monkeypatch.setattr(ai.httpx, "post", lambda *a, **k: httpx.Response(429, json={}))
+    client.post("/searches/draft", data={"csrf_token": token, "wish": "Somewhere warm"})
+    rows = db.scalars(select(AIUsage).order_by(AIUsage.id)).all()
+    assert [(r.feature, r.ok, r.input_tokens, r.output_tokens) for r in rows] == [
+        ("test", True, 12, 1),
+        ("draft", False, None, None),
+    ]
+    assert "429" in rows[1].error and rows[0].model == "llama3.2"
+    page = client.get("/settings").text
+    assert "Usage log" in page and "2 requests, 1 failed" in page
+
+
+def test_connection_test_reports_how_ollama_holds_the_model(client, db, monkeypatch):
+    monkeypatch.setattr(
+        ai.httpx, "post", lambda *a, **k: httpx.Response(200, json={"message": {"content": "OK"}})
+    )
+    monkeypatch.setattr(
+        ai,
+        "ollama_loaded",
+        lambda settings: [ai.LoadedModel("llama3.2:latest", 8192, "2318-03-01T10:00:00Z")],
+    )
+    token = login(client)
+    page = client.post("/settings/ai/test", data={"csrf_token": token}).text
+    assert "context window of 8&#39;192 tokens until it is unloaded by hand" in page  # ' escaped
+    assert "No keep-alive set" in page and "No context window set" in page
+
+    from flighttracker.services.settings import set_override
+
+    set_override(db, "ai_ollama_num_ctx", "4096")
+    set_override(db, "ai_ollama_keep_alive", "-1")
+    db.commit()
+    page = client.post("/settings/ai/test", data={"csrf_token": token}).text
+    assert "differs from the loaded model" in page and "No keep-alive set" not in page
+
+
+def test_settings_show_what_is_not_set_up(client, db):
+    login(client)
+    page = client.get("/settings").text
+    setup = page.split('id="setup"')[1].split("</section>")[0]
+    # AI is set up in this client; mail, real flight data and Wikidata are not.
+    assert "Not set up yet" in setup and 'href="#mail"><strong>Mail server' in setup
+    assert 'href="#providers"><strong>Flight data' in setup
+    assert "Public address" not in setup  # only needed once mail is on
+    assert "Set up:" in setup and ">AI</span>" in setup

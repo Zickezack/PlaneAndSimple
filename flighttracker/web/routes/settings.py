@@ -14,7 +14,7 @@ from flighttracker.domain.ai_providers import AI_PRESETS
 from flighttracker.domain.mail_providers import MAIL_PROVIDERS
 from flighttracker.i18n import SUPPORTED_LOCALES, Msg
 from flighttracker.models import User
-from flighttracker.services import capacity, poll_plan, quota
+from flighttracker.services import capacity, poll_plan, quota, usage_logs
 from flighttracker.services.ai_prompts import DEFAULT_SYSTEM_PROMPT
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_export import export_all
@@ -55,6 +55,7 @@ from flighttracker.web.settings_forms import (
     field_view,
     mail_preset,
     section_fields,
+    setup_status,
     timezone_options,
 )
 from flighttracker.web.templating import templates
@@ -83,10 +84,15 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
     locale = current_locale(request)
     sections = []
     load = schedule_context = None
+    logs = {}
     if user.is_admin:
         now = datetime.now(UTC)
         load = capacity.overview(db, settings, now)
         schedule_context = timeline(poll_plan.schedule(db, settings, now, load))
+        logs = {
+            "mail_log": usage_logs.mail_overview(db, now),
+            "ai_usage": usage_logs.ai_overview(db, now),
+        }
         overrides = load_overrides(db)
         sections = [
             {
@@ -120,11 +126,13 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "editing": user.is_admin and request.query_params.get("edit") == "schedule",
             # Read-only poll schedule inside the Worker load card.
             **(schedule_context or {}),
+            **logs,
             "zone": settings.display_timezone,
             "duration": format_seconds,
             "locale_options": list(SUPPORTED_LOCALES.items()),
             "currency_options": currency_options(locale, settings.default_currency),
             "mail_providers": MAIL_PROVIDERS,
+            "setup": setup_status(settings) if user.is_admin else [],
             "ai_presets": AI_PRESETS,
             "default_ai_prompt": DEFAULT_SYSTEM_PROMPT,
             "timezone_options": timezone_options(settings.display_timezone, locale),
@@ -176,7 +184,7 @@ def change_password(
             flash(request, error, "error")
         return _redirect("password")
     db.commit()
-    send_password_changed(request, effective_settings(db, request.app.state.settings), user)
+    send_password_changed(request, db, effective_settings(db, request.app.state.settings), user)
     # Other sessions of this user end; this one continues.
     request.session[SESSION_AUTH_VERSION] = user.auth_version
     flash(request, Msg("Password changed. Other sessions were logged out."), "success")

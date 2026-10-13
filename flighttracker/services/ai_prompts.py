@@ -96,10 +96,14 @@ Travel wish:
 {wish}"""
 
 
-def draft_search(settings: Settings, wish: str, today: date, locale: str) -> dict:
+def draft_search(
+    settings: Settings, wish: str, today: date, locale: str, *, usage: ai.UsageLog | None = None
+) -> dict:
     """The model's draft (JSON object of `DRAFT_SCHEMA`); `draft_values` makes form values of it."""
     task = DRAFT_TASK.format(today=today.isoformat(), wish=wish.strip()[:2000])
-    return ai.complete_json(settings, system_prompt(settings, locale), task, DRAFT_SCHEMA)
+    return ai.complete_json(
+        settings, system_prompt(settings, locale), task, DRAFT_SCHEMA, usage=usage
+    )
 
 
 def _int(value: object, low: int, high: int, default: int | None) -> int | None:
@@ -178,6 +182,7 @@ def explain_advice(
     prices: list[str],
     money,
     locale: str,
+    usage: ai.UsageLog | None = None,
 ) -> ai.AIAnswer:
     """`prices`: the observed prices already formatted; `money`: formats one amount."""
     task = EXPLAIN_TASK.format(
@@ -197,8 +202,8 @@ def explain_advice(
         signals=", ".join(advice.signals) or "none",
         verdict=VERDICT_TEXT[advice.verdict],
     )
-    return ai.complete(settings, system_prompt(settings, locale), task)
+    return ai.complete(settings, system_prompt(settings, locale), task, usage=usage)
 
 
-def connection_test(settings: Settings) -> ai.AIAnswer:
-    return ai.complete(settings, "Answer with exactly one word.", "Reply with: OK")
+def connection_test(settings: Settings, usage: ai.UsageLog | None = None) -> ai.AIAnswer:
+    return ai.complete(settings, "Answer with exactly one word.", "Reply with: OK", usage=usage)

@@ -11,7 +11,13 @@ from flighttracker.config import Settings
 from flighttracker.i18n import Msg
 from flighttracker.services import ai, ai_prompts
 from flighttracker.services.locations import suggest_locations
-from flighttracker.web.deps import csrf_form, current_locale, get_db, get_effective_settings
+from flighttracker.web.deps import (
+    csrf_form,
+    current_locale,
+    current_user,
+    get_db,
+    get_effective_settings,
+)
 from flighttracker.web.forms import default_values
 from flighttracker.web.routes.searches.form import render_form
 
@@ -44,12 +50,17 @@ def draft(
     if not wish:
         return render_form(request, db, defaults, errors=[Msg("Describe your trip first.")])
     locale = current_locale(request)
+    usage = ai.UsageLog(db, "draft", current_user(request).id)
     try:
-        result = ai_prompts.draft_search(settings, wish, datetime.now(UTC).date(), locale)
+        result = ai_prompts.draft_search(
+            settings, wish, datetime.now(UTC).date(), locale, usage=usage
+        )
     except ai.AIError as exc:
+        db.commit()  # the failed request is in the usage log
         return render_form(
             request, db, defaults, wish=wish, errors=[Msg("No draft: {error}", error=str(exc))]
         )
+    db.commit()
     values, unresolved = ai_prompts.draft_values(result, defaults)
     unknown: list[str] = []
     for key, names in unresolved.items():

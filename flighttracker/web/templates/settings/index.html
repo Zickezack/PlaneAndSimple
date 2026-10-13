@@ -5,6 +5,23 @@
 <div class="page-header">
   <h1>{{ _("Settings") }}</h1>
 </div>
+{% if setup %}
+{#- What is not set up yet, at a glance (admins only); links go to the section concerned. -#}
+{% set missing = setup | rejectattr("ok") | list %}
+<section class="card setup-status" id="setup">
+  {% if missing %}
+  <h2>{{ _("Not set up yet") }}</h2>
+  <ul class="setup-list">
+    {% for item in missing %}
+    <li>{{ ui.badge(_(labels.SETUP_LEVEL_LABELS[item.level]), labels.SETUP_LEVEL_VARIANTS[item.level]) }}
+      <a href="#{{ item.anchor }}"><strong>{{ _(item.label) }}</strong></a> – {{ _(item.missing) }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% set ready = setup | selectattr("ok") | map(attribute="label") | list %}
+  {% if ready %}<p class="hint">{{ _("Set up:") }} {% for label in ready %}{{ ui.badge(_(label), "success") }} {% endfor %}</p>{% endif %}
+</section>
+{% endif %}
 {% if section_nav %}{{ ui.section_nav(section_nav) }}{% endif %}
 
 <details class="card more" id="personal" open>
@@ -95,7 +112,7 @@
               </td>
               <td><a href="{{ item.url }}">{{ item.name }}</a>{% if item.kind == "trip" %} <small class="hint">Trip</small>{% endif %}</td>
               <td>{{ item.owner or "–" }}</td>
-              <td class="num">{{ item.requests | count }}</td>
+              <td class="num">{{ item.requests | number }}</td>
               <td class="num">{% if item.measured_seconds is none %}<span class="hint" title="{{ _('Estimate – not polled yet') }}">≈ {{ duration(item.seconds) }}</span>{% else %}{{ duration(item.seconds) }}{% endif %}</td>
               <td class="num">{{ (item.seconds / c.round_seconds * 100) | round | int if c.round_seconds else 0 }} %</td>
               <td>{% if poll.offset is none %}{{ ui.badge(_("Not placed yet"), "muted") }}
@@ -221,6 +238,19 @@
     {{ ui.button(_("Send a test mail"), "secondary") }}
     <small class="hint">{{ _("To your own address (Personal settings), with the saved settings.") }}</small>
   </form>
+  <details class="more">
+    <summary>{{ _("Mail log") }} <small class="hint">{{ _("last 30 days: {sent} sent, {failed} failed", sent=mail_log.sent, failed=mail_log.failed) }}</small></summary>
+    {% if mail_log.latest %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>{{ _("Time") }}</th><th>{{ _("Kind") }}</th><th>{{ _("User") }}</th><th>{{ _("Subject") }}</th><th>{{ _("Result") }}</th></tr></thead>
+      <tbody>{% for row in mail_log.latest %}{% set m = row.entry %}
+        <tr><td>{{ m.sent_at | datetime }}</td><td>{{ _(labels.MAIL_KIND_LABELS.get(m.kind, "Other")) }}</td><td>{{ row.username or "–" }}</td><td>{{ m.subject }}</td>
+          <td>{% if m.ok %}{{ ui.badge(_("Sent"), "success") }}{% else %}{{ ui.badge(_("Failed"), "danger") }} <small class="hint">{{ m.error }}</small>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="empty">{{ _("No mails yet.") }}</p>{% endif %}
+    <p class="hint">{{ _("The last 25 mails; kept for half a year. Addresses are not logged, only the user.") }}</p>
+  </details>
   {% endif %}
   {% if section.key == "ai" %}
   <form method="post" action="/settings/ai/test" class="inline-form">
@@ -228,6 +258,30 @@
     {{ ui.button(_("Test the connection"), "secondary") }}
     <small class="hint">{{ _("Sends a one-word request with the saved settings.") }}</small>
   </form>
+  <details class="more">
+    <summary>{{ _("Usage log") }} <small class="hint">{{ _("last 30 days: {n} requests, {failed} failed", n=ai_usage.requests, failed=ai_usage.failed) }}</small></summary>
+    {% if ai_usage.features %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>{{ _("Feature") }}</th><th class="num">{{ _("Requests") }}</th><th class="num">{{ _("Failed") }}</th><th class="num">{{ _("Input tokens") }}</th><th class="num">{{ _("Output tokens") }}</th><th class="num">{{ _("Average time") }}</th></tr></thead>
+      <tbody>{% for f in ai_usage.features %}
+        <tr><td>{{ _(labels.AI_FEATURE_LABELS.get(f.feature, f.feature)) }}</td><td class="num">{{ f.requests | number }}</td><td class="num">{{ f.failed | number }}</td><td class="num">{{ f.input_tokens | number }}</td><td class="num">{{ f.output_tokens | number }}</td><td class="num">{{ "%.1f" | format(f.average_seconds) }} s</td></tr>
+      {% endfor %}
+        <tr><th>{{ _("Total") }}</th><th class="num">{{ ai_usage.requests | number }}</th><th class="num">{{ ai_usage.failed | number }}</th><th class="num">{{ ai_usage.input_tokens | number }}</th><th class="num">{{ ai_usage.output_tokens | number }}</th><th></th></tr>
+      </tbody>
+    </table></div>
+    <h3>{{ _("Latest requests") }}</h3>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>{{ _("Time") }}</th><th>{{ _("Feature") }}</th><th>{{ _("User") }}</th><th>{{ _("Model") }}</th><th class="num">{{ _("Tokens in / out") }}</th><th class="num">{{ _("Duration") }}</th><th>{{ _("Result") }}</th></tr></thead>
+      <tbody>{% for row in ai_usage.latest %}{% set a = row.entry %}
+        <tr><td>{{ a.requested_at | datetime }}</td><td>{{ _(labels.AI_FEATURE_LABELS.get(a.feature, a.feature)) }}</td><td>{{ row.username or "–" }}</td><td>{{ a.provider }} · {{ a.model }}</td>
+          <td class="num">{{ (a.input_tokens | number) if a.input_tokens is not none else "–" }} / {{ (a.output_tokens | number) if a.output_tokens is not none else "–" }}</td>
+          <td class="num">{{ "%.1f" | format(a.duration_ms / 1000) }} s</td>
+          <td>{% if a.ok %}{{ ui.badge(_("OK"), "success") }}{% else %}{{ ui.badge(_("Failed"), "danger") }} <small class="hint">{{ a.error }}</small>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<p class="empty">{{ _("No AI requests in the last 30 days.") }}</p>{% endif %}
+    <p class="hint">{{ _("Tokens as reported by the provider (not every local server reports them). Prompts and answers are not stored; entries are kept for half a year.") }}</p>
+  </details>
   {% endif %}
   {% if section.key == "airport_import" %}
   <form method="post" action="/settings/airport-import/run" class="inline-form">

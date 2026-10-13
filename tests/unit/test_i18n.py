@@ -19,6 +19,7 @@ from flighttracker.i18n import (
     translate,
 )
 from flighttracker.web import forms, labels
+from flighttracker.web.settings_forms import setup_status
 
 ROOT = Path(__file__).resolve().parents[2] / "flighttracker"
 _TEMPLATE_CALL = re.compile(r"""_\(\s*(["'])(.*?)(?<!\\)\1""", re.S)
@@ -47,6 +48,21 @@ VALIDATOR_TEXTS = {
     "Trip polls must be at least 15 minutes apart.",
     "Use airport codes or two-letter country codes for every leg.",
 }
+
+
+def _settings_for_texts():
+    from flighttracker.config import Settings
+
+    return Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://unused/unused_test",
+        secret_key="k" * 40,
+        admin_username="admin",
+        admin_password_hash="unused",
+        # Mail on, so that every setup item (also the public address) is listed.
+        smtp_host="smtp.example.test",
+        mail_from="app@example.test",
+    )
 
 
 def ui_texts() -> set[str]:
@@ -79,6 +95,9 @@ def ui_texts() -> set[str]:
         labels.LAYOVER_WARNING_HINTS,
         labels.ADVICE_LABELS,
         labels.ADVICE_SIGNAL_LABELS,
+        labels.MAIL_KIND_LABELS,
+        labels.AI_FEATURE_LABELS,
+        labels.SETUP_LEVEL_LABELS,
         labels.DAYS_PER_MONTH_LABELS,
         labels.SETTINGS_SECTION_LABELS,
         labels.SETTINGS_FIELD_LABELS,
@@ -89,6 +108,8 @@ def ui_texts() -> set[str]:
     texts.update(text for _, text in labels.STOPS_OPTIONS)
     texts.update(provider.hint for provider in MAIL_PROVIDERS)
     texts.update(preset.hint for preset in AI_PRESETS)
+    for item in setup_status(_settings_for_texts()):
+        texts.update((item.label, item.missing))
     return texts
 
 

@@ -148,7 +148,7 @@
     <dt>{{ _("Passengers") }}</dt><dd>{{ _("{adults} adults, {children} children", adults=f.adults, children=f.children) }}</dd>
     <dt>{{ _("Global poll interval") }}</dt><dd>{{ _("every {n} h", n=poll_interval_minutes // 60) }}</dd>
     <dt>{{ _("Scope") }}</dt><dd>{{ _("{routes} routes · {queries} queries · {requests} requests (about {minutes} min) per poll", routes=estimate.routes, queries=estimate.queries, requests=estimate.requests, minutes=estimate.minutes) }}</dd>
-    <dt>{{ _("Stored prices") }}</dt><dd>{{ observation_count | count }}</dd>
+    <dt>{{ _("Stored prices") }}</dt><dd>{{ observation_count | number }}</dd>
   </dl>
 </details>
 
@@ -163,8 +163,8 @@
         {% for j in jobs %}
         <tr>
           <td>{{ _(labels.JOB_STATUS_LABELS[j.status]) }}{% if j.last_error %} <small class="hint">({{ j.last_error }})</small>{% endif %}</td>
-          <td class="num">{{ j.queries_total | count }}{% if j.queries_failed %} <small class="fake">({{ _("{n} failed", n=j.queries_failed) }})</small>{% endif %}</td>
-          <td class="num">{{ j.quotes_stored | count }}</td>
+          <td class="num">{{ j.queries_total | number }}{% if j.queries_failed %} <small class="fake">({{ _("{n} failed", n=j.queries_failed) }})</small>{% endif %}</td>
+          <td class="num">{{ j.quotes_stored | number }}</td>
           <td>{{ j.created_at | datetime }}</td>
         </tr>
         {% endfor %}

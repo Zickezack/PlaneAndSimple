@@ -205,7 +205,7 @@ def notify(session: Session, settings: Settings, search: Search, now: datetime) 
             for _, m in pairs
         }
         message = mail_messages.price_alert_mail(user, search.name, list(unique.values()), link)
-        if not mail.send_logged(settings, message):
+        if not mail.deliver(session, settings, message):
             continue
         sent += 1
         for alert, match in pairs:

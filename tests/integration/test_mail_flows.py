@@ -217,3 +217,38 @@ def test_worker_checks_alerts_after_a_completed_poll(db, session_factory, monkey
         base_settings=mail_settings(),
     )
     assert checked == [search.id]
+
+
+def test_mail_log_and_welcome_again(client, db, outbox, monkeypatch):
+    from flighttracker.models import MailLog
+
+    token = login(client)
+    client.post(
+        "/users",
+        data={"csrf_token": token, "username": "gina", "email": "g@e.test", "role": "user"},
+    )
+    gina = db.scalars(select(User).where(User.username == "gina")).one()
+    assert "No password yet" in client.get("/users").text
+    page = client.get(f"/users/{gina.id}").text
+    assert "Send the welcome mail again" in page
+
+    def failing(settings, message):
+        raise mail.MailError("No connection to smtp.example.test:587 (ConnectionRefusedError).")
+
+    monkeypatch.setattr(mail, "send", failing)
+    response = client.post(f"/users/{gina.id}/welcome", data={"csrf_token": token})
+    assert "could not be sent" in response.text
+    monkeypatch.setattr(mail, "send", lambda settings, message: outbox.append(message))
+    client.post(f"/users/{gina.id}/welcome", data={"csrf_token": token})
+    first, second = (link_in(m) for m in outbox)
+    assert first != second and client.get(first).status_code == 404  # the old link is void
+
+    log = db.scalars(select(MailLog).order_by(MailLog.id)).all()
+    assert [(e.kind, e.ok, e.user_id) for e in log] == [
+        ("welcome", True, gina.id),
+        ("welcome", False, gina.id),
+        ("welcome", True, gina.id),
+    ]
+    assert "No connection" in log[1].error
+    settings_page = client.get("/settings").text
+    assert "Mail log" in settings_page and "2 sent, 1 failed" in settings_page
