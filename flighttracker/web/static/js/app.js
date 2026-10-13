@@ -75,8 +75,15 @@
           "{number}",
           index + 1,
         );
-        const layover = leg.querySelector(".trip-layover");
-        if (layover) layover.hidden = index === 0;
+        // The stay before a leg sits between it and the previous one; the first leg has none.
+        const stay = leg.querySelector("[data-trip-stay]");
+        if (stay) stay.hidden = index === 0;
+        const stayLabel = leg.querySelector("[data-trip-stay-label]");
+        if (stayLabel) {
+          stayLabel.textContent = tripLegList.dataset.stayLabel
+            .replace("{previous}", index)
+            .replace("{number}", index + 1);
+        }
         leg.querySelectorAll("[data-trip-airport-country]").forEach((country) => {
           const code = country.dataset.tripAirportCountry;
           const reviewed = country.querySelector("[data-trip-airport-reviewed]");

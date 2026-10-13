@@ -612,5 +612,8 @@
   "Show observed price range": "Beobachtete Preisspanne anzeigen",
   "Band: lowest to highest price observed for each departure date, the line is the current price; a ring marks a date that is at its lowest observed price now.": "Band: tiefster bis höchster beobachteter Preis je Abflugtag, die Linie ist der aktuelle Preis; ein Ring markiert einen Tag, der gerade auf seinem tiefsten beobachteten Preis steht.",
   "The price range needs one line: filter by origin or destination.": "Die Preisspanne braucht eine einzelne Linie: nach Abflug oder Ziel filtern.",
-  "Price changes and the price range appear from the second poll on – they need more than one observed price per date.": "Preisänderungen und Preisspanne erscheinen ab der zweiten Abfrage – dafür braucht es pro Datum mehr als einen beobachteten Preis."
+  "Price changes and the price range appear from the second poll on – they need more than one observed price per date.": "Preisänderungen und Preisspanne erscheinen ab der zweiten Abfrage – dafür braucht es pro Datum mehr als einen beobachteten Preis.",
+  "Stay between leg {previous} and leg {number}": "Aufenthalt zwischen Teilstrecke {previous} und {number}",
+  "Calendar days at the destination before the next leg departs. Stops within a leg are layovers, not stays.": "Kalendertage am Zielort, bevor die nächste Teilstrecke startet. Stopps innerhalb einer Teilstrecke sind Umstiege, keine Aufenthalte.",
+  "Stops are layovers within a leg (changing planes on the same journey); the stays between legs are set above.": "Stopps sind Umstiege innerhalb einer Teilstrecke (Flugzeugwechsel auf derselben Reise); die Aufenthalte zwischen den Teilstrecken legst du oben fest."
 }

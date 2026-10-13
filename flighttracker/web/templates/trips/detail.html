@@ -20,7 +20,8 @@
   <h2>{{ _("Route") }}</h2>
   <ol class="trip-route">
     {% for leg in trip.legs %}
-    <li><a href="/searches/{{ leg.search_id }}">{{ leg.search.name }}</a>{% if not loop.first %}<small class="hint">{{ _("Stay: at least {minimum} days", minimum=leg.min_layover_days or 0) }}{% if leg.max_layover_days is not none %} · {{ _("up to {maximum} days", maximum=leg.max_layover_days) }}{% endif %}</small>{% endif %}</li>
+    {% if not loop.first %}<li class="trip-route-stay">{{ _("Stay: at least {minimum} days", minimum=leg.min_layover_days or 0) }}{% if leg.max_layover_days is not none %} · {{ _("up to {maximum} days", maximum=leg.max_layover_days) }}{% endif %}</li>{% endif %}
+    <li><a href="/searches/{{ leg.search_id }}">{{ leg.search.name }}</a></li>
     {% endfor %}
   </ol>
   <p class="hint">{{ _("Next check") }}: {{ trip.next_poll_at | datetime }} · {{ _("Last check") }}: {{ trip.last_polled_at | datetime }}</p>

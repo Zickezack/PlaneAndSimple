@@ -19,9 +19,19 @@
   <section class="trip-legs">
     <div class="section-heading"><h2>{{ _("Flight legs") }}</h2><button class="btn btn-secondary" type="button" data-add-trip-leg>{{ _("Add leg") }}</button></div>
     <p class="hint">{{ _("Each leg becomes its own one-way tracked search. Enter an airport or country code. For each connection, set how many calendar days you want to stay before the next flight.") }}</p>
-    <div data-trip-legs data-leg-label="{{ _("Leg {number}") }}">
+    <div class="trip-leg-list" data-trip-legs data-leg-label="{{ _("Leg {number}") }}" data-stay-label="{{ _("Stay between leg {previous} and leg {number}") }}">
       {% for leg in values.legs %}
-      <fieldset class="trip-leg" data-trip-leg>
+      <div class="trip-leg-item" data-trip-leg>
+      {#- The stay before this leg: shown between the legs (the first leg has none). -#}
+      <div class="trip-stay" data-trip-stay{% if loop.first %} hidden{% endif %}>
+        <p class="trip-stay-title"><span data-trip-stay-label>{{ _("Stay between leg {previous} and leg {number}", previous=loop.index - 1, number=loop.index) }}</span>
+          <small class="hint">{{ _("Calendar days at the destination before the next leg departs. Stops within a leg are layovers, not stays.") }}</small></p>
+        <div class="grid-2 trip-layover">
+          <div class="field"><label for="layover-min-{{ loop.index0 }}">{{ _("Minimum stay (days)") }}</label><input class="input" id="layover-min-{{ loop.index0 }}" name="min_layover_days" type="number" min="1" max="60" value="{{ leg.min_layover_days }}"></div>
+          <div class="field"><label for="layover-max-{{ loop.index0 }}">{{ _("Maximum stay (days)") }}</label><input class="input" id="layover-max-{{ loop.index0 }}" name="max_layover_days" type="number" min="1" max="60" value="{{ leg.max_layover_days }}"></div>
+        </div>
+      </div>
+      <fieldset class="trip-leg">
         <legend>{{ _("Leg {number}", number=loop.index) }}</legend>
         <div class="grid-2">
           <div class="field suggest"><label for="origin-{{ loop.index0 }}">{{ _("Origin airport or country") }}</label><input class="input" id="origin-{{ loop.index0 }}" name="leg_origin" value="{{ leg.origin }}" maxlength="3" pattern="[A-Za-z]{2,3}" data-suggest="/api/suggest/locations" required></div>
@@ -45,27 +55,30 @@
           {% endfor %}
         </section>
         {% endif %}
-        <div class="grid-2 trip-layover"{% if loop.first %} hidden{% endif %}>
-          <div class="field"><label for="layover-min-{{ loop.index0 }}">{{ _("Minimum stay (days)") }}</label><input class="input" id="layover-min-{{ loop.index0 }}" name="min_layover_days" type="number" min="1" max="60" value="{{ leg.min_layover_days }}"></div>
-          <div class="field"><label for="layover-max-{{ loop.index0 }}">{{ _("Maximum stay (days)") }}</label><input class="input" id="layover-max-{{ loop.index0 }}" name="max_layover_days" type="number" min="1" max="60" value="{{ leg.max_layover_days }}"></div>
-        </div>
         {% if not loop.first and loop.index > 2 %}<button class="btn btn-ghost" type="button" data-remove-trip-leg>{{ _("Remove leg") }}</button>{% endif %}
       </fieldset>
+      </div>
       {% endfor %}
     </div>
     <template data-trip-leg-template>
-      <fieldset class="trip-leg" data-trip-leg>
+      <div class="trip-leg-item" data-trip-leg>
+      <div class="trip-stay" data-trip-stay>
+        <p class="trip-stay-title"><span data-trip-stay-label></span>
+          <small class="hint">{{ _("Calendar days at the destination before the next leg departs. Stops within a leg are layovers, not stays.") }}</small></p>
+        <div class="grid-2 trip-layover">
+          <div class="field"><label>{{ _("Minimum stay (days)") }}</label><input class="input" name="min_layover_days" type="number" min="1" max="60" value="1"></div>
+          <div class="field"><label>{{ _("Maximum stay (days)") }}</label><input class="input" name="max_layover_days" type="number" min="1" max="60"></div>
+        </div>
+      </div>
+      <fieldset class="trip-leg">
         <legend></legend>
         <div class="grid-2">
           <div class="field suggest"><label>{{ _("Origin airport or country") }}</label><input class="input" name="leg_origin" maxlength="3" pattern="[A-Za-z]{2,3}" data-suggest="/api/suggest/locations" required></div>
           <div class="field suggest"><label>{{ _("Destination airport or country") }}</label><input class="input" name="leg_destination" maxlength="3" pattern="[A-Za-z]{2,3}" data-suggest="/api/suggest/locations" required></div>
         </div>
-        <div class="grid-2 trip-layover">
-          <div class="field"><label>{{ _("Minimum stay (days)") }}</label><input class="input" name="min_layover_days" type="number" min="1" max="60" value="1"></div>
-          <div class="field"><label>{{ _("Maximum stay (days)") }}</label><input class="input" name="max_layover_days" type="number" min="1" max="60"></div>
-        </div>
         <button class="btn btn-ghost" type="button" data-remove-trip-leg>{{ _("Remove leg") }}</button>
       </fieldset>
+      </div>
     </template>
   </section>
     <div class="grid-2">
@@ -75,7 +88,7 @@
        hint=None if provider.supports_children else _('Note: not available with the data source "{provider}" – prices do not include children.', provider=provider.name)) }}
   </div>
   {{ ui.choice_group("cabin_classes", _("Cabin class"), labels.CABIN_LABELS.items() | tr_options, values.cabin_classes, multiple=True) }}
-  {{ ui.select_field("max_stops", _("Maximum stops per leg"), labels.STOPS_OPTIONS | tr_options, values.max_stops) }}
+  {{ ui.select_field("max_stops", _("Maximum stops per leg"), labels.STOPS_OPTIONS | tr_options, values.max_stops, hint=_("Stops are layovers within a leg (changing planes on the same journey); the stays between legs are set above.")) }}
   <div class="actions">
     {{ ui.button(_("Create trip")) }}
     {{ ui.link_button(_("Cancel"), "/searches") }}

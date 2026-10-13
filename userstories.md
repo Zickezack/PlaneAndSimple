@@ -160,3 +160,6 @@
 45. Observed price range in the price chart (toggle like the arrows): per departure date a band
     from the lowest to the highest price ever observed, the line is the current price, arrows
     from the first to the current price; a ring marks dates at their lowest observed price.
+46. Trip Planner: the stay (min/max days) is shown between the legs – in the form and in the
+    Trip's route – so it reads as the time before the next leg; stops within a leg are explained
+    as layovers.

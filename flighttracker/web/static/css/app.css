@@ -289,9 +289,16 @@ details.more[open] > summary { margin-bottom: .75rem; }
 .section-heading h2 { margin: 0; }
 .trip-leg { min-width: 0; margin: 0; padding: .8rem; border: 1px solid var(--border); border-radius: 6px; }
 .trip-leg legend { padding: 0 .35rem; font-weight: 600; }
-.trip-layover[hidden] { display: none; }
+.trip-leg-list { display: flex; flex-direction: column; gap: .5rem; }
+/* The stay between two legs: a connector, set off from the legs themselves. */
+.trip-stay { margin-left: 1.25rem; padding: .5rem .8rem; border-left: 3px dashed var(--primary); background: var(--info-bg); border-radius: 0 6px 6px 0; }
+.trip-stay[hidden] { display: none; }
+.trip-stay-title { margin: 0 0 .4rem; font-weight: 600; }
+.trip-stay-title .hint { display: block; font-weight: 400; }
 .trip-route { display: flex; flex-direction: column; gap: .55rem; padding-left: 1.5rem; }
 .trip-route li small { display: block; }
+/* A stay between two legs: its own row, not numbered (display: block leaves the list counter). */
+.trip-route-stay { display: block; margin-left: -.25rem; padding: .15rem .6rem; border-left: 3px dashed var(--primary); background: var(--info-bg); font-size: .9rem; }
 
 /* Worker load and poll schedule (Platform Settings): timeline, draggable while editing. */
 .schedule-timeline { display: block; width: 100%; margin: .5rem 0 1rem; user-select: none; touch-action: pan-y; }
