@@ -20,6 +20,7 @@ from flighttracker.providers.google_flights.common import (
     fare_options,
     frontend_post,
     stops_code,
+    with_retries,
     wrb_payloads,
 )
 from flighttracker.providers.google_flights.page import fast_flights_search, with_url
@@ -34,8 +35,6 @@ _SHOPPING_SEAT = {"economy": 1, "premium-economy": 2, "business": 3, "first": 4}
 _SORT_BY_PRICE = 2
 _OUTBOUND_SEGMENT, _RETURN_SEGMENT = 3, 1
 # Google answers dense requests now and then with an error; it works again a little later.
-SHOPPING_RETRY_SECONDS = (4.0, 8.0, 12.0)
-
 ShoppingPostFn = Callable[[str, str], str]
 
 
@@ -115,14 +114,9 @@ def shopping_results(
     sleep: Callable[[float], None] = time.sleep,
 ) -> list[FareOption]:
     """One result-list request, retried while Google answers with its error response."""
-    for wait in (*SHOPPING_RETRY_SECONDS, None):
-        try:
-            return parse_shopping(post(body, currency))
-        except ValueError:
-            if wait is None:
-                raise ProviderError("Google Flights result list has an unexpected format") from None
-            sleep(wait)
-    raise AssertionError("unreachable")
+    return with_retries(
+        lambda: post(body, currency), parse_shopping, sleep=sleep, what="result list"
+    )
 
 
 def google_flights_search(

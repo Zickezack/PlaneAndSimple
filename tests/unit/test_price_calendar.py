@@ -140,6 +140,33 @@ class TestProvider:
         with pytest.raises(ProviderError, match="consent"):
             provider.fetch_calendar(query())
 
+    def test_googles_error_response_is_retried(self):
+        error = (
+            ")]}'\n\n"
+            '[["wrb.fr",null,null,null,null,[13,null,[["type.googleapis.com/travel.frontend.'
+            'flights.ErrorResponse",[]]]]]]\n'
+        )
+        answers = iter([error, error, response([["2026-11-20", None, [[None, 7], "x"], 1]])])
+        waits = []
+        provider = GoogleFlightsProvider(
+            request_delay_seconds=0,
+            calendar_search=lambda body, currency: next(answers),
+            clock=lambda: NOW,
+            sleep=waits.append,
+        )
+        prices = provider.fetch_calendar(query(stay_days=None, last_day=date(2026, 11, 30)))
+        assert [p.price for p in prices] == [Decimal("7")]
+        assert waits == [4.0, 8.0, 0]  # two retries, then the usual pause
+
+        provider = GoogleFlightsProvider(
+            request_delay_seconds=0,
+            calendar_search=lambda body, currency: error,
+            clock=lambda: NOW,
+            sleep=lambda s: None,
+        )
+        with pytest.raises(ProviderError, match="calendar kept answering with an error"):
+            provider.fetch_calendar(query(stay_days=None, last_day=date(2026, 11, 30)))
+
     def test_mock_has_a_price_for_every_day(self):
         prices = MockProvider(clock=lambda: NOW).fetch_calendar(
             query(first_day=date(2026, 10, 1), last_day=date(2026, 10, 20))

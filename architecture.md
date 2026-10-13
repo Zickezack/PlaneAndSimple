@@ -43,7 +43,10 @@ Worker behaviour (single worker process):
   (`calendar_days_per_request`, Google Flights: 61 days) first fetches the cheapest price of
   every departure day from tomorrow to the end of the last polled month – one query per route,
   cabin and stay length, split into requests by the provider; stored in `price_calendar`, the
-  requests count towards the user's request budget.
+  requests count towards the user's request budget. Google answers about every third calendar
+  request with its intermittent error response; like the result list, each request is repeated
+  after 4, 8 and 12 s (`google_flights/common.with_retries`) – in tests always successful by the
+  third attempt. Only a request still failing after that is logged as failed.
 - **Which departure days:** for a provider that queries single days *and* has a calendar
   (Google Flights), each fare query asks for half evenly spread days (the same every poll – a
   continuous price history and previous-year comparison) and half the cheapest days of the

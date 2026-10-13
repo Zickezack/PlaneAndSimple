@@ -15,6 +15,12 @@ URL = "https://www.google.com/travel/flights"
 # "Reject all" consent – without it, EU/CH requests only get the "Before you continue" page.
 CONSENT_COOKIE = "SOCS=CAESHAgBEhJnd3NfMjAyMzA4MTAtMF9SQzIaAmRlIAEaBgiAo_CmBg"
 
+# Google answers FlightsFrontendService requests now and then with an error response (status 13)
+# instead of data – for the price calendar about every third request. The same request a few
+# seconds later works; measured: always by the third attempt.
+RETRY_SECONDS = (4.0, 8.0, 12.0)
+ERROR_RESPONSE_TYPE = "travel.frontend.flights.ErrorResponse"
+
 SEAT = {
     CabinClass.ECONOMY: "economy",
     CabinClass.PREMIUM_ECONOMY: "premium-economy",
@@ -196,3 +202,28 @@ def frontend_post(url: str, body: str, currency: str, what: str) -> str:
     if "<title>Before you continue" in text:
         raise ProviderError("Google Flights shows its cookie consent page instead of results")
     return text
+
+
+def with_retries[T](
+    fetch: Callable[[], str],
+    parse: Callable[[str], T],
+    *,
+    sleep: Callable[[float], None],
+    what: str,
+) -> T:
+    """`parse(fetch())`, repeated after `RETRY_SECONDS` while the answer is unusable (`parse`
+    raises ValueError, mostly Google's error response). A ProviderError is not retried."""
+    for wait in (*RETRY_SECONDS, None):
+        text = fetch()
+        try:
+            return parse(text)
+        except ValueError:
+            if wait is None:
+                if ERROR_RESPONSE_TYPE in text:
+                    raise ProviderError(
+                        f"Google Flights {what} kept answering with an error "
+                        f"({len(RETRY_SECONDS) + 1} attempts)"
+                    ) from None
+                raise ProviderError(f"Google Flights {what} has an unexpected format") from None
+            sleep(wait)
+    raise AssertionError("unreachable")

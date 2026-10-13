@@ -136,3 +136,5 @@
 40. Quick navigation on long pages (Settings for admins, tracked search detail): a row of links
     to the sections, which are collapsible; a link focuses on its section (the others fold),
     "Show all" unfolds everything; saving returns to the section that was saved.
+41. Price calendar no longer fails on Google's intermittent error response: every calendar
+    request is retried like the result list (4, 8, 12 s), with a clear message if it still fails.

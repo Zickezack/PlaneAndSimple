@@ -413,7 +413,7 @@ class TestGoogleResultList:
         assert google_flights_search(ROUND_TRIP, post=broken, fallback=lambda r: page) == page
 
     def test_return_search_has_no_page_fallback(self):
-        with pytest.raises(ProviderError, match="unexpected format"):
+        with pytest.raises(ProviderError, match="kept answering with an error"):
             google_return_search(
                 ROUND_TRIP, [], post=lambda body, currency: ERROR_RESPONSE, sleep=lambda _: None
             )

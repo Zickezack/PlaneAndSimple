@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from functools import partial
 
 from flighttracker.domain.sampling import sample_days
 from flighttracker.providers.base import (
@@ -25,6 +26,7 @@ from flighttracker.providers.google_flights.common import (
     FareRequest,
     ReturnSearchFn,
     SearchFn,
+    with_retries,
 )
 from flighttracker.providers.google_flights.price_calendar import (
     CALENDAR_DAYS_PER_REQUEST,
@@ -40,6 +42,13 @@ from flighttracker.providers.google_flights.results import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _calendar_prices(text: str, currency: str) -> list[CalendarPrice]:
+    """ValueError (retried) for an unusable answer; the consent page is not worth a retry."""
+    if "<title>Before you continue" in text:
+        raise ProviderError("Google Flights shows its cookie consent page instead of results")
+    return parse_calendar(text, currency)
 
 
 class GoogleFlightsProvider(FlightPriceProvider):
@@ -105,20 +114,16 @@ class GoogleFlightsProvider(FlightPriceProvider):
         prices: list[CalendarPrice] = []
         errors: list[ProviderError] = []
         for start, end in chunks:
+            body = calendar_request_body(query, start, end)
             try:
-                text = self._calendar_search(
-                    calendar_request_body(query, start, end), query.currency
+                found = with_retries(
+                    partial(self._calendar_search, body, query.currency),
+                    partial(_calendar_prices, currency=query.currency),
+                    sleep=self._sleep,
+                    what="calendar",
                 )
-                if "<title>Before you continue" in text:
-                    raise ProviderError(
-                        "Google Flights shows its cookie consent page instead of results"
-                    )
-                found = parse_calendar(text, query.currency)
             except ProviderError as exc:
                 errors.append(exc)
-                continue
-            except ValueError:
-                errors.append(ProviderError("Google Flights calendar has an unexpected format"))
                 continue
             finally:
                 self._sleep(self._delay)
