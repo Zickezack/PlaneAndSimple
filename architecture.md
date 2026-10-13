@@ -118,7 +118,8 @@ Where new code goes (dependencies only point downwards):
   `trip_polling.py`).
 - Services: one use case per module – write side `searches`, `trips`; lookups `locations`;
   read side `history`, `price_trends`, `month_overview`, `capacity`; polling `ingestion`, `day_selection`, `trip_polling`;
-  transfer `data_export`, `data_import`.
+  transfer `data_export`, `data_import`; accounts `users` (management), `login`, `password_tokens`;
+  mail `mail`, `mail_messages`, `price_alerts`.
 - No imports of another module's `_private` names: a helper a second module needs becomes public.
 - JS: one file per widget, shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
   classic `defer` scripts loaded via `static_url()` in a fixed order – no ES-module `import`
@@ -267,7 +268,11 @@ legs, then polled again) ask for the exact name.
   allowed.
 - **Env admin:** `ADMIN_USERNAME` gets a `users` row on its first login, without password hash –
   its password is always checked against `ADMIN_PASSWORD_HASH`. It cannot be renamed, demoted,
-  deactivated or deleted in the UI; no admin can do that to themselves either.
+  deactivated or deleted in the UI; no admin can demote, deactivate or delete themselves either.
+- **Usernames and login:** admins rename database users (also themselves) on the user page;
+  everything refers to the user id, so ownership, shares and alerts follow. Users log in with
+  their username or their e-mail address (both ignoring case). A username never equals another
+  user's address and vice versa, so every login names exactly one user (`services/login.py`).
 
 ## Price history: guarantees and limits
 
@@ -314,8 +319,8 @@ after its mail went out, so a failed mail is retried after the next poll.
   contains no URL; migrations contain schema only. The production compose aborts if required
   variables are missing, and the app refuses the `.env.example` placeholder `SECRET_KEY`.
 - Logins: users in the database (scrypt hashes, minimum 12 characters) plus the env admin
-  (`ADMIN_USERNAME`, scrypt `ADMIN_PASSWORD_HASH`). Unknown usernames are checked against a
-  dummy hash, so response times do not reveal them. The session stores the user id and the
+  (`ADMIN_USERNAME`, scrypt `ADMIN_PASSWORD_HASH`), by username or e-mail address. Unknown
+  logins are checked against a dummy hash, so response times do not reveal them. The session stores the user id and the
   user's `auth_version`, which is raised on password, role and status changes – this ends
   all other sessions of that user. Signed session cookie
   (HttpOnly, SameSite=Lax, Secure by default), CSRF token on every POST, login lockout after

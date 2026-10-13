@@ -9,7 +9,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from flighttracker.config import Settings
@@ -78,14 +78,3 @@ def redeem(
     set_password(user, password)
     _void_open_tokens(session, user, now)
     return user
-
-
-def find_by_login(session: Session, login: str) -> User | None:
-    """User by username or e-mail address (both ignoring case) – "Forgot password?" asks for
-    either."""
-    value = login.strip().lower()
-    if not value:
-        return None
-    return session.scalar(
-        select(User).where(or_(func.lower(User.username) == value, func.lower(User.email) == value))
-    )

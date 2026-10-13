@@ -7,7 +7,7 @@
   {% if error %}{{ ui.alert(error, "error") }}{% endif %}
   <form method="post" action="/login" class="form">
     {{ ui.csrf_field() }}
-    {{ ui.text_field("username", _("Username"), required=True, autocomplete="username") }}
+    {{ ui.text_field("username", _("Username or e-mail address"), required=True, autocomplete="username") }}
     {{ ui.text_field("password", _("Password"), type="password", required=True, autocomplete="current-password") }}
     <div class="actions">{{ ui.button(_("Log in")) }}{% if mail_enabled %} <a href="/password/forgot">{{ _("Forgot password?") }}</a>{% endif %}</div>
   </form>

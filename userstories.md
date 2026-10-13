@@ -2,9 +2,6 @@
 
 ## Backlog
 
-### Epic Benutzerverwaltung
-1. Rename users (today only possible by creating a new user and changing the owner).
-
 ### Epic Benachrichtigungen
 (Mail, account mails and price alerts are implemented – see 42–43.)
 1. Price digest: daily or weekly mail per user (chosen in the personal settings) with how the
@@ -158,3 +155,5 @@
     language.
 43. Price alerts per tracked search (optionally per route and cabin), by mail after each poll:
     at most one mail per flight and price drop, one mail per user and poll.
+44. User management: admins rename users (ownership, shares and alerts follow); login with
+    username or e-mail address – usernames and addresses are unique across each other.

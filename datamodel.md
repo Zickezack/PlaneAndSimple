@@ -139,7 +139,8 @@ erDiagram
 - A displayed complete-option price is the sum of the individual one-way prices. It is not a
   through-ticket fare, and connections may involve separately booked tickets and self-transfers.
 - `users.username` is unique ignoring case (`uq_users_username_lower`), `users.email` too
-  (`uq_users_email_lower`, migration `0013`). A database user without `password_hash` (created
+  (`uq_users_email_lower`, migration `0013`); both identify a user at login, so the services
+  also keep usernames and addresses unique across each other. A database user without `password_hash` (created
   with a welcome link) cannot log in until the link is used. `password_hash` is
   `NULL` only for the admin from `.env`, whose password lives in `ADMIN_PASSWORD_HASH`.
   `max_searches` / `max_requests` `NULL` = the Platform Settings defaults; `locale` /

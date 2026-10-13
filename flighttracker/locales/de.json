@@ -384,7 +384,6 @@
   "Repeat new password": "Neues Passwort wiederholen",
   "Requests per poll": "Einzelabfragen pro Durchlauf",
   "Role": "Rolle",
-  "Role, status and limits": "Rolle, Status und Limits",
   "Running and queued polls": "Laufende und wartende Abfragen",
   "Set a new password": "Neues Passwort setzen",
   "Set password": "Passwort setzen",
@@ -553,8 +552,6 @@
   "Mail is set up correctly: this test mail arrived.": "Mail ist korrekt eingerichtet: Diese Testmail ist angekommen.",
   "Mail server for outgoing mail; a provider preset above fills it in.": "Server für ausgehende Mails; eine Anbieter-Vorlage oben füllt ihn aus.",
   "Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.": "Mails: Willkommens- und Passwort-Links, ein Hinweis nach einer Passwortänderung, Preisalarme. Nur Benutzer mit E-Mail-Adresse erhalten sie. Ohne Server und Absender wird keine Mail verschickt.",
-  "Optional. For the user's mails (password links, price alerts).": "Optional. Für die Mails des Benutzers (Passwort-Links, Preisalarme).",
-  "Optional. Needed for price alerts and to reset a forgotten password; never shown to other users.": "Optional. Nötig für Preisalarme und um ein vergessenes Passwort zurückzusetzen; wird anderen Benutzern nie angezeigt.",
   "Optional. With mail set up, the user gets a welcome mail.": "Optional. Ist Mail eingerichtet, erhält der Benutzer eine Willkommensmail.",
   "Password set. You can log in now.": "Passwort gesetzt. Du kannst dich jetzt anmelden.",
   "Price alert deleted.": "Preisalarm gelöscht.",
@@ -607,5 +604,9 @@
   "Enable sending via SMTP in the GMX settings (POP3/IMAP and SMTP) first.": "Zuerst in den GMX-Einstellungen den Versand per SMTP aktivieren (POP3/IMAP und SMTP).",
   "Username: the full bluewin address.": "Benutzername: die vollständige bluewin-Adresse.",
   "Paid plans with a custom domain only; password: an SMTP token from Proton's settings.": "Nur bezahlte Abos mit eigener Domain; Passwort: ein SMTP-Token aus den Proton-Einstellungen.",
-  "Catches every mail instead of delivering it; web view on port 8025. For development.": "Fängt jede Mail ab, statt sie zuzustellen; Weboberfläche auf Port 8025. Für die Entwicklung."
+  "Catches every mail instead of delivering it; web view on port 8025. For development.": "Fängt jede Mail ab, statt sie zuzustellen; Weboberfläche auf Port 8025. Für die Entwicklung.",
+  "Name, role, status and limits": "Name, Rolle, Status und Limits",
+  "Optional. For the user's mails (password links, price alerts) and to log in with it.": "Optional. Für die Mails des Benutzers (Passwort-Links, Preisalarme) und zum Anmelden.",
+  "Optional. You can log in with it too; needed for price alerts and to reset a forgotten password. Never shown to other users.": "Optional. Du kannst dich auch damit anmelden; nötig für Preisalarme und um ein vergessenes Passwort zurückzusetzen. Wird anderen Benutzern nie angezeigt.",
+  "Renaming keeps everything of the user; they log in with the new name from now on.": "Beim Umbenennen bleibt alles des Benutzers erhalten; die Anmeldung erfolgt ab sofort mit dem neuen Namen."
 }

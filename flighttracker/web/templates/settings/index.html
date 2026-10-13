@@ -17,7 +17,7 @@
       {{ ui.select_field("locale", _("Language"), locale_options, user.locale or locale) }}
       {{ ui.select_field("timezone", _("Time zone"), timezone_options, user.timezone or "") }}
     </div>
-    {{ ui.text_field("email", _("E-mail address"), user.email or "", type="email", autocomplete="email", hint=_("Optional. Needed for price alerts and to reset a forgotten password; never shown to other users.")) }}
+    {{ ui.text_field("email", _("E-mail address"), user.email or "", type="email", autocomplete="email", hint=_("Optional. You can log in with it too; needed for price alerts and to reset a forgotten password. Never shown to other users.")) }}
     <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
   </form>
 </details>

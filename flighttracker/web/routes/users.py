@@ -16,6 +16,7 @@ from flighttracker.services.users import (
     delete_user,
     is_env_admin,
     list_users,
+    rename_user,
     set_email,
     set_password,
     update_user,
@@ -169,6 +170,7 @@ def edit(
             max_searches=_optional_limit(form.get("max_searches")),
             max_requests=_optional_limit(form.get("max_requests")),
         )
+        rename_user(db, user, settings, str(form.get("username", user.username)))
         set_email(db, user, str(form.get("email", "")))
     except UserValidationError as exc:
         db.rollback()

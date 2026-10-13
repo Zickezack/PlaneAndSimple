@@ -1,13 +1,8 @@
-"""Users: login, management by admins, personal settings.
-
-The admin from `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`) always works as a fallback:
-its row is created on its first login, has no password hash of its own and is always an
-active admin, so a lost database password can never lock everybody out.
-"""
+"""Users: management by admins (create, rename, roles, limits, delete), passwords, personal
+settings. Logging in is `services/login.py`; the `.env` admin is explained there."""
 
 import re
 from datetime import UTC, datetime
-from functools import cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import exists, func, select, update
@@ -27,12 +22,6 @@ class UserValidationError(ValueError):
     def __init__(self, errors: list[Msg]):
         super().__init__("; ".join(str(e) for e in errors))
         self.errors = errors
-
-
-@cache
-def _dummy_hash() -> str:
-    # Unknown usernames are checked against this, so response time does not reveal them.
-    return hash_password("not-a-real-password")
 
 
 def _utcnow() -> datetime:
@@ -55,7 +44,13 @@ def list_users(session: Session) -> list[User]:
     return list(session.scalars(select(User).order_by(func.lower(User.username))))
 
 
-def _ensure_env_admin(session: Session, settings: Settings) -> User:
+def _password_errors(password: str) -> list[Msg]:
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return [Msg("The password must be at least {n} characters long.", n=MIN_PASSWORD_LENGTH)]
+    return []
+
+
+def ensure_env_admin(session: Session, settings: Settings) -> User:
     user = find_user(session, settings.admin_username)
     if user is None:
         user = User(
@@ -76,53 +71,53 @@ def _ensure_env_admin(session: Session, settings: Settings) -> User:
     return user
 
 
-def authenticate(session: Session, settings: Settings, username: str, password: str) -> User | None:
-    """The user for these credentials, or None. Always verifies one password hash."""
-    username = username.strip()
-    if username.lower() == settings.admin_username.lower():
-        if not verify_password(password, settings.admin_password_hash.get_secret_value()):
-            return None
-        user = _ensure_env_admin(session, settings)
-    else:
-        user = find_user(session, username) if USERNAME_PATTERN.match(username) else None
-        usable = user is not None and user.is_active and user.password_hash is not None
-        stored = user.password_hash if usable else _dummy_hash()
-        if not verify_password(password, stored) or not usable:
-            return None
-    user.last_login_at = _utcnow()
-    return user
+def _taken_by_other(session: Session, value: str, user_id: int | None) -> bool:
+    """Whether another user has this as username or e-mail address (ignoring case) – both
+    identify a user at login, so they must be unique across each other."""
+    value = value.lower()
+    return (
+        session.scalar(
+            select(User.id).where(
+                (func.lower(User.username) == value) | (func.lower(User.email) == value),
+                User.id != (user_id or 0),
+            )
+        )
+        is not None
+    )
 
 
-def session_user(
-    session: Session, settings: Settings, user_id: object, auth_version: object
-) -> User | None:
-    """The user of a login session, None when it was deactivated, changed or removed since."""
-    if not isinstance(user_id, int) or not isinstance(auth_version, int):
-        return None
-    user = session.get(User, user_id)
-    if user is None or not user.is_active or user.auth_version != auth_version:
-        return None
-    # A renamed `.env` admin leaves a row without password behind; it can no longer log in.
-    if user.password_hash is None and not is_env_admin(user, settings):
-        return None
-    return user
-
-
-def _password_errors(password: str) -> list[Msg]:
-    if len(password) < MIN_PASSWORD_LENGTH:
-        return [Msg("The password must be at least {n} characters long.", n=MIN_PASSWORD_LENGTH)]
+def _name_errors(
+    session: Session, settings: Settings, username: str, user_id: int | None = None
+) -> list[Msg]:
+    if not USERNAME_PATTERN.match(username):
+        return [Msg("Usernames have 2–60 characters: letters, digits and . _ @ - only.")]
+    if username.lower() == settings.admin_username.lower() or _taken_by_other(
+        session, username, user_id
+    ):
+        return [Msg('The username "{name}" is already taken.', name=username)]
     return []
 
 
 def _email_errors(session: Session, email: str, user_id: int | None = None) -> list[Msg]:
     if not is_valid_email(email):
         return [Msg('"{email}" is not a valid e-mail address.', email=email)]
-    taken = session.scalar(
-        select(User.id).where(func.lower(User.email) == email.lower(), User.id != (user_id or 0))
-    )
-    if taken is not None:
+    if _taken_by_other(session, email, user_id):
         return [Msg("This e-mail address is already used by another user.")]
     return []
+
+
+def rename_user(session: Session, user: User, settings: Settings, username: str) -> None:
+    """Admins rename any database user; ownership, shares and alerts follow (they refer to the
+    id). The `.env` admin's name comes from `ADMIN_USERNAME`."""
+    username = username.strip()
+    if username == user.username:
+        return
+    if is_env_admin(user, settings):
+        raise UserValidationError([Msg("The admin from .env cannot be changed here.")])
+    errors = _name_errors(session, settings, username, user.id)
+    if errors:
+        raise UserValidationError(errors)
+    user.username = username
 
 
 def set_email(session: Session, user: User, raw: str) -> None:
@@ -146,11 +141,7 @@ def create_user(
     """`password` may stay empty when an `email` is given: the user then sets it through the
     link of the welcome mail and cannot log in before."""
     username, email = username.strip(), email.strip()
-    errors: list[Msg] = []
-    if not USERNAME_PATTERN.match(username):
-        errors.append(Msg("Usernames have 2–60 characters: letters, digits and . _ @ - only."))
-    elif username.lower() == settings.admin_username.lower() or find_user(session, username):
-        errors.append(Msg('The username "{name}" is already taken.', name=username))
+    errors = _name_errors(session, settings, username)
     if email:
         errors.extend(_email_errors(session, email))
     if password or not email:
@@ -262,7 +253,7 @@ def delete_user(session: Session, actor: User, user: User, settings: Settings) -
     user.is_active = False
     session.flush()
     paused = pause_unattended(session)
-    admin = _ensure_env_admin(session, settings)
+    admin = ensure_env_admin(session, settings)
     for model in (Search, Trip):
         session.execute(update(model).where(model.owner_id == user.id).values(owner_id=admin.id))
     session.delete(user)

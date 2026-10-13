@@ -10,8 +10,8 @@ from starlette.datastructures import FormData
 from flighttracker.config import Settings
 from flighttracker.i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, Msg
 from flighttracker.models import User
+from flighttracker.services.login import session_user
 from flighttracker.services.settings import effective_settings
-from flighttracker.services.users import session_user
 
 SESSION_USER = "user_id"
 SESSION_AUTH_VERSION = "auth_version"

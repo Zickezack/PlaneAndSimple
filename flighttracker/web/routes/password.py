@@ -12,6 +12,7 @@ from flighttracker.config import Settings
 from flighttracker.i18n import Msg
 from flighttracker.models import TokenPurpose, User
 from flighttracker.services import mail, mail_messages, password_tokens
+from flighttracker.services.login import find_login
 from flighttracker.services.users import UserValidationError
 from flighttracker.web.deps import (
     csrf_form,
@@ -49,7 +50,7 @@ def forgot(
     if not request.app.state.login_throttle.try_attempt(f"reset:{client}", now):
         flash(request, Msg("Too many attempts. Please try again in a few minutes."), "error")
         return RedirectResponse("/password/forgot", status_code=303)
-    user = password_tokens.find_by_login(db, str(form.get("login", "")))
+    user = find_login(db, str(form.get("login", "")))
     if mail.mail_enabled(settings) and password_tokens.can_reset(user, settings):
         token = password_tokens.issue(db, user, TokenPurpose.RESET, now)
         db.commit()

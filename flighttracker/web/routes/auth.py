@@ -7,9 +7,9 @@ from starlette.datastructures import FormData
 
 from flighttracker.config import Settings
 from flighttracker.i18n import Msg
+from flighttracker.services.login import authenticate
 from flighttracker.services.mail import mail_enabled
 from flighttracker.services.settings import effective_settings
-from flighttracker.services.users import authenticate
 from flighttracker.web.deps import csrf_form, current_user, get_db, get_settings, start_session
 from flighttracker.web.templating import templates
 
