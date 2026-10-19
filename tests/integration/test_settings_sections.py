@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from flighttracker.models import PlatformSetting
-from flighttracker.services import ai, mail
+from flighttracker.services import ai, ai_wire, mail
 from tests.integration.test_web import client, login  # noqa: F401 (fixture)
 
 JSON = {"Accept": "application/json"}
@@ -81,7 +81,7 @@ def test_the_ai_test_uses_the_entered_values_without_saving(client, db, token, m
         return httpx.Response(200, json={"message": {"content": "OK"}})
 
     monkeypatch.setattr(ai.httpx, "post", answer)
-    monkeypatch.setattr(ai, "ollama_loaded", lambda settings: [])
+    monkeypatch.setattr(ai_wire, "ollama_loaded", lambda settings: [])
     response = client.post("/settings/ai/test", data={"csrf_token": token, **AI_FORM}, headers=JSON)
     data = response.json()
     assert data["ok"] and data["messages"][0]["category"] == "success"

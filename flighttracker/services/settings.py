@@ -87,6 +87,7 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("ai_system_prompt", AI_SECTION, "text"),
     SettingField("ai_drafts", AI_SECTION, "bool"),
     SettingField("ai_explanations", AI_SECTION, "bool"),
+    SettingField("ai_log_messages", AI_SECTION, "bool"),
 )
 
 _FIELDS_BY_KEY = {field.key: field for field in SETTING_FIELDS}

@@ -119,9 +119,10 @@ Where new code goes (dependencies only point downwards):
 - Services: one use case per module – write side `searches`, `trips`; lookups `locations`;
   read side `history`, `price_trends`, `month_overview`, `capacity`; polling `ingestion`, `day_selection`, `trip_polling`;
   transfer `data_export`, `data_import`; accounts `users` (management), `login`, `password_tokens`;
-  mail `mail`, `mail_messages`, `price_alerts`.
+  mail `mail`, `mail_messages`, `price_alerts`; AI `ai` (one request), `ai_wire` (the providers'
+  wire formats), `ai_log` (usage log), `ai_prompts`; admins' logs read side `usage_logs`.
 - No imports of another module's `_private` names: a helper a second module needs becomes public.
-- JS: one file per widget (chart, `price-band`, `price-history`, `price-calendar`), shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
+- JS: one file per widget (chart, `price-band`, `price-history`, `price-calendar`, `info` for the "i" explanations), shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
   classic `defer` scripts loaded via `static_url()` in a fixed order – no ES-module `import`
   (imported files would skip the `?v=` cache busting).
 
@@ -143,7 +144,9 @@ Where new code goes (dependencies only point downwards):
 | Mail, password links | `services/mail.py`, `services/mail_messages.py`, `services/password_tokens.py`, `web/mails.py`, `web/routes/password.py`, `security/secrets.py` |
 | Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker hook in `worker/loop.py` |
 | Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
-| AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_prompts.py`, `web/routes/ai.py`, `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
+| AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_wire.py`, `services/ai_prompts.py`, `web/ai_report.py` (connection test), `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
+| AI usage log | `services/ai_log.py` (write), `services/usage_logs.py` (read), `web/routes/ai_usage.py` + `templates/settings/ai_request.html` (one request stage by stage) |
+| "i" explanations | macros `ui.info` / `ui.section_info` and the `hint`/`note` of the field macros in `templates/_macros.html`, `static/js/info.js` |
 
 **Plane and simple (UI principle):** every page shows the essentials first and folds the rest
 away. Suchabo detail: summary line, "Poll now", chart and a lean flights table; settings, recent
@@ -151,6 +154,13 @@ polls, change history and deletion are `<details>` sections; everything about on
 its flight detail page (`/searches/<id>/flights/<price id>`: segments with Flightradar24 links,
 layovers, price history of these dates, Google Flights link). Filters appear only when they offer
 a real choice; rarely changed form fields sit under "More options". New features follow this.
+Explanations of a field or function sit behind an "i" (macro `ui.info`; `ui.section_info` at
+the top right of a card – never inside `<summary>`, a click there would fold it; the field
+macros take `hint=` for it): hover, keyboard focus or a tap shows the text, Escape or a click
+elsewhere closes it, and screen readers read it right after the button. Hover and focus work
+without JavaScript (`static/js/info.js` adds tapping and keeps the bubble inside the window).
+What the user must not miss stays visible: requirements ("At least 12 characters"), warnings
+and status (`note=` of the field macros, `<p class="note">`).
 Pages with many sections (Settings for admins, Suchabo detail – from about five) get a quick
 navigation row (macro `ui.section_nav`, behaviour in `static/js/app.js`) above cards that are
 `<details>` with an `id`: a link opens its section and folds the others, "Show all" unfolds them
@@ -344,8 +354,8 @@ after its mail went out, so a failed mail is retried after the next poll.
 ## AI (optional)
 
 Off until a provider is set (`.env` `AI_*` or Platform Settings → AI, presets in
-`domain/ai_providers.py`). `services/ai.py` speaks three wire formats over plain `httpx` (no
-provider SDK, no new dependency): Anthropic's Messages API (`POST /v1/messages`, JSON drafts via
+`domain/ai_providers.py`). `services/ai.py` checks and sends one request; `services/ai_wire.py`
+speaks the three wire formats over plain `httpx` (no provider SDK, no new dependency): Anthropic's Messages API (`POST /v1/messages`, JSON drafts via
 `output_config.format`), Ollama's own chat API (`POST /api/chat`, JSON schema in `format`) and the
 OpenAI-compatible chat completions API (OpenAI, LM Studio, Mistral, Groq, OpenRouter …; JSON
 mode). For Ollama every request carries the configured context window (`options.num_ctx`) and
@@ -354,10 +364,15 @@ is then neither reloaded nor unloaded early – a different `num_ctx` makes Olla
 missing `keep_alive` resets its lifetime to 5 minutes. The answer is capped to what fits next to
 the prompt in that window; the connection test reads `/api/ps` and warns about a mismatch.
 "No thinking" (Ollama only) sends `think: false`; for every provider, reasoning a model writes
-into its answer (`<think>…</think>`) is removed before a draft is parsed or an explanation shown
-(Anthropic returns thinking in separate blocks, which are not read). Synchronous in the web request, 90 s timeout; the token
-limit refuses over-long requests, the response limit caps answers (thinking models count their
-thinking). The API key is stored Fernet-encrypted like the SMTP password; errors never contain it.
+into its answer (`<think>…</think>`) is removed before a draft is parsed or an explanation shown.
+Thinking returned separately (Ollama `message.thinking`, `reasoning_content`/`reasoning` of
+OpenAI-compatible servers, Anthropic's thinking blocks) only goes to the usage log. Synchronous
+in the web request, 90 s timeout. The token limit is a safeguard of the app (estimated at 3.5
+characters per token, never sent): longer requests are not sent. The response limit is sent
+(`max_tokens`; for Ollama `num_predict`, at most what the context window leaves next to the
+prompt; thinking models count their thinking); an answer that hits it (`max_tokens` / `length`
+as stop reason) is cut off and fails as such. A draft whose answer is no JSON object fails too.
+The API key is stored Fernet-encrypted like the SMTP password; errors never contain it.
 
 What the AI is asked lives in `services/ai_prompts.py`: an editable system prompt (built-in
 template as default) plus fixed guardrails – use only the given facts, never invent numbers,
@@ -369,10 +384,20 @@ answer in the user's language. The AI never calculates and never saves anything:
 - **Draft from a wish** ("Describe your trip" on the new tracked search page): the model returns
   a JSON draft that fills the form – place names are looked up as airports/countries, values
   clamped – and the user saves it through the normal form with all its validation.
-With a cloud provider the facts of a request (routes, dates, prices; no user data) leave the
-server; a local Ollama keeps them. Every request is logged in `ai_usage` (feature, user, model,
-tokens as reported by the provider, duration, outcome – never prompt or answer; pruned after
-half a year) and summarised for admins in the AI section (`services/usage_logs.py`).
+With a cloud provider the facts of a request (routes, dates, prices; for a draft the travel
+wish – no account data) leave the server; a local Ollama keeps them.
+
+**Usage log** (`services/ai_log.py`, admins only): every request – failed and cut-off ones too –
+is a row in `ai_usage` with feature, user, model, tokens as reported by the provider, the
+answer limit, duration, outcome (OK / cut off / failed) and stop reason, plus what went out
+(address without credentials, body without the prompts – never a header) and the rest of the
+provider's response (timings, ids, token details). While "Log messages" is on (default) it also
+keeps the messages: system prompt, request, thinking, the answer as received and as the app
+used it (pretty JSON for a draft) – cleared after 30 days, the row stays half a year. The AI
+section summarises the last 30 days per feature (`services/usage_logs.py`); a request's time
+opens `/settings/ai-usage/<id>` with the four stages – sent by the app, thinking, received (for
+Ollama with its timings; a model load over a second means it was (re)loaded for the request),
+used by the app.
 
 ## Security
 

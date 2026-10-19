@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from flighttracker.config import Settings
 from flighttracker.security.passwords import hash_password
-from flighttracker.services import ai
+from flighttracker.services import ai, ai_wire
 from flighttracker.web.app import create_app
 from tests.integration.test_services import create
 from tests.integration.test_web import PASSWORD, _seed_price, login
@@ -116,7 +116,7 @@ def test_connection_test_reports_errors(client, db, monkeypatch):
     assert "AI not reachable" in response.text and "No connection" in response.text
 
 
-def test_usage_log_records_requests_without_their_content(client, db, monkeypatch):
+def test_usage_log_records_every_request(client, db, monkeypatch):
     from sqlalchemy import select
 
     from flighttracker.models import AIUsage
@@ -127,7 +127,7 @@ def test_usage_log_records_requests_without_their_content(client, db, monkeypatc
         )
 
     monkeypatch.setattr(ai.httpx, "post", answer)
-    monkeypatch.setattr(ai, "ollama_loaded", lambda settings: [])
+    monkeypatch.setattr(ai_wire, "ollama_loaded", lambda settings: [])
     token = login(client)
     client.post("/settings/ai/test", data={"csrf_token": token})
     monkeypatch.setattr(ai.httpx, "post", lambda *a, **k: httpx.Response(429, json={}))
@@ -138,6 +138,7 @@ def test_usage_log_records_requests_without_their_content(client, db, monkeypatc
         ("draft", False, None, None),
     ]
     assert "429" in rows[1].error and rows[0].model == "llama3.2"
+    assert (rows[0].user_prompt, rows[0].answer) == ("Reply with: OK", "OK")
     page = client.get("/settings").text
     assert "Usage log" in page and "2 requests, 1 failed" in page
 
@@ -147,9 +148,9 @@ def test_connection_test_reports_how_ollama_holds_the_model(client, db, monkeypa
         ai.httpx, "post", lambda *a, **k: httpx.Response(200, json={"message": {"content": "OK"}})
     )
     monkeypatch.setattr(
-        ai,
+        ai_wire,
         "ollama_loaded",
-        lambda settings: [ai.LoadedModel("llama3.2:latest", 8192, "2318-03-01T10:00:00Z")],
+        lambda settings: [ai_wire.LoadedModel("llama3.2:latest", 8192, "2318-03-01T10:00:00Z")],
     )
     token = login(client)
     page = client.post("/settings/ai/test", data={"csrf_token": token}).text
@@ -171,3 +172,62 @@ def test_settings_show_what_is_not_set_up(client, db):
     assert 'href="#providers"><strong>Flight data' in setup
     assert "Public address" not in setup  # only needed once mail is on
     assert "Set up:" in setup and ">AI</span>" in setup
+
+
+def test_usage_log_shows_cut_off_answers_stage_by_stage(client, db, monkeypatch):
+    from sqlalchemy import select
+
+    from flighttracker.models import AIUsage
+    from tests.integration.test_users import add_user, login_as
+
+    def cut_off(url, json=None, headers=None, timeout=None):
+        message = {"content": '{"name": "Zur', "thinking": "Zurich means ZRH."}
+        return httpx.Response(
+            200,
+            json={
+                "message": message,
+                "done_reason": "length",
+                "prompt_eval_count": 447,
+                "eval_count": 512,
+                "load_duration": 4_200_000_000,  # 4.2 s: loaded for this request
+            },
+        )
+
+    monkeypatch.setattr(ai.httpx, "post", cut_off)
+    token = login(client)
+    page = client.post("/searches/draft", data={"csrf_token": token, "wish": "Zurich to Lisbon"})
+    assert "response token limit" in page.text
+    row = db.scalars(select(AIUsage)).one()
+    assert row.cut_off and not row.ok and row.output_limit == 8000
+
+    settings_page = client.get("/settings").text
+    assert f'<a href="/settings/ai-usage/{row.id}">' in settings_page
+    assert "Cut off</span>" in settings_page
+    detail = client.get(f"/settings/ai-usage/{row.id}").text
+    assert "Zurich to Lisbon" in detail  # the request with the wish
+    assert "Zurich means ZRH." in detail  # the thinking Ollama returned
+    assert "{&#34;name&#34;: &#34;Zur" in detail  # the answer as received, cut off
+    assert "&#34;num_predict&#34;: 8000" in detail and "/api/chat" in detail
+    assert "Ollama loaded the model for this request" in detail
+    assert "(answer limit: 8&#39;000)" in detail
+
+    # After 30 days the messages go; tokens and outcome stay for half a year.
+    db.execute(
+        AIUsage.__table__.update().values(requested_at=datetime.now(UTC) - timedelta(days=31))
+    )
+    db.commit()
+    monkeypatch.setattr(
+        ai.httpx, "post", lambda *a, **k: httpx.Response(200, json={"message": {"content": "OK"}})
+    )
+    monkeypatch.setattr(ai_wire, "ollama_loaded", lambda settings: [])
+    client.post("/settings/ai/test", data={"csrf_token": token})
+    db.expire_all()
+    old = db.get(AIUsage, row.id)
+    assert (old.user_prompt, old.thinking, old.answer) == (None, None, None)
+    assert old.cut_off and old.output_tokens == 512
+    assert "are not in the log" in client.get(f"/settings/ai-usage/{row.id}").text
+    assert client.get("/settings/ai-usage/999999").status_code == 404
+
+    add_user(db, "alice")
+    login_as(client, "alice")
+    assert client.get(f"/settings/ai-usage/{row.id}").status_code == 403

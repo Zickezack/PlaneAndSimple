@@ -184,3 +184,92 @@ def test_thinking_is_never_part_of_the_answer(post):
     assert fake.calls[0]["json"]["think"] is False
     ai.complete(ollama(), "s", "u")
     assert "think" not in fake.calls[1]["json"]  # only when switched on
+
+
+class FakeSession:
+    """Collects the usage log rows (`ai_log.record` only adds, prunes and flushes)."""
+
+    def __init__(self):
+        self.added = []
+
+    def add(self, row):
+        self.added.append(row)
+
+    def execute(self, statement):
+        return None
+
+    def flush(self):
+        return None
+
+
+def test_the_log_keeps_every_stage_of_a_cut_off_answer(post):
+    post(
+        200,
+        {
+            "message": {"role": "assistant", "content": '{"name": "Lis', "thinking": "Lisbon."},
+            "done_reason": "length",
+            "prompt_eval_count": 447,
+            "eval_count": 512,
+            "load_duration": 12_000_000,
+        },
+    )
+    session = FakeSession()
+    usage = ai.UsageLog(session, "draft", 7)
+    with pytest.raises(ai.AIError, match="response token limit"):
+        ai.complete_json(ollama(ai_max_output_tokens=512), "system", "wish", {}, usage=usage)
+    row = session.added[0]
+    assert not row.ok and row.cut_off and row.stop_reason == "length"
+    assert (row.input_tokens, row.output_tokens, row.output_limit) == (447, 512, 512)
+    assert row.request["url"] == "http://ollama:11434/api/chat"
+    assert row.request["body"]["options"] == {"num_predict": 512, "num_ctx": 8192}
+    assert "messages" not in row.request["body"]  # the prompts have their own columns
+    assert (row.system_prompt, row.user_prompt) == ("system", "wish")
+    assert (row.thinking, row.answer, row.result) == ("Lisbon.", '{"name": "Lis', None)
+    assert row.response["load_duration"] == 12_000_000
+    assert row.response["message"] == {"role": "assistant"}  # the texts are not repeated
+
+
+def test_thinking_of_every_provider_and_never_the_key(post):
+    session = FakeSession()
+    usage = ai.UsageLog(session, "explain")
+    blocks = [{"type": "thinking", "thinking": "Prices fall."}, {"type": "text", "text": "Wait."}]
+    post(200, {"content": blocks, "stop_reason": "end_turn"})
+    assert ai.complete(settings(), "s", "u", usage=usage).text == "Wait."
+    message = {"content": "Book. sk-secret", "reasoning_content": "Lowest price."}
+    post(200, {"choices": [{"message": message, "finish_reason": "stop"}]})
+    remote = settings(ai_provider="openai", ai_base_url="https://me:pw@api.example/v1")
+    ai.complete(remote, "s", "u", usage=usage)
+    post(200, {"message": {"content": "<think>Hmm.</think>Watch."}})
+    assert ai.complete(ollama(), "s", "u", usage=usage).text == "Watch."
+    assert [row.thinking for row in session.added] == ["Prices fall.", "Lowest price.", "Hmm."]
+    assert session.added[0].response["content"] == ["thinking", "text"]
+    assert session.added[1].request["url"] == "https://api.example/v1/chat/completions"
+    assert session.added[1].answer == "Book. ***"  # a key never ends up in the log
+    assert all("sk-secret" not in repr(vars(row)) for row in session.added)
+
+    ai.complete(ollama(ai_log_messages=False), "s", "u", usage=usage)
+    row = session.added[-1]
+    assert row.ok and row.request and (row.system_prompt, row.answer, row.result) == (None,) * 3
+
+
+def test_failed_answers_are_logged_with_what_came_back(post):
+    session = FakeSession()
+    usage = ai.UsageLog(session, "draft")
+    post(200, answer_anthropic("Sure! Here is your draft."))
+    with pytest.raises(ai.AIError, match="did not answer with JSON"):
+        ai.complete_json(settings(), "s", "u", {"type": "object"}, usage=usage)
+    post(404, {"error": "model 'qwen9' not found"})
+    with pytest.raises(ai.AIError, match="not found"):
+        ai.complete(ollama(), "s", "u", usage=usage)
+    post(401, {"error": "Incorrect API key provided: sk-sec***"})
+    with pytest.raises(ai.AIError, match="rejected"):
+        ai.complete(settings(), "s", "u", usage=usage)
+    no_json, missing, rejected = session.added
+    assert not no_json.ok and not no_json.cut_off and no_json.answer == "Sure! Here is your draft."
+    assert "qwen9" in missing.answer and missing.request["body"]["model"] == "llama3.1:8b"
+    assert rejected.answer is None  # such answers can repeat part of the key
+
+
+def test_split_thinking_returns_both_parts():
+    assert ai.split_thinking("<think>a</think>Yes<think>b</think>") == ("Yes", "a\n\nb")
+    assert ai.split_thinking("No <think>cut off") == ("No ", "cut off")

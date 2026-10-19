@@ -17,9 +17,8 @@
   <form method="post" action="/searches/draft" class="form">
     {{ ui.csrf_field() }}
     <div class="field">
-      <label for="f-wish">{{ _("Your travel wish in your own words") }}</label>
+      <span class="field-label"><label for="f-wish">{{ _("Your travel wish in your own words") }}</label>{{ ui.info(_("The AI fills in the form below as a draft. Check every field – nothing is saved until you create the tracked search.")) }}</span>
       <textarea class="input" id="f-wish" name="wish" rows="3" maxlength="2000" required placeholder="{{ _('e.g. Two of us from Zurich or Basel to Lisbon for about a week in October, direct flights preferred') }}">{{ wish }}</textarea>
-      <small class="hint">{{ _("The AI fills in the form below as a draft. Check every field – nothing is saved until you create the tracked search.") }}</small>
     </div>
     <div class="actions">{{ ui.button(_("Create a draft"), "secondary") }}</div>
   </form>
@@ -71,8 +70,7 @@
 
   {% if values.airport_countries %}
   <section class="airport-selection">
-    <h2>{{ _("Airports per country") }}</h2>
-    <p class="hint">{{ _("Only the checked airports are queried, sorted by passenger numbers. Every additional airport multiplies the number of queries.") }}</p>
+    <h2>{{ _("Airports per country") }}{{ ui.info(_("Only the checked airports are queried, sorted by passenger numbers. Every additional airport multiplies the number of queries.")) }}</h2>
     <input type="hidden" name="airport_countries" value="{{ values.airport_countries | join(',') }}">
     <div class="grid-2">
       {% for code in values.airport_countries %}
@@ -109,9 +107,9 @@
 
   <div class="grid-3">
     {{ ui.number_field("adults", _("Adults"), values.adults, min=1, max=9,
-       hint=None if provider.prices_all_passengers else _('Note: prices from "{provider}" are for one adult; the number of passengers is not considered.', provider=provider.name)) }}
+       note=None if provider.prices_all_passengers else _('Note: prices from "{provider}" are for one adult; the number of passengers is not considered.', provider=provider.name)) }}
     {{ ui.number_field("children", _("Children (2–11 years)"), values.children, min=0, max=8,
-       hint=None if provider.supports_children else _('Note: not available with the data source "{provider}" – prices do not include children.', provider=provider.name)) }}
+       note=None if provider.supports_children else _('Note: not available with the data source "{provider}" – prices do not include children.', provider=provider.name)) }}
   </div>
 
   {#- Rarely changed settings stay folded away (open when the form has errors). -#}
@@ -123,10 +121,10 @@
         hint=_("How many departure dates are queried per month: half of them evenly spread (the same every poll, for a continuous price history), the other half the cheapest days of Google's price calendar. This affects coverage and requests per poll, not poll frequency. Example (Google Flights, 1 route, 6 months, one-way): 4 per month = 24 requests, every day = 186 requests. Round trips multiply this by the number of stay lengths (up to 8). Warning: many requests per poll can get your IP temporarily blocked by Google – keep 4 unless you track few routes.")) }}
     </div>
     <div class="field">
-      <label class="choice"><input type="checkbox" name="return_flights" value="1"{% if values.return_flights %} checked{% endif %}> <span>{{ _("Load return flights") }}</span></label>
-      <small class="hint">{% if provider.supports_return_flights %}{{ _("Round trips only. Google Flights lists a round trip by its outbound flight; one more request per price loads its return flight (shown on the flight page with its flight numbers). This doubles the requests per poll of this tracked search.") }}
-        {% if usage and usage.max_requests is not none %}{{ _("Your limit: {max} provider requests per poll for all your tracked searches and Trips together ({used} used).", max=usage.max_requests, used=usage.requests) }}{% endif %}
-        {%- else %}{{ _('Note: not available with the data source "{provider}".', provider=provider.name) }}{% endif %}</small>
+      <span class="field-label"><label class="choice"><input type="checkbox" name="return_flights" value="1"{% if values.return_flights %} checked{% endif %}> <span>{{ _("Load return flights") }}</span></label>
+        {%- if provider.supports_return_flights %}{{ ui.info(_("Round trips only. Google Flights lists a round trip by its outbound flight; one more request per price loads its return flight (shown on the flight page with its flight numbers). This doubles the requests per poll of this tracked search.")) }}{% endif %}</span>
+      {% if not provider.supports_return_flights %}<small class="hint">{{ _('Note: not available with the data source "{provider}".', provider=provider.name) }}</small>
+      {% elif usage and usage.max_requests is not none %}<small class="hint">{{ _("Your limit: {max} provider requests per poll for all your tracked searches and Trips together ({used} used).", max=usage.max_requests, used=usage.requests) }}</small>{% endif %}
     </div>
   </details>
 

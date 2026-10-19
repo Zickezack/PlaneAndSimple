@@ -42,7 +42,7 @@ The code and docs use "Suchabo" for a tracked search.
 | Price alert | Preisalarm | `PriceAlert` / `price_alerts` | A user's highest price for a Suchabo, optionally one route and cabin |
 | – | – | `PriceAlertNotification` / `price_alert_notifications` | Flight and price an alert already reported |
 | Mail log | Mail-Protokoll | `MailLog` / `mail_log` | One mail: user, kind, subject, sent or error (no address) |
-| AI usage log | KI-Nutzungsprotokoll | `AIUsage` / `ai_usage` | One AI request: user, feature, model, tokens, duration, outcome (no prompt/answer) |
+| AI usage log | KI-Nutzungsprotokoll | `AIUsage` / `ai_usage` | One AI request: user, feature, model, tokens, duration, outcome (OK, cut off, failed), parameters sent; its messages (prompts, thinking, answer) for 30 days |
 | Owner | Besitzer | `searches.owner_id`, `trips.owner_id` | User a Suchabo/Trip belongs to; `NULL` only until the env admin's next login |
 | Sharing | Teilen | `Share` / `shares` | Access of one user to one Suchabo or Trip: view only (`can_edit` false) or view and edit |
 | Cancelled | Abgebrochen | `fetch_jobs.status = 'cancelled'` | Poll stopped from the Poll Log |
@@ -93,7 +93,7 @@ erDiagram
     price_alerts { bigint id PK; bigint search_id FK; bigint user_id FK; numeric max_price; char3 currency; char3 origin_iata; char3 destination_iata; string cabin_class }
     price_alert_notifications { bigint id PK; bigint alert_id FK; char3 origin_iata; char3 destination_iata; string cabin_class; date departure_date; date return_date; numeric price; char3 currency; timestamptz notified_at }
     mail_log { bigint id PK; timestamptz sent_at; bigint user_id FK; string kind; string subject; bool ok; text error }
-    ai_usage { bigint id PK; timestamptz requested_at; bigint user_id FK; string feature; string provider; string model; int input_tokens; int output_tokens; int duration_ms; bool ok; text error }
+    ai_usage { bigint id PK; timestamptz requested_at; bigint user_id FK; string feature; string provider; string model; int input_tokens; int output_tokens; int output_limit; int duration_ms; bool ok; bool cut_off; string stop_reason; text error; jsonb request; jsonb response; text system_prompt; text user_prompt; text thinking; text answer; text result }
     shares { bigint id PK; bigint search_id FK; bigint trip_id FK; bigint user_id FK; bool can_edit; timestamptz created_at }
 ```
 
@@ -218,7 +218,15 @@ Trips stay without owner. Usernames are shown to other users only where they sha
 (owner, share list). The JSON export contains no user data.
 
 `mail_log` and `ai_usage` (migration `0014`) refer to users only by id (`ON DELETE SET NULL`),
-store no addresses, prompts or answers, and are pruned after half a year.
+store no addresses and are pruned after half a year. Since migration `0015` an `ai_usage` row
+also holds the messages of its request – `system_prompt`, `user_prompt` (for a draft the
+user's own travel wish), `thinking`, `answer` (as received; for an HTTP error the provider's
+error text, except for 401/403, which can repeat part of the key) and `result` (as used) –
+only while "Log messages" (`AI_LOG_MESSAGES`, default on) is on, cleared after 30 days, shown
+to admins only. `request` (address without credentials or query, body without the prompts –
+never a header) and `response` (the provider's response without its texts: stop reason,
+timings, token details) stay as long as the row. The API key never ends up in any of them
+(it is also replaced by `***` should it ever appear).
 
 E-mail addresses are optional, unique ignoring case, shown only to the user and to admins, used
 only for the user's own mails, and not part of the JSON export; deleting a user deletes their

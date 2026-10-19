@@ -8,7 +8,7 @@
   {% for error in errors %}{{ ui.alert(error, "error") }}{% endfor %}
   <form method="post" action="/password/reset/{{ token }}" class="form">
     {{ ui.csrf_field() }}
-    {{ ui.text_field("new_password", _("New password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters.")) }}
+    {{ ui.text_field("new_password", _("New password"), type="password", required=True, autocomplete="new-password", note=_("At least 12 characters.")) }}
     {{ ui.text_field("repeat_password", _("Repeat new password"), type="password", required=True, autocomplete="new-password") }}
     <div class="actions">{{ ui.button(_("Set password")) }}</div>
   </form>

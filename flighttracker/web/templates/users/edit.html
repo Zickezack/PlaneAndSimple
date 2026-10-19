@@ -27,9 +27,8 @@
     {% else %}
     <div class="grid-2">
       {{ ui.select_field("role", _("Role"), labels.ROLE_LABELS.items() | tr_options, user.role) }}
-      {{ ui.choice_group("is_active", _("Status"), [("1", _("Active – can log in"))], ["1"] if user.is_active else [], multiple=True) }}
+      {{ ui.choice_group("is_active", _("Status"), [("1", _("Active – can log in"))], ["1"] if user.is_active else [], multiple=True, hint=_("Deactivating pauses the user's tracked searches and Trips, except those another active user may edit – these keep running until no such editor is left. Reactivating does not resume them.")) }}
     </div>
-    <p class="hint">{{ _("Deactivating pauses the user's tracked searches and Trips, except those another active user may edit – these keep running until no such editor is left. Reactivating does not resume them.") }}</p>
     {% endif %}
     <div class="grid-2">
       {% if is_env_admin %}<input type="hidden" name="username" value="{{ user.username }}">
@@ -48,8 +47,7 @@
 <details class="card more"{% if user.password_hash is none %} open{% endif %}>
   <summary>{{ _("Welcome mail") }}</summary>
   {% if user.password_hash is none %}<p>{{ ui.badge(_("No password yet"), "warning") }} {{ _("The user has not set a password through the welcome link yet.") }}</p>{% endif %}
-  <p class="hint">{{ _("Sends the welcome mail to {email} again. Without a password it carries a new one-time link to set one (valid 7 days); older links stop working.", email=user.email) }}</p>
-  {{ ui.action_form("/users/%d/welcome" % user.id, _("Send the welcome mail again")) }}
+  {{ ui.action_form("/users/%d/welcome" % user.id, _("Send the welcome mail again")) }}{{ ui.info(_("Sends the welcome mail to {email} again. Without a password it carries a new one-time link to set one (valid 7 days); older links stop working.", email=user.email)) }}
 </details>
 {% endif %}
 
@@ -58,7 +56,7 @@
   <summary>{{ _("Set a new password") }}</summary>
   <form method="post" action="/users/{{ user.id }}/password" class="form">
     {{ ui.csrf_field() }}
-    {{ ui.text_field("password", _("New password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters. The user is logged out everywhere.")) }}
+    {{ ui.text_field("password", _("New password"), type="password", required=True, autocomplete="new-password", note=_("At least 12 characters."), hint=_("The user is logged out everywhere.")) }}
     <div class="actions">{{ ui.button(_("Set password"), "secondary") }}</div>
   </form>
 </details>

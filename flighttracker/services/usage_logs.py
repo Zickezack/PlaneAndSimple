@@ -38,6 +38,7 @@ class FeatureUsage:
     feature: str
     requests: int
     failed: int
+    cut_off: int  # failed because the answer hit the response token limit
     input_tokens: int
     output_tokens: int
     average_seconds: float
@@ -55,6 +56,10 @@ class AIOverview:
     @property
     def failed(self) -> int:
         return sum(f.failed for f in self.features)
+
+    @property
+    def cut_off(self) -> int:
+        return sum(f.cut_off for f in self.features)
 
     @property
     def input_tokens(self) -> int:
@@ -92,6 +97,7 @@ def ai_overview(session: Session, now: datetime) -> AIOverview:
             AIUsage.feature,
             func.count(),
             func.count().filter(AIUsage.ok.is_(False)),
+            func.count().filter(AIUsage.cut_off.is_(True)),
             func.coalesce(func.sum(AIUsage.input_tokens), 0),
             func.coalesce(func.sum(AIUsage.output_tokens), 0),
             func.avg(AIUsage.duration_ms),
@@ -101,8 +107,8 @@ def ai_overview(session: Session, now: datetime) -> AIOverview:
         .order_by(AIUsage.feature)
     )
     features = [
-        FeatureUsage(feature, requests, failed, int(tokens_in), int(tokens_out), (ms or 0) / 1000)
-        for feature, requests, failed, tokens_in, tokens_out, ms in rows
+        FeatureUsage(feature, requests, failed, cut, int(t_in), int(t_out), (ms or 0) / 1000)
+        for feature, requests, failed, cut, t_in, t_out, ms in rows
     ]
     latest = session.execute(
         select(AIUsage, User.username)
@@ -111,3 +117,13 @@ def ai_overview(session: Session, now: datetime) -> AIOverview:
         .limit(LATEST)
     )
     return AIOverview(features, [AIEntry(entry, username) for entry, username in latest])
+
+
+def ai_entry(session: Session, entry_id: int) -> AIEntry | None:
+    """One request with its messages, for its detail page."""
+    row = session.execute(
+        select(AIUsage, User.username)
+        .outerjoin(User, User.id == AIUsage.user_id)
+        .where(AIUsage.id == entry_id)
+    ).first()
+    return AIEntry(*row) if row else None

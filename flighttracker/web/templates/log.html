@@ -6,12 +6,11 @@
 {% if stops == 0 %}{{ _("direct") }}{% elif stops == 1 %}{{ _("1 stop") }}{% else %}{{ _("{n} stops", n=stops) }}{% endif %}
 {%- endmacro %}
 <div class="page-header">
-  <h1>{{ _("Poll Log") }}</h1>
+  <h1>{{ _("Poll Log") }}{{ ui.info(_("Every provider query of every poll: route × departure month × cabin class. Entries are kept, even for deleted tracked searches.")) }}</h1>
 </div>
-<p class="hint">{{ _("Every provider query of every poll: route × departure month × cabin class. Entries are kept, even for deleted tracked searches.") }}</p>
 
 <section class="card">
-  <h2>{{ _("Running and queued polls") }}</h2>
+  <h2>{{ _("Running and queued polls") }}{{ ui.info(_("A cancelled poll stops after its current query; prices fetched so far are kept. The next regular poll runs as scheduled.")) }}</h2>
   {% if open_jobs %}
   <div class="table-wrap">
     <table class="table">
@@ -29,7 +28,7 @@
       </tbody>
     </table>
   </div>
-  <p class="hint">{{ _("A cancelled poll stops after its current query; prices fetched so far are kept. The next regular poll runs as scheduled.") }} <a href="/log">{{ _("Refresh") }}</a></p>
+  <p class="hint"><a href="/log">{{ _("Refresh") }}</a></p>
   {% else %}
   <p class="empty">{{ _("No poll is running or queued.") }}</p>
   {% endif %}

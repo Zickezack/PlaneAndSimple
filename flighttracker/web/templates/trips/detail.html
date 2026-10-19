@@ -14,7 +14,6 @@
   </div>
 </div>
 <p class="summary">{{ trip.starts_on | weekday_date }} – {{ trip.ends_on | weekday_date }} · {{ _("Checks every {hours} hours", hours=poll_interval_minutes // 60) }}</p>
-<p class="hint">{{ _("Only complete options with known flight times and valid layovers are shown. Prices are the sum of the separate one-way tracked searches, not a through-ticket fare.") }}</p>
 
 <section class="card">
   <h2>{{ _("Route") }}</h2>
@@ -28,7 +27,7 @@
 </section>
 
 <section class="card">
-  <h2>{{ _("Working options") }}</h2>
+  <h2>{{ _("Working options") }}{{ ui.info(_("Only complete options with known flight times and valid layovers are shown. Prices are the sum of the separate one-way tracked searches, not a through-ticket fare.")) }}</h2>
   {% if itineraries %}
   <div class="table-wrap">
     <table class="table">

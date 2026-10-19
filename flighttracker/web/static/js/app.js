@@ -47,15 +47,21 @@
     if (named && foldable(named)) foldable(named).open = true;
   });
 
+  // A chosen provider preset's note, below its select (hidden while none is chosen).
+  const showPresetNote = (note, option) => {
+    if (!note) return;
+    note.textContent = option.value ? option.dataset.hint || "" : "";
+    note.hidden = !note.textContent;
+  };
+
   // Platform Settings → Mail: a provider preset fills in host, port and encryption right away
   // and shows the provider's note (without JavaScript the server applies it on saving).
   document.querySelectorAll("[data-mail-preset]").forEach((select) => {
     const fields = select.form.elements;
-    const hint = select.form.querySelector("[data-mail-preset-hint]");
-    const defaultHint = hint ? hint.textContent : "";
+    const note = select.form.querySelector("[data-mail-preset-hint]");
     select.addEventListener("change", () => {
       const option = select.selectedOptions[0];
-      if (hint) hint.textContent = option.value ? option.dataset.hint : defaultHint;
+      showPresetNote(note, option);
       if (!option.value) return;
       fields.smtp_host.value = option.dataset.host;
       fields.smtp_port.value = option.dataset.port;
@@ -66,11 +72,10 @@
   // Platform Settings → AI: a provider preset fills in provider, API URL and model right away.
   document.querySelectorAll("[data-ai-preset]").forEach((select) => {
     const fields = select.form.elements;
-    const hint = select.form.querySelector("[data-ai-preset-hint]");
-    const defaultHint = hint ? hint.textContent : "";
+    const note = select.form.querySelector("[data-ai-preset-hint]");
     select.addEventListener("change", () => {
       const option = select.selectedOptions[0];
-      if (hint) hint.textContent = option.value ? option.dataset.hint : defaultHint;
+      showPresetNote(note, option);
       if (!option.value) return;
       fields.ai_provider.value = option.value;
       fields.ai_base_url.value = option.dataset.url;

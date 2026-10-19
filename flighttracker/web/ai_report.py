@@ -3,7 +3,7 @@ until when) and whether the settings here would make it reload or unload the mod
 
 from flighttracker.config import Settings
 from flighttracker.i18n import Msg
-from flighttracker.services import ai
+from flighttracker.services import ai_wire
 
 
 def _held(found) -> Msg:
@@ -26,7 +26,7 @@ def _held(found) -> Msg:
 def ollama_report(settings: Settings) -> list[tuple[Msg, str]]:
     """How Ollama holds the model after the test, and whether our settings would reload it."""
     model = settings.ai_model
-    loaded = [m for m in ai.ollama_loaded(settings) if m.name in (model, f"{model}:latest")]
+    loaded = [m for m in ai_wire.ollama_loaded(settings) if m.name in (model, f"{model}:latest")]
     report: list[tuple[Msg, str]] = []
     if not loaded:
         return [(Msg("Ollama did not report {model} as loaded.", model=model), "info")]

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ _("AI request") }}{% endblock %}
+{% block content %}
+{% set a = row.entry %}
+<div class="page-header">
+  <h1>{{ _("AI request") }} {{ ui.ai_result(a) }}</h1>
+  {{ ui.link_button(_("Back to the usage log"), "/settings#ai") }}
+</div>
+
+<section class="card">
+  <dl class="facts">
+    <dt>{{ _("Time") }}</dt><dd>{{ a.requested_at | datetime }}</dd>
+    <dt>{{ _("Feature") }}</dt><dd>{{ _(labels.AI_FEATURE_LABELS.get(a.feature, a.feature)) }}</dd>
+    <dt>{{ _("User") }}</dt><dd>{{ row.username or "–" }}</dd>
+    <dt>{{ _("Model") }}</dt><dd>{{ a.provider }} · {{ a.model }}</dd>
+    <dt>{{ _("Duration") }}</dt><dd>{{ "%.1f" | format(a.duration_ms / 1000) }} s</dd>
+    <dt>{{ _("Tokens in / out") }}</dt>
+    <dd>{{ (a.input_tokens | number) if a.input_tokens is not none else "–" }} / {{ (a.output_tokens | number) if a.output_tokens is not none else "–" }}
+      {%- if a.output_limit %} {{ _("(answer limit: {n})", n=a.output_limit) }}{% endif %}</dd>
+    {% if a.error %}<dt>{{ _("Error") }}</dt><dd>{{ a.error }}</dd>{% endif %}
+  </dl>
+</section>
+{% if not has_messages %}
+<p class="note">{{ _("The messages of this request are not in the log: “Log messages” was off, or the request is older than 30 days.") }}</p>
+{% endif %}
+
+<section class="card ai-stage">
+  <h2>{{ _("1 · Sent by the app") }}{{ ui.info(_("The request as it went to the provider, without its headers (the API key travels there).")) }}</h2>
+  {% if a.request %}
+  <p><code>POST {{ a.request.url }}</code></p>
+  <h3>{{ _("Parameters") }}</h3>
+  <pre class="message">{{ params }}</pre>
+  {% else %}<p class="empty">{{ _("Nothing was sent – the request was stopped before.") }}</p>{% endif %}
+  {% if a.system_prompt %}<h3>{{ _("Instructions (system prompt)") }}</h3><pre class="message">{{ a.system_prompt }}</pre>{% endif %}
+  {% if a.user_prompt %}<h3>{{ _("Request") }}</h3><pre class="message">{{ a.user_prompt }}</pre>{% endif %}
+</section>
+
+<section class="card ai-stage">
+  <h2>{{ _("2 · Thinking") }}{{ ui.info(_("Only what the provider returns: Ollama's thinking (unless “no thinking” is on), the reasoning of OpenAI-compatible servers that send it, Claude's thinking blocks (often summarised or left out), and reasoning a model writes into its answer (<think>…</think>). It is never shown to users.")) }}</h2>
+  {% if a.thinking %}<pre class="message">{{ a.thinking }}</pre>
+  {% else %}<p class="empty">{{ _("The provider returned no thinking.") }}</p>{% endif %}
+</section>
+
+<section class="card ai-stage">
+  <h2>{{ _("3 · Received") }}{{ ui.info(_("The answer exactly as the provider sent it, and how it ended: a stop reason such as length or max_tokens means the answer hit the response token limit.")) }}</h2>
+  <dl class="facts">
+    <dt>{{ _("Stop reason") }}</dt><dd>{{ a.stop_reason or "–" }}{% if a.cut_off %} {{ ui.badge(_("Cut off"), "warning") }}{% endif %}</dd>
+    {% for key, seconds in timings.items() %}
+    <dt>{{ _(labels.AI_TIMING_LABELS[key]) }}</dt><dd>{{ "%.2f" | format(seconds) }} s</dd>
+    {% endfor %}
+  </dl>
+  {% if reloaded %}<p class="note">{{ _("Ollama loaded the model for this request – it was not in memory, or with another context window.") }}</p>{% endif %}
+  {% if a.answer %}<h3>{{ _("Answer as received") }}</h3><pre class="message">{{ a.answer }}</pre>{% endif %}
+  {% if response %}
+  <details class="more">
+    <summary>{{ _("Rest of the provider's response") }}</summary>
+    <pre class="message">{{ response }}</pre>
+  </details>
+  {% endif %}
+</section>
+
+<section class="card ai-stage">
+  <h2>{{ _("4 · Used by the app") }}{{ ui.info(_("The answer without thinking – as an explanation shown to the user, or as the parsed draft that fills the form. Failed or cut-off answers are not used.")) }}</h2>
+  {% if a.result %}<pre class="message">{{ a.result }}</pre>
+  {% elif a.ok %}<p class="empty">{{ _("Not logged.") }}</p>
+  {% else %}<p class="field-error">{{ a.error }}</p>{% endif %}
+</section>
+{% endblock %}

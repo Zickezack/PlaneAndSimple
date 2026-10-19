@@ -157,6 +157,7 @@ SETTINGS_FIELD_LABELS = {
     "ai_system_prompt": "Instructions (system prompt)",
     "ai_drafts": "Drafts from a description",
     "ai_explanations": 'Explain "when to book"',
+    "ai_log_messages": "Log messages",
     "max_searches_per_user": "Max. tracked searches and Trips per user",
     "max_requests_per_user": "Max. provider requests per poll per user",
 }
@@ -219,9 +220,10 @@ SETTINGS_FIELD_HINTS = {
     "ai_base_url": "Filled in by the preset; for OpenAI-compatible providers it ends in /v1.",
     "ai_model": "The provider's model ID.",
     "ai_ollama_num_ctx": (
-        "Ollama only. Sent with every request as num_ctx – set it to the context the model is "
-        "loaded with (e.g. 8192), so Ollama does not reload it for requests from here. 0: "
-        "Ollama's default."
+        "Ollama only. The model's working memory for prompt and answer together, sent with "
+        "every request as num_ctx. Set it to the context the model is loaded with (e.g. 8192), "
+        "so Ollama does not reload it for requests from here; an answer then gets at most what "
+        "the prompt leaves free. 0: Ollama's default."
     ),
     "ai_ollama_keep_alive": (
         "Ollama only. -1 keeps the model loaded until unloaded by hand, e.g. 30m or 24h for a "
@@ -233,10 +235,15 @@ SETTINGS_FIELD_HINTS = {
         "is removed for every provider."
     ),
     "ai_api_key": "Stored encrypted (key from SECRET_KEY). Not needed for a local Ollama.",
-    "ai_max_input_tokens": "Requests longer than this are not sent (the prompts here are short).",
+    "ai_max_input_tokens": (
+        "A safeguard of this app, not sent to the provider: a request whose prompt is estimated "
+        "longer is not sent at all. The prompts here have a few hundred tokens."
+    ),
     "ai_max_output_tokens": (
-        "Upper limit of an answer. Models that think first (e.g. Claude) count their "
-        "thinking too – keep a few thousand."
+        "Upper limit of an answer, sent with every request (Ollama: num_predict, at most what the "
+        "context window leaves free). An answer that hits it is cut off and fails – the usage "
+        "log marks it. Models that think first (e.g. Claude) count their thinking too – keep a "
+        "few thousand."
     ),
     "ai_system_prompt": (
         "Empty: the built-in template (shown as placeholder). The rules that numbers come only "
@@ -244,6 +251,11 @@ SETTINGS_FIELD_HINTS = {
     ),
     "ai_drafts": '"Describe your trip" on the new tracked search page.',
     "ai_explanations": "A button on the flight page that puts the advice into sentences.",
+    "ai_log_messages": (
+        "Keeps what the app sent, the thinking the provider returned and the answer of each "
+        "request for 30 days, to look at in the usage log. Prompts can contain a user's travel "
+        "wish. Off: only tokens, duration and outcome."
+    ),
 }
 
 # "When to book" (domain/booking_advice.py): verdict badges and what each signal means.
@@ -275,6 +287,13 @@ AI_FEATURE_LABELS = {
     "draft": "Draft from a description",
     "explain": 'Explain "when to book"',
     "test": "Connection test",
+}
+# Ollama's durations in its response (AI request detail page).
+AI_TIMING_LABELS = {
+    "total_duration": "Total at Ollama",
+    "load_duration": "Loading the model",
+    "prompt_eval_duration": "Reading the prompt",
+    "eval_duration": "Writing the answer",
 }
 
 # How important a not yet set up platform service is (web/settings_forms.setup_status).

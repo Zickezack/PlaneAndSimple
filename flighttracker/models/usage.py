@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Identity, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from flighttracker.models.base import Base
@@ -27,7 +28,8 @@ class MailLog(Base):
 
 class AIUsage(Base):
     """One request to the AI provider: feature, model, tokens (when the provider reports
-    them), duration and outcome. No prompts or answers are stored."""
+    them), duration and outcome; the messages only while logging them is on, for 30 days
+    (services/ai_log.py)."""
 
     __tablename__ = "ai_usage"
 
@@ -45,3 +47,17 @@ class AIUsage(Base):
     duration_ms: Mapped[int] = mapped_column(Integer)
     ok: Mapped[bool]
     error: Mapped[str | None] = mapped_column(Text)
+    # Tokens the answer could use, and whether it hit that limit (then ok is false).
+    output_limit: Mapped[int | None] = mapped_column(Integer)
+    cut_off: Mapped[bool] = mapped_column(default=False, server_default="false")
+    stop_reason: Mapped[str | None] = mapped_column(String(40))  # as the provider says it
+    # Address and parameters sent (no headers, no prompts); the provider's response without
+    # the texts (timings, ids, token details).
+    request: Mapped[dict | None] = mapped_column(JSONB)
+    response: Mapped[dict | None] = mapped_column(JSONB)
+    # The messages: cleared after 30 days, never stored while logging them is off.
+    system_prompt: Mapped[str | None] = mapped_column(Text)
+    user_prompt: Mapped[str | None] = mapped_column(Text)
+    thinking: Mapped[str | None] = mapped_column(Text)  # returned or written into the answer
+    answer: Mapped[str | None] = mapped_column(Text)  # as received
+    result: Mapped[str | None] = mapped_column(Text)  # as the app used it

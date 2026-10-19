@@ -34,6 +34,8 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
 - **When to book:** a rule-based reading of every flight's prices (lowest seen, above average,
   rising …) – optionally explained by an AI (local Ollama, any OpenAI-compatible API or
   Claude), which can also turn a plain-language travel wish into a draft tracked search.
+  Admins see every AI request in a usage log, stage by stage: what was sent, the model's
+  thinking, the answer as received (also when it was cut off) and what the app made of it.
 - **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
 - **[Users](#users-and-operation)** with sharing and per-user limits; Poll Log and worker load
   for admins.

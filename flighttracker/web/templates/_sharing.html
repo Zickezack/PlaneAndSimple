@@ -32,9 +32,8 @@
     {{ ui.csrf_field() }}
     <div class="grid-2">
       {{ ui.text_field("username", _("Share with user"), autocomplete="off", required=True) }}
-      {{ ui.select_field("permission", _("Access"), [("view", _("View only")), ("edit", _("View and edit"))], "view") }}
+      {{ ui.select_field("permission", _("Access"), [("view", _("View only")), ("edit", _("View and edit"))], "view", hint=_("Sharing again with the same user changes their access. Editors can change, pause and poll, but not archive, delete or share.")) }}
     </div>
-    <p class="hint">{{ _("Sharing again with the same user changes their access. Editors can change, pause and poll, but not archive, delete or share.") }}</p>
     <div class="actions">{{ ui.button(_("Share"), "secondary") }}</div>
   </form>
 </details>

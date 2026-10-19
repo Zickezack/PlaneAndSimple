@@ -30,7 +30,7 @@
     {{ ui.csrf_field() }}
     {{ ui.text_field("current_password", _("Current password"), type="password", required=True, autocomplete="current-password") }}
     <div class="grid-2">
-      {{ ui.text_field("new_password", _("New password"), type="password", required=True, autocomplete="new-password", hint=_("At least 12 characters.")) }}
+      {{ ui.text_field("new_password", _("New password"), type="password", required=True, autocomplete="new-password", note=_("At least 12 characters.")) }}
       {{ ui.text_field("repeat_password", _("Repeat new password"), type="password", required=True, autocomplete="new-password") }}
     </div>
     <div class="actions">{{ ui.button(_("Change password"), "secondary") }}</div>
@@ -41,14 +41,14 @@
 </details>
 
 {% if user.is_admin %}
-<h2>{{ _("Platform Settings") }}</h2>
-<p class="hint">{{ _("Only visible to admins. They apply to every user.") }} <a href="/users">{{ _("User management") }}</a></p>
+<h2>{{ _("Platform Settings") }}{{ ui.info(_("Only visible to admins. They apply to every user.")) }}</h2>
+<p><a href="/users">{{ _("User management") }}</a></p>
 
 {% set c = capacity %}
 <details class="card more capacity{% if editing %} is-editing{% endif %}" id="schedule" data-schedule-card open>
   <summary>{{ _("Worker load and poll schedule") }}
     {%- if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}</summary>
-  <p class="hint">{{ _("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.") }}</p>
+  {{ ui.section_info(_("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.")) }}
   <p class="hint">{{ _("Times in {zone}; bar length = duration of the latest poll (or an estimate).", zone=zone) }}
     {%- if interval < 1440 %} {{ _("The schedule repeats every {interval}.", interval=duration(interval * 60)) }}{% endif %}
     <span data-edit-only{% if not editing %} hidden{% endif %}>{{ _("Drag a bar or change a start time, then save.") }}</span></p>
@@ -74,6 +74,7 @@
     {{ ui.csrf_field() }}
     <details class="more" data-schedule-table{% if editing %} open{% endif %}>
       <summary>{{ _("Per tracked search and Trip") }}</summary>
+      {{ ui.section_info(_("Durations of the latest completed poll; a poll interrupted by a worker restart only counts its last part.")) }}
       <div class="table-wrap">
         <table class="table">
           <thead><tr><th class="num">#</th><th>{{ _("Start") }}</th><th>{{ _("Name") }}</th><th>{{ _("Owner") }}</th><th class="num">{{ _("Requests per poll") }}</th><th class="num">{{ _("Poll duration") }}</th><th class="num">{{ _("Share of the round") }}</th><th>{{ _("Status") }}</th></tr></thead>
@@ -107,15 +108,13 @@
           </tbody>
         </table>
       </div>
-      <p class="hint">{{ _("Durations of the latest completed poll; a poll interrupted by a worker restart only counts its last part.") }}</p>
     </details>
     <div data-edit-only{% if not editing %} hidden{% endif %}>
       <div class="actions">
         {{ ui.button(_("Save schedule")) }}
-        {{ ui.button(_("Spread evenly"), "secondary", formaction="/settings/schedule/spread") }}
+        {{ ui.button(_("Spread evenly"), "secondary", formaction="/settings/schedule/spread") }}{{ ui.info(_("Spread evenly: keeps the order and gives every poll the same free time before the next one.")) }}
         {{ ui.link_button(_("Cancel"), "/settings#schedule") }}
       </div>
-      <small class="hint">{{ _("Spread evenly: keeps the order and gives every poll the same free time before the next one.") }}</small>
     </div>
   </form>
   {% endif %}
@@ -125,17 +124,14 @@
 
 <details class="card more" id="transfer">
   <summary>{{ _("Export and import") }}</summary>
-  <p class="hint">{{ _("Imported tracked searches and Trips belong to you; assign them to other users on their pages.") }}</p>
-  <p class="hint">{{ _("Export every tracked search with its price history and query log, plus every Trip with its ordered legs and layover rules, as one JSON file. Importing only ever adds new data – existing records are never changed or removed, so the same file can safely be imported twice or combined with exports from other servers.") }}</p>
   <div class="actions">
-    {{ ui.link_button(_("Export all data"), "/settings/export") }}
+    {{ ui.link_button(_("Export all data"), "/settings/export") }}{{ ui.info(_("Export every tracked search with its price history and query log, plus every Trip with its ordered legs and layover rules, as one JSON file. Importing only ever adds new data – existing records are never changed or removed, so the same file can safely be imported twice or combined with exports from other servers.")) }}
   </div>
   <form method="post" action="/settings/import" enctype="multipart/form-data" class="form">
     {{ ui.csrf_field() }}
     <div class="field">
-      <label for="f-file">{{ _("Import a JSON export") }}</label>
+      <span class="field-label"><label for="f-file">{{ _("Import a JSON export") }}</label>{{ ui.info(_('From "Export all data" above, or the Export button on a single tracked search.') ~ " " ~ _("Imported tracked searches and Trips belong to you; assign them to other users on their pages.")) }}</span>
       <input class="input" id="f-file" name="file" type="file" accept="application/json" required>
-      <small class="hint">{{ _('From "Export all data" above, or the Export button on a single tracked search.') }}</small>
     </div>
     <div class="actions">{{ ui.button(_("Import"), "secondary") }}</div>
   </form>
@@ -144,68 +140,67 @@
 {% for section in sections %}
 <details class="card more" id="{{ section.key }}"{% if section.key == open_section %} open{% endif %}>
   <summary>{{ _(section.label) }}</summary>
+  {% if section.key == "mail" %}
+  {{ ui.section_info(_("Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.")) }}
+  {% elif section.key == "ai" %}
+  {{ ui.section_info(_("Optional. The AI drafts tracked searches from a plain-language wish and explains the “when to book” advice. It never calculates: every number comes from the app, and drafts are only saved after you check them.")) }}
+  {% endif %}
   <form method="post" action="/settings/section/{{ section.key }}" class="form" data-settings-section data-working="{{ _('Working …') }}" data-failed="{{ _('No answer from the server – nothing was changed.') }}" data-secret-set="{{ _('set, not shown') }}" data-secret-unset="{{ _('not set') }}">
     {{ ui.csrf_field() }}
     {% if section.key == "mail" %}
-    <p class="hint">{{ _("Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.") }}</p>
     <div class="field">
-      <label for="f-smtp_preset">{{ _("Provider preset") }}</label>
+      <span class="field-label"><label for="f-smtp_preset">{{ _("Provider preset") }}</label>{{ ui.info(_("Fills in host, port and encryption; fields you change yourself stay as you typed them. Your address and (app) password are still needed.")) }}</span>
       <select class="input" id="f-smtp_preset" name="smtp_preset" data-mail-preset>
         <option value="">{{ _("Keep the fields below") }}</option>
         {% for preset in mail_providers %}
         <option value="{{ preset.key }}" data-host="{{ preset.host }}" data-port="{{ preset.port }}" data-security="{{ preset.security }}" data-hint="{{ _(preset.hint) }}">{{ preset.label }}</option>
         {% endfor %}
       </select>
-      <small class="hint" data-mail-preset-hint>{{ _("Fills in host, port and encryption; fields you change yourself stay as you typed them. Your address and (app) password are still needed.") }}</small>
+      <small class="hint" data-mail-preset-hint hidden></small>
     </div>
     {% endif %}
     {% if section.key == "ai" %}
-    <p class="hint">{{ _("Optional. The AI drafts tracked searches from a plain-language wish and explains the “when to book” advice. It never calculates: every number comes from the app, and drafts are only saved after you check them.") }}</p>
-    <p class="note">{{ _("With a cloud provider, the facts of a request (routes, dates, prices – no user data) are sent to it; a local Ollama keeps everything on your server.") }}</p>
+    <p class="note">{{ _("With a cloud provider, the facts of a request (routes, dates, prices; for a draft the travel wish – no account data) are sent to it; a local Ollama keeps everything on your server.") }}</p>
     <div class="field">
-      <label for="f-ai_preset">{{ _("Provider preset") }}</label>
+      <span class="field-label"><label for="f-ai_preset">{{ _("Provider preset") }}</label>{{ ui.info(_("Fills in provider, API URL and a model; fields you change yourself stay as you typed them. Cloud providers still need an API key.")) }}</span>
       <select class="input" id="f-ai_preset" name="ai_preset" data-ai-preset>
         <option value="">{{ _("Keep the fields below") }}</option>
         {% for preset in ai_presets %}
         <option value="{{ preset.key }}" data-url="{{ preset.base_url }}" data-model="{{ preset.model }}" data-hint="{{ _(preset.hint) }}">{{ preset.label }}</option>
         {% endfor %}
       </select>
-      <small class="hint" data-ai-preset-hint>{{ _("Fills in provider, API URL and a model; fields you change yourself stay as you typed them. Cloud providers still need an API key.") }}</small>
+      <small class="hint" data-ai-preset-hint hidden></small>
     </div>
     {% endif %}
     {% for field in section.fields %}
       <div class="setting-field" data-setting-field="{{ field.key }}">
       {% if field.is_choice %}
       <div class="field">
-        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <span class="field-label"><label for="f-{{ field.key }}">{{ _(field.label) }}</label>{% if field.hint %}{{ ui.info(_(field.hint)) }}{% endif %}</span>
         <select class="input" id="f-{{ field.key }}" name="{{ field.key }}">
           {% for option in field.options %}
           <option value="{{ option }}"{% if option == field.value %} selected{% endif %}>{{ option or _("Off") }}</option>
           {% endfor %}
         </select>
-        <small class="hint">{{ _(field.hint) }}</small>
       </div>
       {% elif field.is_text %}
       <div class="field">
-        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <span class="field-label"><label for="f-{{ field.key }}">{{ _(field.label) }}</label>{% if field.hint %}{{ ui.info(_(field.hint)) }}{% endif %}</span>
         <textarea class="input" id="f-{{ field.key }}" name="{{ field.key }}" rows="8" placeholder="{{ default_ai_prompt if field.key == 'ai_system_prompt' else '' }}">{{ field.value }}</textarea>
-        <small class="hint">{{ _(field.hint) }}</small>
       </div>
       {% elif field.is_bool %}
       <div class="field">
-        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <span class="field-label"><label for="f-{{ field.key }}">{{ _(field.label) }}</label>{% if field.hint %}{{ ui.info(_(field.hint)) }}{% endif %}</span>
         <select class="input" id="f-{{ field.key }}" name="{{ field.key }}">
           <option value="false"{% if not field.value %} selected{% endif %}>{{ _("Off") }}</option>
           <option value="true"{% if field.value %} selected{% endif %}>{{ _("On") }}</option>
         </select>
-        <small class="hint">{{ _(field.hint) }}</small>
       </div>
       {% elif field.is_secret %}
       <div class="field">
-        <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
+        <span class="field-label"><label for="f-{{ field.key }}">{{ _(field.label) }}</label>{% if field.hint %}{{ ui.info(_(field.hint)) }}{% endif %}</span>
         <input class="input" id="f-{{ field.key }}" name="{{ field.key }}" type="password" autocomplete="off" placeholder="{{ _('set, not shown') if field.has_value else _('not set') }}">
         <label class="choice"><input type="checkbox" name="{{ field.key }}_clear" value="1"> <span>{{ _("Clear (fall back to .env)") }}</span></label>
-        <small class="hint">{{ _(field.hint) }}</small>
       </div>
       {% else %}
       {% if field.is_currency %}
@@ -222,13 +217,11 @@
       {{ ui.button(_("Save")) }}
       {% if section.key == "mail" %}
       {{ ui.button(_("Check the login"), "secondary", formaction="/settings/mail/check") }}
-      {{ ui.button(_("Send a test mail"), "secondary", formaction="/settings/mail/test") }}
+      {{ ui.button(_("Send a test mail"), "secondary", formaction="/settings/mail/test") }}{{ ui.info(_("The checks use the values above as entered – nothing has to be saved first. The test mail goes to your own address (Personal settings).")) }}
       {% elif section.key == "ai" %}
-      {{ ui.button(_("Test the connection"), "secondary", formaction="/settings/ai/test") }}
+      {{ ui.button(_("Test the connection"), "secondary", formaction="/settings/ai/test") }}{{ ui.info(_("The test sends a one-word request with the values above as entered – nothing has to be saved first.")) }}
       {% endif %}
     </div>
-    {% if section.key == "mail" %}<small class="hint">{{ _("The checks use the values above as entered – nothing has to be saved first. The test mail goes to your own address (Personal settings).") }}</small>
-    {% elif section.key == "ai" %}<small class="hint">{{ _("The test sends a one-word request with the values above as entered – nothing has to be saved first.") }}</small>{% endif %}
     <div class="section-result" data-section-result aria-live="polite">
       {% for message, category in section_results.get(section.key, []) %}{{ ui.alert(message, category) }}{% endfor %}
     </div>
@@ -236,6 +229,7 @@
   {% if section.key == "mail" %}
   <details class="more">
     <summary>{{ _("Mail log") }} <small class="hint">{{ _("last 30 days: {sent} sent, {failed} failed", sent=mail_log.sent, failed=mail_log.failed) }}</small></summary>
+    {{ ui.section_info(_("The last 25 mails; kept for half a year. Addresses are not logged, only the user.")) }}
     {% if mail_log.latest %}
     <div class="table-wrap"><table class="table">
       <thead><tr><th>{{ _("Time") }}</th><th>{{ _("Kind") }}</th><th>{{ _("User") }}</th><th>{{ _("Subject") }}</th><th>{{ _("Result") }}</th></tr></thead>
@@ -245,41 +239,39 @@
       {% endfor %}</tbody>
     </table></div>
     {% else %}<p class="empty">{{ _("No mails yet.") }}</p>{% endif %}
-    <p class="hint">{{ _("The last 25 mails; kept for half a year. Addresses are not logged, only the user.") }}</p>
   </details>
   {% endif %}
   {% if section.key == "ai" %}
   <details class="more">
     <summary>{{ _("Usage log") }} <small class="hint">{{ _("last 30 days: {n} requests, {failed} failed", n=ai_usage.requests, failed=ai_usage.failed) }}</small></summary>
+    {{ ui.section_info(_("Tokens as reported by the provider (not every local server reports them). A request's time opens its details: what the app sent, the thinking the provider returned, the answer as received and as used – the messages only while “Log messages” is on, for 30 days. Entries are kept for half a year.")) }}
     {% if ai_usage.features %}
     <div class="table-wrap"><table class="table">
-      <thead><tr><th>{{ _("Feature") }}</th><th class="num">{{ _("Requests") }}</th><th class="num">{{ _("Failed") }}</th><th class="num">{{ _("Input tokens") }}</th><th class="num">{{ _("Output tokens") }}</th><th class="num">{{ _("Average time") }}</th></tr></thead>
+      <thead><tr><th>{{ _("Feature") }}</th><th class="num">{{ _("Requests") }}</th><th class="num">{{ _("Failed") }}</th><th class="num">{{ _("Cut off") }}</th><th class="num">{{ _("Input tokens") }}</th><th class="num">{{ _("Output tokens") }}</th><th class="num">{{ _("Average time") }}</th></tr></thead>
       <tbody>{% for f in ai_usage.features %}
-        <tr><td>{{ _(labels.AI_FEATURE_LABELS.get(f.feature, f.feature)) }}</td><td class="num">{{ f.requests | number }}</td><td class="num">{{ f.failed | number }}</td><td class="num">{{ f.input_tokens | number }}</td><td class="num">{{ f.output_tokens | number }}</td><td class="num">{{ "%.1f" | format(f.average_seconds) }} s</td></tr>
+        <tr><td>{{ _(labels.AI_FEATURE_LABELS.get(f.feature, f.feature)) }}</td><td class="num">{{ f.requests | number }}</td><td class="num">{{ f.failed | number }}</td><td class="num">{{ f.cut_off | number }}</td><td class="num">{{ f.input_tokens | number }}</td><td class="num">{{ f.output_tokens | number }}</td><td class="num">{{ "%.1f" | format(f.average_seconds) }} s</td></tr>
       {% endfor %}
-        <tr><th>{{ _("Total") }}</th><th class="num">{{ ai_usage.requests | number }}</th><th class="num">{{ ai_usage.failed | number }}</th><th class="num">{{ ai_usage.input_tokens | number }}</th><th class="num">{{ ai_usage.output_tokens | number }}</th><th></th></tr>
+        <tr><th>{{ _("Total") }}</th><th class="num">{{ ai_usage.requests | number }}</th><th class="num">{{ ai_usage.failed | number }}</th><th class="num">{{ ai_usage.cut_off | number }}</th><th class="num">{{ ai_usage.input_tokens | number }}</th><th class="num">{{ ai_usage.output_tokens | number }}</th><th></th></tr>
       </tbody>
     </table></div>
     <h3>{{ _("Latest requests") }}</h3>
     <div class="table-wrap"><table class="table">
       <thead><tr><th>{{ _("Time") }}</th><th>{{ _("Feature") }}</th><th>{{ _("User") }}</th><th>{{ _("Model") }}</th><th class="num">{{ _("Tokens in / out") }}</th><th class="num">{{ _("Duration") }}</th><th>{{ _("Result") }}</th></tr></thead>
       <tbody>{% for row in ai_usage.latest %}{% set a = row.entry %}
-        <tr><td>{{ a.requested_at | datetime }}</td><td>{{ _(labels.AI_FEATURE_LABELS.get(a.feature, a.feature)) }}</td><td>{{ row.username or "–" }}</td><td>{{ a.provider }} · {{ a.model }}</td>
+        <tr><td><a href="/settings/ai-usage/{{ a.id }}">{{ a.requested_at | datetime }}</a></td><td>{{ _(labels.AI_FEATURE_LABELS.get(a.feature, a.feature)) }}</td><td>{{ row.username or "–" }}</td><td>{{ a.provider }} · {{ a.model }}</td>
           <td class="num">{{ (a.input_tokens | number) if a.input_tokens is not none else "–" }} / {{ (a.output_tokens | number) if a.output_tokens is not none else "–" }}</td>
           <td class="num">{{ "%.1f" | format(a.duration_ms / 1000) }} s</td>
-          <td>{% if a.ok %}{{ ui.badge(_("OK"), "success") }}{% else %}{{ ui.badge(_("Failed"), "danger") }} <small class="hint">{{ a.error }}</small>{% endif %}</td></tr>
+          <td>{{ ui.ai_result(a) }}{% if a.error %} <small class="hint">{{ a.error }}</small>{% endif %}</td></tr>
       {% endfor %}</tbody>
     </table></div>
     {% else %}<p class="empty">{{ _("No AI requests in the last 30 days.") }}</p>{% endif %}
-    <p class="hint">{{ _("Tokens as reported by the provider (not every local server reports them). Prompts and answers are not stored; entries are kept for half a year.") }}</p>
   </details>
   {% endif %}
   {% if section.key == "airport_import" %}
   <form method="post" action="/settings/airport-import/run" class="inline-form">
     {{ ui.csrf_field() }}
-    {{ ui.button(_("Re-import airports now"), "secondary") }}
+    {{ ui.button(_("Re-import airports now"), "secondary") }}{{ ui.info(_("Re-fetches countries, airports and passenger numbers from OurAirports and Wikidata (needs a contact above; otherwise airports are only ranked by type).")) }}
   </form>
-  <p class="hint">{{ _("Re-fetches countries, airports and passenger numbers from OurAirports and Wikidata (needs a contact above; otherwise airports are only ranked by type).") }}</p>
   {% endif %}
 </details>
 {% endfor %}

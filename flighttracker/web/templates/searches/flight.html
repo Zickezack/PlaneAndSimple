@@ -42,15 +42,14 @@
   </div>
 {% endmacro %}
 <section class="card">
-  <h2>{{ _("Outbound flight") }}</h2>
+  <h2>{{ _("Outbound flight") }}{{ ui.info(_("Local times of the airports. Flight numbers link to Flightradar24 (route, aircraft and punctuality of past flights).")) }}</h2>
   {% if segments %}
   {{ segment_table(segments) }}
   {% if return_segments %}
   <h2>{{ _("Return flight") }}</h2>
   {{ segment_table(return_segments) }}
   {% endif %}
-  <p class="hint">{{ _("Local times of the airports. Flight numbers link to Flightradar24 (route, aircraft and punctuality of past flights).") }}
-    {% if round_trip and not return_segments %}{{ _("The price covers the round trip; the return flight is chosen on Google Flights.") }}{% endif %}</p>
+  {% if round_trip and not return_segments %}<p class="hint">{{ _("The price covers the round trip; the return flight is chosen on Google Flights.") }}</p>{% endif %}
   {% else %}
   <p class="empty">{{ _("The data source delivered no flight details for this price.") }}{% if observed.airline %} {{ observed.airline }}{% endif %}</p>
   {% endif %}
@@ -58,7 +57,7 @@
 
 {% if advice %}
 <section class="card" id="advice">
-  <h2>{{ _("When to book") }} {{ ui.advice_badge(advice) }}</h2>
+  <h2>{{ _("When to book") }}{{ ui.info(_("A rule-based reading of the prices observed so far – not a forecast.")) }} {{ ui.advice_badge(advice) }}</h2>
   {% if advice.signals %}
   <ul class="advice-signals">{% for s in advice.signals %}<li>{{ _(labels.ADVICE_SIGNAL_LABELS[s]) }}</li>{% endfor %}</ul>
   {% else %}
@@ -71,7 +70,6 @@
     <dt>{{ _("Average") }}</dt><dd>{{ _("{price} over {n} polls", price=advice.average | price(observed.currency), n=advice.observations) }}</dd>
     <dt>{{ _("Until departure") }}</dt><dd>{{ _("{n} days", n=advice.days_to_departure) }}</dd>
   </dl>
-  <p class="hint">{{ _("A rule-based reading of the prices observed so far – not a forecast.") }}</p>
   {% if explanation %}<div class="advice-ai"><p>{{ explanation }}</p><small class="hint">{{ _("Written by AI from the numbers above.") }}</small></div>{% endif %}
   {% if explanation_error %}{{ ui.alert(explanation_error, "error") }}{% endif %}
   {% if ai_explain and not explanation %}
@@ -84,8 +82,7 @@
 {% endif %}
 
 <section class="card">
-  <h2>{{ _("Price history of these dates") }}</h2>
-  <p class="hint">{{ _("Every poll's cheapest flight for exactly these dates – newest first.") }}</p>
+  <h2>{{ _("Price history of these dates") }}{{ ui.info(_("Every poll's cheapest flight for exactly these dates – newest first.")) }}</h2>
   <div class="table-wrap">
     <table class="table">
       <thead><tr><th>{{ _("Poll") }}</th><th class="num">{{ _("Price") }}</th><th class="num">Δ</th><th>{{ _("Flight") }}</th></tr></thead>

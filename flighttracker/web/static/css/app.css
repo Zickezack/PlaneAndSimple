@@ -67,6 +67,49 @@ h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
 }
 .input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
 .hint { color: var(--muted); font-size: .85rem; }
+.field-label { display: flex; align-items: center; gap: .1rem; }
+
+/* "i" explanations (macro ui.info): hover, keyboard focus or a tap shows the text in a bubble. */
+.info {
+  position: relative; display: inline-block; vertical-align: middle; margin-left: .3rem;
+  font-size: 1rem; font-weight: 400; line-height: 1;
+}
+.info-button {
+  display: inline-flex; align-items: center; justify-content: center; width: 1.15rem; height: 1.15rem;
+  padding: 0; border: 1px solid var(--muted); border-radius: 50%; background: var(--surface);
+  color: var(--muted); font: italic 700 .75rem/1 Georgia, "Times New Roman", serif; cursor: help;
+}
+.info-button:hover, .info.is-open .info-button { border-color: var(--primary); color: var(--primary); }
+.info-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+/* Closed: out of sight, but read by screen readers right after the button. */
+.info-text {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+  white-space: nowrap; padding: 0;
+}
+.info:hover .info-text, .info:focus-within .info-text, .info.is-open .info-text {
+  top: calc(100% + .45rem); left: -.5rem; z-index: 30;
+  width: max-content; max-width: min(24rem, calc(100vw - 2rem)); height: auto;
+  overflow: visible; clip-path: none; white-space: normal;
+  padding: .5rem .7rem; border-radius: var(--radius); background: var(--text); color: var(--surface);
+  box-shadow: 0 4px 14px rgba(28, 36, 48, .2);
+  font-size: .85rem; font-weight: 400; font-style: normal; line-height: 1.45; text-align: left;
+  transform: translateX(var(--info-shift, 0));
+}
+/* Closed with Escape or a second tap while still hovered or focused. */
+.info.is-dismissed:not(.is-open) .info-text {
+  width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; padding: 0;
+}
+.info.is-up .info-text { top: auto; bottom: calc(100% + .45rem); }
+/* A bridge over the gap: the pointer can move onto the bubble (to select text) without closing it. */
+.info-text::before { content: ""; position: absolute; left: 0; right: 0; top: -.5rem; height: .5rem; }
+.info.is-up .info-text::before { top: auto; bottom: -.5rem; }
+/* At the top right of an open card or folded section (macro ui.section_info). */
+details.more, details.flights-section { position: relative; }
+details:has(> .section-info) > summary { padding-right: 2rem; }
+.section-info { position: absolute; top: .2rem; right: 0; }
+.card > .section-info { top: calc(var(--space) + .2rem); right: var(--space); }
+.flights-section > .section-info { top: 1.5rem; }
+.section-info .info-text { left: auto; right: -.5rem; }
 .choice-group { border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .75rem; }
 .choice { display: flex; gap: .5rem; align-items: center; font-weight: 400; padding: .2rem 0; }
 /* Long airport lists (e.g. US) scroll inside their box instead of stretching the form. */
@@ -295,7 +338,7 @@ details.more[open] > summary { margin-bottom: .75rem; }
 .trip-stay { margin-left: 1.25rem; padding: .5rem .8rem; border-left: 3px dashed var(--primary); background: var(--info-bg); border-radius: 0 6px 6px 0; }
 .trip-stay[hidden] { display: none; }
 .trip-stay-title { margin: 0 0 .4rem; font-weight: 600; }
-.trip-stay-title .hint { display: block; font-weight: 400; }
+
 .trip-route { display: flex; flex-direction: column; gap: .55rem; padding-left: 1.5rem; }
 .trip-route li small { display: block; }
 /* A stay between two legs: its own row, not numbered (display: block leaves the list counter). */
@@ -359,3 +402,12 @@ tr.is-changed td { background: var(--info-bg); }
 .setting-field.has-error .input { border-color: var(--danger); }
 .section-result:empty { display: none; }
 .section-result .alert { margin: .5rem 0 0; }
+
+/* AI request detail: the messages as sent and received. */
+.message {
+  margin: 0 0 .75rem; padding: .6rem .75rem; max-height: 28rem; overflow: auto;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg);
+  font-size: .85rem; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ai-stage h3 { font-size: 1rem; margin: 1rem 0 .4rem; }
+.ai-stage h2 .badge { margin-left: .4rem; }

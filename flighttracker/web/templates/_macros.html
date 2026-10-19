@@ -24,46 +24,68 @@
 </form>
 {%- endmacro %}
 
-{#- `suggest`: URL of a JSON suggestion endpoint (static/js/app.js shows a dropdown);
+{#- An "i" next to a label, heading or button that shows `text` on hover, keyboard focus or
+    tap: explanations of a field or function stay out of the way. Screen readers read the text
+    right after the button. Hover and focus work without JavaScript; static/js/info.js adds tap
+    to open and close, Escape, and keeps the bubble inside the window. -#}
+{% macro info(text) -%}
+<span class="info"><button type="button" class="info-button" aria-label="{{ _('Explanation') }}">i</button><span class="info-text">{{ text }}</span></span>
+{%- endmacro %}
+
+{#- `info` at the top right of a card or folded section – outside its summary, a click there
+    would fold it. Only visible while the section is open. -#}
+{% macro section_info(text) -%}
+<div class="section-info">{{ info(text) }}</div>
+{%- endmacro %}
+
+{#- A field's label; its explanation (`hint`) as `info`. -#}
+{% macro _label(name, label, hint) -%}
+{% if hint %}<span class="field-label"><label for="f-{{ name }}">{{ label }}</label>{{ info(hint) }}</span>
+{%- else %}<label for="f-{{ name }}">{{ label }}</label>{% endif %}
+{%- endmacro %}
+
+{#- Form fields: `hint` explains (an "i" next to the label), `note` stays visible below the
+    field – for requirements and warnings the user must not miss.
+    `suggest`: URL of a JSON suggestion endpoint (static/js/app.js shows a dropdown);
     `multiple`: comma-separated list, suggestions complete the last entry. -#}
-{% macro text_field(name, label, value="", hint=None, required=False, placeholder=None, type="text", autocomplete=None, suggest=None, multiple=False) -%}
+{% macro text_field(name, label, value="", hint=None, required=False, placeholder=None, type="text", autocomplete=None, suggest=None, multiple=False, note=None) -%}
 <div class="field{% if suggest %} suggest{% endif %}">
-  <label for="f-{{ name }}">{{ label }}</label>
+  {{ _label(name, label, hint) }}
   <input class="input" id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
     {%- if required %} required{% endif %}
     {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
     {%- if suggest %} data-suggest="{{ suggest }}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"
       {%- if multiple %} data-suggest-multiple{% endif %}
     {%- elif autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}>
-  {% if hint %}<small class="hint">{{ hint }}</small>{% endif %}
+  {% if note %}<small class="hint">{{ note }}</small>{% endif %}
 </div>
 {%- endmacro %}
 
-{% macro number_field(name, label, value="", min=None, max=None, hint=None) -%}
+{% macro number_field(name, label, value="", min=None, max=None, hint=None, note=None) -%}
 <div class="field">
-  <label for="f-{{ name }}">{{ label }}</label>
+  {{ _label(name, label, hint) }}
   <input class="input" id="f-{{ name }}" name="{{ name }}" type="number" inputmode="numeric" value="{{ value }}"
     {%- if min is not none %} min="{{ min }}"{% endif %}
     {%- if max is not none %} max="{{ max }}"{% endif %}>
-  {% if hint %}<small class="hint">{{ hint }}</small>{% endif %}
+  {% if note %}<small class="hint">{{ note }}</small>{% endif %}
 </div>
 {%- endmacro %}
 
-{% macro select_field(name, label, options, selected, hint=None) -%}
+{% macro select_field(name, label, options, selected, hint=None, note=None) -%}
 <div class="field">
-  <label for="f-{{ name }}">{{ label }}</label>
+  {{ _label(name, label, hint) }}
   <select class="input" id="f-{{ name }}" name="{{ name }}">
     {% for value, text in options %}
     <option value="{{ value }}"{% if value == selected %} selected{% endif %}>{{ text }}</option>
     {% endfor %}
   </select>
-  {% if hint %}<small class="hint">{{ hint }}</small>{% endif %}
+  {% if note %}<small class="hint">{{ note }}</small>{% endif %}
 </div>
 {%- endmacro %}
 
-{% macro choice_group(name, label, options, selected, multiple=False) -%}
+{% macro choice_group(name, label, options, selected, multiple=False, hint=None) -%}
 <fieldset class="field choice-group">
-  <legend>{{ label }}</legend>
+  <legend>{{ label }}{% if hint %}{{ info(hint) }}{% endif %}</legend>
   {% for value, text in options %}
   <label class="choice">
     <input type="{{ 'checkbox' if multiple else 'radio' }}" name="{{ name }}" value="{{ value }}"
@@ -98,6 +120,11 @@
 {% if search.is_archived %}{{ badge(_("Archived"), "muted") }}
 {% elif search.status == "paused" %}{{ badge(_(labels.STATUS_LABELS[search.status]), "warning") }}
 {% else %}{{ badge(_(labels.STATUS_LABELS[search.status]), "success") }}{% endif %}
+{%- endmacro %}
+
+{#- Outcome of an AI request in the usage log. -#}
+{% macro ai_result(entry) -%}
+{% if entry.ok %}{{ badge(_("OK"), "success") }}{% elif entry.cut_off %}{{ badge(_("Cut off"), "warning") }}{% else %}{{ badge(_("Failed"), "danger") }}{% endif %}
 {%- endmacro %}
 
 {% macro alert(message, category="info") -%}

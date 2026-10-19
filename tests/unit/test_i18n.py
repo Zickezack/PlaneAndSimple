@@ -97,6 +97,7 @@ def ui_texts() -> set[str]:
         labels.ADVICE_SIGNAL_LABELS,
         labels.MAIL_KIND_LABELS,
         labels.AI_FEATURE_LABELS,
+        labels.AI_TIMING_LABELS,
         labels.SETUP_LEVEL_LABELS,
         labels.DAYS_PER_MONTH_LABELS,
         labels.SETTINGS_SECTION_LABELS,

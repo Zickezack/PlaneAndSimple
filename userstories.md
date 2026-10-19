@@ -179,7 +179,7 @@ see 49.)
     (a new link voids older ones); "No password yet" on the user list and page.
 51. AI usage log for admins (Platform Settings → AI): per feature requests, failures, tokens as
     reported by the provider and average time over 30 days, plus the latest 25 requests; no
-    prompts or answers stored; kept half a year.
+    prompts or answers stored (since 57 optionally, for 30 days); kept half a year.
 52. Ollama through its own API with a fixed context window (num_ctx) and keep-alive on every
     request, so a model shared with other apps is not reloaded or unloaded; the connection test
     shows how Ollama holds the model and warns about a different context window.
@@ -193,3 +193,11 @@ see 49.)
     was typed; a wrong field is marked (in the user's language) without losing the other
     input; mail login check, test mail and AI test use the entered values without saving;
     saving and testing happen in place – no reload, no jump.
+56. Explanations behind an "i": hints of fields and functions open on hover, keyboard focus or
+    tap (macro `ui.info`, works without JavaScript); requirements and warnings ("At least 12
+    characters", provider notes) stay visible. Clearer hints for the token limit (a safeguard
+    of the app, not sent), the response tokens and the Ollama context window.
+57. AI usage log stage by stage: cut-off answers marked (badge, "Cut off" column, answer limit);
+    a request's detail page shows what the app sent (address, parameters, prompts), the thinking
+    the provider returned, the answer as received with Ollama's timings (a reload of the model
+    shows) and what the app used. Messages kept 30 days, switchable ("Log messages").
