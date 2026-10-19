@@ -354,3 +354,8 @@ tr.is-changed td { background: var(--info-bg); }
 /* Platform Settings: what is not set up yet. */
 .setup-list { margin: 0 0 .5rem; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .4rem; }
 .setup-status h2 { margin-top: 0; }
+/* Platform Settings sections: a wrong field is marked where it is, results below the buttons. */
+.field-error { display: block; margin-top: .25rem; color: var(--danger); font-size: .85rem; }
+.setting-field.has-error .input { border-color: var(--danger); }
+.section-result:empty { display: none; }
+.section-result .alert { margin: .5rem 0 0; }

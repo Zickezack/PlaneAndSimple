@@ -1,0 +1,19 @@
+{#- What is not set up yet, at a glance (admins only); links go to the section concerned.
+    Also sent to the page after a save (settings-sections.js replaces it). -#}
+{% import "_macros.html" as ui with context %}
+{% if setup %}
+{% set missing = setup | rejectattr("ok") | list %}
+<section class="card setup-status" id="setup">
+  {% if missing %}
+  <h2>{{ _("Not set up yet") }}</h2>
+  <ul class="setup-list">
+    {% for item in missing %}
+    <li>{{ ui.badge(_(labels.SETUP_LEVEL_LABELS[item.level]), labels.SETUP_LEVEL_VARIANTS[item.level]) }}
+      <a href="#{{ item.anchor }}"><strong>{{ _(item.label) }}</strong></a> – {{ _(item.missing) }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% set ready = setup | selectattr("ok") | map(attribute="label") | list %}
+  {% if ready %}<p class="hint">{{ _("Set up:") }} {% for label in ready %}{{ ui.badge(_(label), "success") }} {% endfor %}</p>{% endif %}
+</section>
+{% endif %}

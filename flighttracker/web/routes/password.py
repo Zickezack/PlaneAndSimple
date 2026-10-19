@@ -1,7 +1,6 @@
 """Passwords by mail: "Forgot password?" (one-time link to set a new one), the page behind the
 link (also used by the welcome mail), and the admin's test mail. Only with mail set up."""
 
-from dataclasses import replace
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -11,7 +10,7 @@ from starlette.datastructures import FormData
 
 from flighttracker.config import Settings
 from flighttracker.i18n import Msg
-from flighttracker.models import TokenPurpose, User
+from flighttracker.models import TokenPurpose
 from flighttracker.services import mail, mail_messages, password_tokens
 from flighttracker.services.login import find_login
 from flighttracker.services.users import UserValidationError
@@ -20,8 +19,6 @@ from flighttracker.web.deps import (
     flash,
     get_db,
     get_effective_settings,
-    get_user,
-    require_admin,
 )
 from flighttracker.web.mails import mail_link, send_password_changed
 from flighttracker.web.templating import templates
@@ -112,53 +109,3 @@ def reset(
     send_password_changed(request, db, settings, user)
     flash(request, Msg("Password set. You can log in now."), "success")
     return RedirectResponse("/login", status_code=303)
-
-
-@router.post("/settings/mail/test", dependencies=[Depends(require_admin)])
-def test_mail(
-    request: Request,
-    form: FormData = Depends(csrf_form),
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_effective_settings),
-    user: User = Depends(get_user),
-):
-    target = "/settings#mail"
-    if not user.email:
-        flash(request, Msg("Add your e-mail address under Personal settings first."), "error")
-        return RedirectResponse(target, status_code=303)
-    message = replace(
-        mail_messages.test_mail(user.email, mail_messages.locale_of(user)), user_id=user.id
-    )
-    try:
-        mail.deliver(db, settings, message, raise_errors=True)
-    except mail.MailError as exc:
-        db.commit()  # the failed attempt is in the mail log too
-        flash(request, Msg("Test mail not sent: {error}", error=str(exc)), "error")
-        return RedirectResponse(target, status_code=303)
-    db.commit()
-    flash(request, Msg("Test mail sent to {email}.", email=user.email), "success")
-    return RedirectResponse(target, status_code=303)
-
-
-def flash_login_check(request: Request, settings: Settings) -> None:
-    """Result of a login check of the configured mail server as a flash message."""
-    try:
-        mail.check_login(settings)
-    except mail.MailError as exc:
-        flash(request, Msg("Mail login failed: {error}", error=str(exc)), "error")
-        return
-    flash(
-        request,
-        Msg("Login to {host} works.", host=f"{settings.smtp_host}:{settings.smtp_port}"),
-        "success",
-    )
-
-
-@router.post("/settings/mail/check", dependencies=[Depends(require_admin)])
-def check_mail_login(
-    request: Request,
-    form: FormData = Depends(csrf_form),
-    settings: Settings = Depends(get_effective_settings),
-):
-    flash_login_check(request, settings)
-    return RedirectResponse("/settings#mail", status_code=303)

@@ -156,12 +156,9 @@ def test_connection_test_reports_how_ollama_holds_the_model(client, db, monkeypa
     assert "context window of 8&#39;192 tokens until it is unloaded by hand" in page  # ' escaped
     assert "No keep-alive set" in page and "No context window set" in page
 
-    from flighttracker.services.settings import set_override
-
-    set_override(db, "ai_ollama_num_ctx", "4096")
-    set_override(db, "ai_ollama_keep_alive", "-1")
-    db.commit()
-    page = client.post("/settings/ai/test", data={"csrf_token": token}).text
+    # The test uses the values as entered in the form – nothing saved before.
+    entered = {"ai_ollama_num_ctx": "4096", "ai_ollama_keep_alive": "-1"}
+    page = client.post("/settings/ai/test", data={"csrf_token": token, **entered}).text
     assert "differs from the loaded model" in page and "No keep-alive set" not in page
 
 

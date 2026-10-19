@@ -134,6 +134,7 @@ Where new code goes (dependencies only point downwards):
 | Detail page, chart, heat map | `web/routes/searches/detail.py`, `web/flights.py`, `services/history.py`, `services/price_trends.py`, `static/js/price-chart.js` (+ `price-history.js`, `price-calendar.js`, `chart-svg.js`) |
 | Poll now, pause, archive, delete | `web/routes/searches/actions.py`, `services/jobs.py` |
 | Sharing, owners, quotas | `web/routes/searches/shares.py`, `web/sharing.py`, `services/access.py`, `services/quota.py` |
+| Platform Settings sections (save, test) | `web/routes/settings_actions.py`, `web/settings_sections.py`, `web/settings_forms.py`, `static/js/settings-sections.js`, `templates/settings/index.html` + `_setup.html` |
 | Worker load (Platform Settings) | `services/capacity.py`, `web/routes/settings.py`, `templates/settings/index.html` (one card with the poll schedule) |
 | Poll schedule (Platform Settings) | `domain/poll_plan.py`, `services/poll_plan.py`, `web/routes/schedule.py`, `web/schedule_view.py`, `templates/settings/index.html` + `_timeline.html`, `static/js/poll-schedule.js`; scheduler in `services/jobs.py` |
 | Trips | `web/routes/trips.py`, `web/trip_forms.py`, `services/trips.py`, `domain/trips.py` |
@@ -253,6 +254,16 @@ legs, then polled again) ask for the exact name.
 
 ## Users and permissions
 
+- **Platform Settings sections** are forms with their own actions (`web/routes/settings_actions.py`,
+  form logic in `web/settings_sections.py`): Save, and for Mail "Check the login" / "Send a test
+  mail", for AI "Test the connection" – the tests use the values as entered, nothing has to be
+  saved first. Every field is validated on its own (translatable messages); a wrong field is
+  marked and nothing is stored, but nothing typed is lost. A provider preset fills only fields
+  that are empty or still show the stored value – edits always win. With JavaScript
+  (`static/js/settings-sections.js`) the actions answer with JSON: results appear below the
+  buttons, errors at the field, the setup status is refreshed, the page neither reloads nor
+  moves. Without it a save redirects back to the section; a test or a failed save shows the
+  page again with the entered values.
 - **Setup status:** the top of the admins' Settings page lists the platform services that are
   not set up yet – needed (real flight data), recommended (mail server; public address once mail
   is on), optional (AI, Wikidata contact) – with what is missing and a link to the section

@@ -678,7 +678,11 @@ def test_platform_settings_rejects_invalid_values(client):
             "max_route_pairs_per_search": "50",
         },
     )
-    assert "Could not save" in response.text
+    # Nothing stored; the page comes back with the wrong field marked and the input kept.
+    assert response.status_code == 400
+    assert "please correct the marked fields" in response.text
+    assert "Worker tick interval (seconds): Must be at least 1." in response.text
+    assert 'name="max_route_pairs_per_search" type="text" value="50"' in response.text
 
 
 def test_import_reports_malformed_entries_instead_of_failing(client, db):

@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from flighttracker.config import Settings
 from flighttracker.domain.currencies import is_known_currency
 from flighttracker.domain.emails import is_valid_email
+from flighttracker.i18n import Msg
 from flighttracker.models import PlatformSetting
 from flighttracker.security.secrets import decrypt, encrypt
 
@@ -95,7 +96,11 @@ KEEP_ALIVE = re.compile(r"^(-1|\d+(\.\d+)?(ms|s|m|h)?)$")
 
 
 class SettingValidationError(ValueError):
-    pass
+    """`message` is translatable (shown next to the field in the user's language)."""
+
+    def __init__(self, message: Msg):
+        super().__init__(str(message))
+        self.message = message
 
 
 def _parse(field: SettingField, raw: str) -> object:
@@ -104,40 +109,45 @@ def _parse(field: SettingField, raw: str) -> object:
         return raw
     if field.kind == "currency":
         if not is_known_currency(raw):
-            raise SettingValidationError("Choose a currency from the list.")
+            raise SettingValidationError(Msg("Choose a currency from the list."))
         return raw
     if field.kind == "str":
         return raw
     if field.kind == "text":
         if len(raw) > 20_000:
-            raise SettingValidationError("At most 20000 characters.")
+            raise SettingValidationError(Msg("At most {n} characters.", n=20_000))
         return raw
     if field.kind == "email":
         if not is_valid_email(raw):
-            raise SettingValidationError("Enter a valid e-mail address.")
+            raise SettingValidationError(Msg("Enter a valid e-mail address."))
         return raw
     if field.kind == "url":
         if not raw.startswith(("https://", "http://")) or " " in raw:
-            raise SettingValidationError("Enter an address starting with https://.")
+            raise SettingValidationError(Msg("Enter an address starting with https://."))
         return raw.rstrip("/")
     if field.kind == "choice":
         if raw not in CHOICES[field.key]:
-            raise SettingValidationError(f"Choose one of: {', '.join(CHOICES[field.key])}.")
+            raise SettingValidationError(
+                Msg(
+                    "Choose one of: {values}.",
+                    values=", ".join(v or "–" for v in CHOICES[field.key]),
+                )
+            )
         return raw
     if field.kind == "bool":
         if raw.lower() not in ("true", "false"):
-            raise SettingValidationError("Choose on or off.")
+            raise SettingValidationError(Msg("Choose on or off."))
         return raw.lower() == "true"
     try:
         value: float = int(raw) if field.kind == "int" else float(raw)
     except ValueError as exc:
-        raise SettingValidationError("Please enter a number.") from exc
+        raise SettingValidationError(Msg("Please enter a number.")) from exc
     if not math.isfinite(value):
-        raise SettingValidationError("Please enter a number.")
+        raise SettingValidationError(Msg("Please enter a number."))
     if field.min is not None and value < field.min:
-        raise SettingValidationError(f"Must be at least {field.min:g}.")
+        raise SettingValidationError(Msg("Must be at least {n}.", n=f"{field.min:g}"))
     if field.max is not None and value > field.max:
-        raise SettingValidationError(f"Must be at most {field.max:g}.")
+        raise SettingValidationError(Msg("Must be at most {n}.", n=f"{field.max:g}"))
     return int(value) if field.kind == "int" else value
 
 
@@ -145,15 +155,17 @@ def validate(key: str, raw: str) -> object:
     """Parsed, bounds-checked value, or raises `SettingValidationError`."""
     field = _FIELDS_BY_KEY.get(key)
     if field is None:
-        raise SettingValidationError(f"Unknown setting: {key}")
+        raise SettingValidationError(Msg("Unknown setting: {key}", key=key))
     if key == "ai_ollama_keep_alive" and not KEEP_ALIVE.match(raw.strip()):
-        raise SettingValidationError("Use -1 (forever), 0, or a duration such as 30m or 24h.")
+        raise SettingValidationError(Msg("Use -1 (forever), 0, or a duration such as 30m or 24h."))
     if key == "flight_provider":
         from flighttracker.providers.registry import PROVIDERS
 
         if raw not in PROVIDERS:
             available = ", ".join(sorted(PROVIDERS))
-            raise SettingValidationError(f"Unknown provider. Available: {available}")
+            raise SettingValidationError(
+                Msg("Unknown provider. Available: {names}", names=available)
+            )
         return raw
     return _parse(field, raw)
 
@@ -168,7 +180,7 @@ def set_override(session: Session, key: str, raw: str, *, secret_key: str | None
     `secret_key`: needed for encrypted settings (the SMTP password)."""
     field = _FIELDS_BY_KEY.get(key)
     if field is None:
-        raise SettingValidationError(f"Unknown setting: {key}")
+        raise SettingValidationError(Msg("Unknown setting: {key}", key=key))
     if not raw.strip():
         clear_override(session, key)
         return
@@ -178,7 +190,7 @@ def set_override(session: Session, key: str, raw: str, *, secret_key: str | None
         stored = str(value)
     if field.encrypted:
         if not secret_key:
-            raise SettingValidationError("Encrypted settings need the secret key.")
+            raise SettingValidationError(Msg("Encrypted settings need the secret key."))
         stored = encrypt(raw, secret_key)
     statement = insert(PlatformSetting).values(key=key, value=stored)
     statement = statement.on_conflict_do_update(

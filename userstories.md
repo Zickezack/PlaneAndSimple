@@ -189,3 +189,7 @@ see 49.)
 54. Mail counts as set up only with a login (a server without one is shown as a test catcher or
     relay); "Check the login" connects and logs in without sending, also right after saving the
     Mail section.
+55. Platform Settings sections without surprises: a provider preset no longer overwrites what
+    was typed; a wrong field is marked (in the user's language) without losing the other
+    input; mail login check, test mail and AI test use the entered values without saving;
+    saving and testing happen in place – no reload, no jump.

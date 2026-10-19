@@ -190,9 +190,10 @@ def test_smtp_password_is_stored_encrypted(client, db, monkeypatch):
         },
     )
     assert checked == ["smtp.gmail.com"]  # the login is checked right after saving
-    assert "Login to smtp.gmail.com:587 works." in response.text
+    # The preset filled the untouched host; the port typed by hand (25) wins over its 587.
+    assert "Login to smtp.gmail.com:25 works." in response.text
     stored = {row.key: row.value for row in db.scalars(select(PlatformSetting))}
-    assert stored["smtp_host"] == "smtp.gmail.com" and stored["smtp_port"] == "587"
+    assert stored["smtp_host"] == "smtp.gmail.com" and stored["smtp_port"] == "25"
     assert stored["smtp_password"].startswith("fernet:")
     assert "app-password" not in stored["smtp_password"]
     effective = effective_settings(db, mail_settings())

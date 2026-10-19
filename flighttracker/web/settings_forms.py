@@ -41,9 +41,16 @@ def section_fields(section: str) -> list[SettingField]:
     return [field for field in SETTING_FIELDS if field.section == section]
 
 
-def field_view(field: SettingField, overrides: dict, settings) -> dict:
+def field_view(field: SettingField, overrides: dict, settings, entered=None) -> dict:
+    """`entered`: the section's input (web/settings_sections.SectionInput) to show again
+    instead of the stored value – after a test or a failed save without JavaScript."""
     value = getattr(settings, field.key)
     is_secret = field.kind == "secret"
+    error = None
+    if entered is not None:
+        raw = entered.values[field.key]
+        value = (raw == "true") if field.kind == "bool" else raw
+        error = entered.errors.get(field.key)
     return {
         "key": field.key,
         "label": labels.SETTINGS_FIELD_LABELS[field.key],
@@ -56,7 +63,8 @@ def field_view(field: SettingField, overrides: dict, settings) -> dict:
         "is_text": field.kind == "text",
         "is_overridden": field.key in overrides,
         "value": "" if is_secret or value is None else value,
-        "has_value": bool(value.get_secret_value()) if is_secret and value else False,
+        "has_value": bool(getattr(settings, field.key)) if is_secret else False,
+        "error": error,
     }
 
 

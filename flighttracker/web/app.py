@@ -9,7 +9,6 @@ from flighttracker.db.session import create_db_engine, create_session_factory
 from flighttracker.security.throttle import LoginThrottle
 from flighttracker.web.deps import LoginRequired
 from flighttracker.web.routes import (
-    ai,
     auth,
     health,
     log,
@@ -17,6 +16,7 @@ from flighttracker.web.routes import (
     preferences,
     schedule,
     searches,
+    settings_actions,
     suggest,
     trips,
     users,
@@ -77,12 +77,12 @@ def create_app(
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(password.router)
-    app.include_router(ai.router)
     app.include_router(preferences.router)
     app.include_router(suggest.router)
     app.include_router(searches.router)
     app.include_router(log.router)
     app.include_router(settings_routes.router)
+    app.include_router(settings_actions.router)
     app.include_router(schedule.router)
     app.include_router(trips.router)
     app.include_router(users.router)

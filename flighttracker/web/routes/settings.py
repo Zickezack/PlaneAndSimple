@@ -5,7 +5,7 @@ defaults (flight data providers, worker, airport import, user limits)."""
 import json
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData, UploadFile
@@ -19,15 +19,9 @@ from flighttracker.services.ai_prompts import DEFAULT_SYSTEM_PROMPT
 from flighttracker.services.airport_import import import_from_ourairports
 from flighttracker.services.data_export import export_all
 from flighttracker.services.data_import import import_payload
-from flighttracker.services.mail import has_login
 from flighttracker.services.settings import (
-    MAIL_SECTION,
-    SETTING_FIELDS,
-    SettingValidationError,
-    clear_override,
     effective_settings,
     load_overrides,
-    set_override,
 )
 from flighttracker.services.users import (
     UserValidationError,
@@ -49,14 +43,11 @@ from flighttracker.web.deps import (
     require_login,
 )
 from flighttracker.web.mails import send_password_changed
-from flighttracker.web.routes.password import flash_login_check
 from flighttracker.web.schedule_view import timeline
 from flighttracker.web.settings_forms import (
     SECTIONS,
-    ai_preset,
     currency_options,
     field_view,
-    mail_preset,
     section_fields,
     setup_status,
     timezone_options,
@@ -83,6 +74,21 @@ def _redirect(section: str) -> RedirectResponse:
 
 @router.get("/settings")
 def index(request: Request, db: Session = Depends(get_db), user: User = Depends(get_user)):
+    return render_settings(request, db, user)
+
+
+def render_settings(
+    request: Request,
+    db: Session,
+    user: User,
+    *,
+    entered=None,
+    results: list[tuple[Msg, str]] | None = None,
+    status_code: int = 200,
+):
+    """The Settings page. `entered` (web/settings_sections.SectionInput): show that section
+    open with the entered values, field errors and `results` – used without JavaScript, so a
+    test or a failed save never loses what was typed."""
     settings = effective_settings(db, request.app.state.settings)
     locale = current_locale(request)
     sections = []
@@ -102,7 +108,13 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
                 "key": section,
                 "label": labels.SETTINGS_SECTION_LABELS[section],
                 "fields": [
-                    field_view(field, overrides, settings) for field in section_fields(section)
+                    field_view(
+                        field,
+                        overrides,
+                        settings,
+                        entered if entered and entered.section == section else None,
+                    )
+                    for field in section_fields(section)
                 ],
             }
             for section in SECTIONS
@@ -130,6 +142,8 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             # Read-only poll schedule inside the Worker load card.
             **(schedule_context or {}),
             **logs,
+            "open_section": entered.section if entered else None,
+            "section_results": {entered.section: results or []} if entered else {},
             "zone": settings.display_timezone,
             "duration": format_seconds,
             "locale_options": list(SUPPORTED_LOCALES.items()),
@@ -140,6 +154,7 @@ def index(request: Request, db: Session = Depends(get_db), user: User = Depends(
             "default_ai_prompt": DEFAULT_SYSTEM_PROMPT,
             "timezone_options": timezone_options(settings.display_timezone, locale),
         },
+        status_code=status_code,
     )
 
 
@@ -192,46 +207,6 @@ def change_password(
     request.session[SESSION_AUTH_VERSION] = user.auth_version
     flash(request, Msg("Password changed. Other sessions were logged out."), "success")
     return _redirect("password")
-
-
-@router.post("/settings/section/{section}", dependencies=admin_only)
-def save_section(
-    section: str,
-    request: Request,
-    form: FormData = Depends(csrf_form),
-    db: Session = Depends(get_db),
-):
-    if section not in SECTIONS:
-        raise HTTPException(status_code=404)
-    old_interval = effective_settings(db, request.app.state.settings).default_poll_interval_minutes
-    errors: list[str] = []
-    values = {field.key: str(form.get(field.key, "")).strip() for field in SETTING_FIELDS}
-    values |= mail_preset(str(form.get("smtp_preset", "")))
-    values |= ai_preset(str(form.get("ai_preset", "")))
-    secret_key = request.app.state.settings.secret_key.get_secret_value()
-    for field in section_fields(section):
-        if field.kind == "secret" and form.get(f"{field.key}_clear") == "1":
-            clear_override(db, field.key)
-            continue
-        raw = values[field.key]
-        if field.kind == "secret" and not raw:
-            continue  # blank means "keep the current value", not "clear it"
-        try:
-            set_override(db, field.key, raw, secret_key=secret_key)
-        except SettingValidationError as exc:
-            errors.append(f"{labels.SETTINGS_FIELD_LABELS[field.key]}: {exc}")
-    if errors:
-        db.rollback()
-        flash(request, Msg("Could not save: {errors}", errors="; ".join(errors)), "error")
-        return _redirect(section)
-    settings = effective_settings(db, request.app.state.settings)
-    if settings.default_poll_interval_minutes != old_interval:
-        poll_plan.rescale(db, old_interval, settings, datetime.now(UTC))
-    db.commit()
-    flash(request, Msg("Settings saved."), "success")
-    if section == MAIL_SECTION and has_login(settings):
-        flash_login_check(request, settings)  # tell right away whether the login works
-    return _redirect(section)
 
 
 @router.post("/settings/airport-import/run", dependencies=admin_only)

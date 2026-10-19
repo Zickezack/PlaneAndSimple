@@ -5,23 +5,7 @@
 <div class="page-header">
   <h1>{{ _("Settings") }}</h1>
 </div>
-{% if setup %}
-{#- What is not set up yet, at a glance (admins only); links go to the section concerned. -#}
-{% set missing = setup | rejectattr("ok") | list %}
-<section class="card setup-status" id="setup">
-  {% if missing %}
-  <h2>{{ _("Not set up yet") }}</h2>
-  <ul class="setup-list">
-    {% for item in missing %}
-    <li>{{ ui.badge(_(labels.SETUP_LEVEL_LABELS[item.level]), labels.SETUP_LEVEL_VARIANTS[item.level]) }}
-      <a href="#{{ item.anchor }}"><strong>{{ _(item.label) }}</strong></a> – {{ _(item.missing) }}</li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-  {% set ready = setup | selectattr("ok") | map(attribute="label") | list %}
-  {% if ready %}<p class="hint">{{ _("Set up:") }} {% for label in ready %}{{ ui.badge(_(label), "success") }} {% endfor %}</p>{% endif %}
-</section>
-{% endif %}
+{% include "settings/_setup.html" %}
 {% if section_nav %}{{ ui.section_nav(section_nav) }}{% endif %}
 
 <details class="card more" id="personal" open>
@@ -137,6 +121,7 @@
   {% endif %}
 </details>
 <script src="{{ static_url('js/poll-schedule.js') }}" defer></script>
+<script src="{{ static_url('js/settings-sections.js') }}" defer></script>
 
 <details class="card more" id="transfer">
   <summary>{{ _("Export and import") }}</summary>
@@ -157,9 +142,9 @@
 </details>
 
 {% for section in sections %}
-<details class="card more" id="{{ section.key }}">
+<details class="card more" id="{{ section.key }}"{% if section.key == open_section %} open{% endif %}>
   <summary>{{ _(section.label) }}</summary>
-  <form method="post" action="/settings/section/{{ section.key }}" class="form">
+  <form method="post" action="/settings/section/{{ section.key }}" class="form" data-settings-section data-working="{{ _('Working …') }}" data-failed="{{ _('No answer from the server – nothing was changed.') }}" data-secret-set="{{ _('set, not shown') }}" data-secret-unset="{{ _('not set') }}">
     {{ ui.csrf_field() }}
     {% if section.key == "mail" %}
     <p class="hint">{{ _("Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.") }}</p>
@@ -171,7 +156,7 @@
         <option value="{{ preset.key }}" data-host="{{ preset.host }}" data-port="{{ preset.port }}" data-security="{{ preset.security }}" data-hint="{{ _(preset.hint) }}">{{ preset.label }}</option>
         {% endfor %}
       </select>
-      <small class="hint" data-mail-preset-hint>{{ _("Fills in host, port and encryption on saving; your address and (app) password are still needed.") }}</small>
+      <small class="hint" data-mail-preset-hint>{{ _("Fills in host, port and encryption; fields you change yourself stay as you typed them. Your address and (app) password are still needed.") }}</small>
     </div>
     {% endif %}
     {% if section.key == "ai" %}
@@ -185,10 +170,11 @@
         <option value="{{ preset.key }}" data-url="{{ preset.base_url }}" data-model="{{ preset.model }}" data-hint="{{ _(preset.hint) }}">{{ preset.label }}</option>
         {% endfor %}
       </select>
-      <small class="hint" data-ai-preset-hint>{{ _("Fills in provider, API URL and a model on saving; an API key is still needed for cloud providers.") }}</small>
+      <small class="hint" data-ai-preset-hint>{{ _("Fills in provider, API URL and a model; fields you change yourself stay as you typed them. Cloud providers still need an API key.") }}</small>
     </div>
     {% endif %}
     {% for field in section.fields %}
+      <div class="setting-field" data-setting-field="{{ field.key }}">
       {% if field.is_choice %}
       <div class="field">
         <label for="f-{{ field.key }}">{{ _(field.label) }}</label>
@@ -229,20 +215,25 @@
       {% endif %}
       {% endif %}
       {% if field.is_overridden %}<p class="hint">{{ _("Overridden here; leave the field empty and save to fall back to .env again.") }}</p>{% endif %}
+      {% if field.error %}<small class="field-error">{{ _(field.label) }}: {{ _(field.error) }}</small>{% endif %}
+      </div>
     {% endfor %}
-    <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
+    <div class="actions">
+      {{ ui.button(_("Save")) }}
+      {% if section.key == "mail" %}
+      {{ ui.button(_("Check the login"), "secondary", formaction="/settings/mail/check") }}
+      {{ ui.button(_("Send a test mail"), "secondary", formaction="/settings/mail/test") }}
+      {% elif section.key == "ai" %}
+      {{ ui.button(_("Test the connection"), "secondary", formaction="/settings/ai/test") }}
+      {% endif %}
+    </div>
+    {% if section.key == "mail" %}<small class="hint">{{ _("The checks use the values above as entered – nothing has to be saved first. The test mail goes to your own address (Personal settings).") }}</small>
+    {% elif section.key == "ai" %}<small class="hint">{{ _("The test sends a one-word request with the values above as entered – nothing has to be saved first.") }}</small>{% endif %}
+    <div class="section-result" data-section-result aria-live="polite">
+      {% for message, category in section_results.get(section.key, []) %}{{ ui.alert(message, category) }}{% endfor %}
+    </div>
   </form>
   {% if section.key == "mail" %}
-  <form method="post" action="/settings/mail/check" class="inline-form">
-    {{ ui.csrf_field() }}
-    {{ ui.button(_("Check the login"), "secondary") }}
-    <small class="hint">{{ _("Connects and logs in with the saved settings, without sending a mail. Runs after saving this section too.") }}</small>
-  </form>
-  <form method="post" action="/settings/mail/test" class="inline-form">
-    {{ ui.csrf_field() }}
-    {{ ui.button(_("Send a test mail"), "secondary") }}
-    <small class="hint">{{ _("To your own address (Personal settings), with the saved settings.") }}</small>
-  </form>
   <details class="more">
     <summary>{{ _("Mail log") }} <small class="hint">{{ _("last 30 days: {sent} sent, {failed} failed", sent=mail_log.sent, failed=mail_log.failed) }}</small></summary>
     {% if mail_log.latest %}
@@ -258,11 +249,6 @@
   </details>
   {% endif %}
   {% if section.key == "ai" %}
-  <form method="post" action="/settings/ai/test" class="inline-form">
-    {{ ui.csrf_field() }}
-    {{ ui.button(_("Test the connection"), "secondary") }}
-    <small class="hint">{{ _("Sends a one-word request with the saved settings.") }}</small>
-  </form>
   <details class="more">
     <summary>{{ _("Usage log") }} <small class="hint">{{ _("last 30 days: {n} requests, {failed} failed", n=ai_usage.requests, failed=ai_usage.failed) }}</small></summary>
     {% if ai_usage.features %}
