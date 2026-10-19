@@ -86,8 +86,7 @@
 
   {#- Foldable, open by default; the view switch stays outside <summary> (a click there would fold). -#}
   <details class="flights-section" open>
-  <summary><h2>{{ _("Flights") }}</h2></summary>
-  {{ ui.section_info(_("Changes compare with observations around 1 day, 1 week and 1 month earlier. Click a date for all flight details.")) }}
+  <summary><h2>{{ _("Flights") }}</h2>{{ ui.summary_info(_("Changes compare with observations around 1 day, 1 week and 1 month earlier. Click a date for all flight details.")) }}</summary>
   <div class="table-header">
     <div class="view-switch" data-view-switch hidden>
       {{ ui.select_field("filter_view", _("Show"), [("month", _("Cheapest per month")), ("all", _("All flights"))], "month") }}
@@ -175,8 +174,7 @@
 </details>
 
 <details class="card more" id="history">
-  <summary>{{ _("Change history") }}</summary>
-  {{ ui.section_info(_("Every change creates a new revision. Existing prices stay unchanged.")) }}
+  <summary>{{ _("Change history") }}{{ ui.summary_info(_("Every change creates a new revision. Existing prices stay unchanged.")) }}</summary>
   <ul class="revisions">
     {% for r in revisions %}
     <li><strong>{{ _("Revision {no}", no=r.revision_no) }}</strong> · {{ r.created_at | datetime }}<br>
@@ -188,8 +186,8 @@
 
 {% if alerts %}
 <details class="card more" id="alerts">
-  <summary>{{ _("Price alerts") }}{% if alerts["items"] %} <small class="hint">({{ alerts["items"] | length }})</small>{% endif %}</summary>
-  {{ ui.section_info(_("A mail when a flight costs at most your price – once per flight, and again only when it gets cheaper. Your alerts are your own; nobody else sees them.")) }}
+  <summary>{{ _("Price alerts") }}{% if alerts["items"] %} <small class="hint">({{ alerts["items"] | length }})</small>{% endif %}
+    {{- ui.summary_info(_("A mail when a flight costs at most your price – once per flight, and again only when it gets cheaper. Your alerts are your own; nobody else sees them.")) }}</summary>
   {% if not alerts.mail_enabled %}<p class="note">{{ _("Mail is not set up on this server yet: alerts are only sent once an admin sets it up (Platform Settings → Mail).") }}</p>{% endif %}
   {% if alerts["items"] %}
   <div class="table-wrap">

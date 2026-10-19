@@ -37,13 +37,16 @@
   };
 
   document.addEventListener("click", (event) => {
+    const inside = event.target.closest(".info");
+    // In a <summary> a click on the "i" or its bubble never folds the section.
+    if (inside && inside.closest("summary")) event.preventDefault();
     const button = event.target.closest(".info-button");
     const clicked = button ? button.closest(".info") : null;
     document.querySelectorAll(".info.is-open").forEach((info) => {
       if (info !== clicked && !info.contains(event.target)) close(info);
     });
     if (!clicked) return;
-    event.preventDefault(); // never toggles a <details> or submits anything around it
+    event.preventDefault(); // never submits or toggles anything around it
     if (clicked.classList.contains("is-open")) close(clicked);
     else open(clicked);
   });

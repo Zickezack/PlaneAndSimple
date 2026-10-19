@@ -47,8 +47,8 @@
 {% set c = capacity %}
 <details class="card more capacity{% if editing %} is-editing{% endif %}" id="schedule" data-schedule-card open>
   <summary>{{ _("Worker load and poll schedule") }}
-    {%- if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}</summary>
-  {{ ui.section_info(_("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.")) }}
+    {%- if c.level == "overloaded" %}{{ ui.badge(_("Overloaded"), "danger") }}{% elif c.level == "tight" %}{{ ui.badge(_("Tight"), "warning") }}{% else %}{{ ui.badge(_("OK"), "success") }}{% endif %}
+    {{- ui.summary_info(_("The worker runs one poll after the other. A poll whose start comes while another one is running waits until that one is done – polls never run at the same time. New tracked searches and Trips are placed automatically in the largest free gap. If one round takes longer than the poll interval, polls back up and run later than planned.")) }}</summary>
   <p class="hint">{{ _("Times in {zone}; bar length = duration of the latest poll (or an estimate).", zone=zone) }}
     {%- if interval < 1440 %} {{ _("The schedule repeats every {interval}.", interval=duration(interval * 60)) }}{% endif %}
     <span data-edit-only{% if not editing %} hidden{% endif %}>{{ _("Drag a bar or change a start time, then save.") }}</span></p>
@@ -73,8 +73,7 @@
   <form method="post" action="/settings/schedule" class="form" id="schedule-form">
     {{ ui.csrf_field() }}
     <details class="more" data-schedule-table{% if editing %} open{% endif %}>
-      <summary>{{ _("Per tracked search and Trip") }}</summary>
-      {{ ui.section_info(_("Durations of the latest completed poll; a poll interrupted by a worker restart only counts its last part.")) }}
+      <summary>{{ _("Per tracked search and Trip") }}{{ ui.summary_info(_("Durations of the latest completed poll; a poll interrupted by a worker restart only counts its last part.")) }}</summary>
       <div class="table-wrap">
         <table class="table">
           <thead><tr><th class="num">#</th><th>{{ _("Start") }}</th><th>{{ _("Name") }}</th><th>{{ _("Owner") }}</th><th class="num">{{ _("Requests per poll") }}</th><th class="num">{{ _("Poll duration") }}</th><th class="num">{{ _("Share of the round") }}</th><th>{{ _("Status") }}</th></tr></thead>
@@ -139,12 +138,9 @@
 
 {% for section in sections %}
 <details class="card more" id="{{ section.key }}"{% if section.key == open_section %} open{% endif %}>
-  <summary>{{ _(section.label) }}</summary>
-  {% if section.key == "mail" %}
-  {{ ui.section_info(_("Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.")) }}
-  {% elif section.key == "ai" %}
-  {{ ui.section_info(_("Optional. The AI drafts tracked searches from a plain-language wish and explains the “when to book” advice. It never calculates: every number comes from the app, and drafts are only saved after you check them.")) }}
-  {% endif %}
+  <summary>{{ _(section.label) }}
+    {%- if section.key == "mail" %}{{ ui.summary_info(_("Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.")) }}
+    {%- elif section.key == "ai" %}{{ ui.summary_info(_("Optional. The AI drafts tracked searches from a plain-language wish and explains the “when to book” advice. It never calculates: every number comes from the app, and drafts are only saved after you check them.")) }}{% endif %}</summary>
   <form method="post" action="/settings/section/{{ section.key }}" class="form" data-settings-section data-working="{{ _('Working …') }}" data-failed="{{ _('No answer from the server – nothing was changed.') }}" data-secret-set="{{ _('set, not shown') }}" data-secret-unset="{{ _('not set') }}">
     {{ ui.csrf_field() }}
     {% if section.key == "mail" %}
@@ -228,8 +224,7 @@
   </form>
   {% if section.key == "mail" %}
   <details class="more">
-    <summary>{{ _("Mail log") }} <small class="hint">{{ _("last 30 days: {sent} sent, {failed} failed", sent=mail_log.sent, failed=mail_log.failed) }}</small></summary>
-    {{ ui.section_info(_("The last 25 mails; kept for half a year. Addresses are not logged, only the user.")) }}
+    <summary>{{ _("Mail log") }}{{ ui.summary_info(_("The last 25 mails; kept for half a year. Addresses are not logged, only the user.")) }} <small class="hint">{{ _("last 30 days: {sent} sent, {failed} failed", sent=mail_log.sent, failed=mail_log.failed) }}</small></summary>
     {% if mail_log.latest %}
     <div class="table-wrap"><table class="table">
       <thead><tr><th>{{ _("Time") }}</th><th>{{ _("Kind") }}</th><th>{{ _("User") }}</th><th>{{ _("Subject") }}</th><th>{{ _("Result") }}</th></tr></thead>
@@ -243,8 +238,7 @@
   {% endif %}
   {% if section.key == "ai" %}
   <details class="more">
-    <summary>{{ _("Usage log") }} <small class="hint">{{ _("last 30 days: {n} requests, {failed} failed", n=ai_usage.requests, failed=ai_usage.failed) }}</small></summary>
-    {{ ui.section_info(_("Tokens as reported by the provider (not every local server reports them). A request's time opens its details: what the app sent, the thinking the provider returned, the answer as received and as used – the messages only while “Log messages” is on, for 30 days. Entries are kept for half a year.")) }}
+    <summary>{{ _("Usage log") }}{{ ui.summary_info(_("Tokens as reported by the provider (not every local server reports them). A request's time opens its details: what the app sent, the thinking the provider returned, the answer as received and as used – the messages only while “Log messages” is on, for 30 days. Entries are kept for half a year.")) }} <small class="hint">{{ _("last 30 days: {n} requests, {failed} failed", n=ai_usage.requests, failed=ai_usage.failed) }}</small></summary>
     {% if ai_usage.features %}
     <div class="table-wrap"><table class="table">
       <thead><tr><th>{{ _("Feature") }}</th><th class="num">{{ _("Requests") }}</th><th class="num">{{ _("Failed") }}</th><th class="num">{{ _("Cut off") }}</th><th class="num">{{ _("Input tokens") }}</th><th class="num">{{ _("Output tokens") }}</th><th class="num">{{ _("Average time") }}</th></tr></thead>

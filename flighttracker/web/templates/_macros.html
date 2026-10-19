@@ -28,14 +28,16 @@
     tap: explanations of a field or function stay out of the way. Screen readers read the text
     right after the button. Hover and focus work without JavaScript; static/js/info.js adds tap
     to open and close, Escape, and keeps the bubble inside the window. -#}
-{% macro info(text) -%}
-<span class="info"><button type="button" class="info-button" aria-label="{{ _('Explanation') }}">i</button><span class="info-text">{{ text }}</span></span>
+{% macro info(text, id=None) -%}
+<span class="info"><button type="button" class="info-button" aria-label="{{ _('Explanation') }}"{% if id %} aria-describedby="{{ id }}"{% endif %}>i</button><span class="info-text"{% if id %} id="{{ id }}" aria-hidden="true"{% endif %}>{{ text }}</span></span>
 {%- endmacro %}
 
-{#- `info` at the top right of a card or folded section – outside its summary, a click there
-    would fold it. Only visible while the section is open. -#}
-{% macro section_info(text) -%}
-<div class="section-info">{{ info(text) }}</div>
+{#- `info` in the <summary> of a folding section, after its title and badges. A click on the
+    "i" never folds the section (static/js/info.js; without JavaScript a click on the bubble's
+    text would). The text is the button's description, so it does not become part of the
+    summary's name for screen readers. -#}
+{% macro summary_info(text) -%}
+{{ info(text, id=unique_id("info")) }}
 {%- endmacro %}
 
 {#- A field's label; its explanation (`hint`) as `info`. -#}

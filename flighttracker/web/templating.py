@@ -1,3 +1,4 @@
+import itertools
 from datetime import date
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -15,6 +16,14 @@ from flighttracker.web.deps import current_locale, current_user, ensure_csrf_tok
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
+
+
+_ids = itertools.count(1)
+
+
+def _unique_id(prefix: str) -> str:
+    """An element id no other element of the page has (for aria-describedby)."""
+    return f"{prefix}-{next(_ids)}"
 
 
 def _static_url(path: str) -> str:
@@ -134,6 +143,7 @@ def _translate_options(context, options) -> list[tuple[str, str]]:
 templates = Jinja2Templates(directory=TEMPLATE_DIR, context_processors=[_request_context])
 templates.env.globals["labels"] = labels
 templates.env.globals["static_url"] = _static_url
+templates.env.globals["unique_id"] = _unique_id
 templates.env.globals["sparkline"] = flights.sparkline
 templates.env.filters["price"] = _format_price
 templates.env.filters["number"] = format_number

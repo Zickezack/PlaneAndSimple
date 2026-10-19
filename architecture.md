@@ -146,7 +146,7 @@ Where new code goes (dependencies only point downwards):
 | Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
 | AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_wire.py`, `services/ai_prompts.py`, `web/ai_report.py` (connection test), `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
 | AI usage log | `services/ai_log.py` (write), `services/usage_logs.py` (read), `web/routes/ai_usage.py` + `templates/settings/ai_request.html` (one request stage by stage) |
-| "i" explanations | macros `ui.info` / `ui.section_info` and the `hint`/`note` of the field macros in `templates/_macros.html`, `static/js/info.js` |
+| "i" explanations | macros `ui.info` / `ui.summary_info` and the `hint`/`note` of the field macros in `templates/_macros.html`, `static/js/info.js` |
 
 **Plane and simple (UI principle):** every page shows the essentials first and folds the rest
 away. Suchabo detail: summary line, "Poll now", chart and a lean flights table; settings, recent
@@ -154,10 +154,12 @@ polls, change history and deletion are `<details>` sections; everything about on
 its flight detail page (`/searches/<id>/flights/<price id>`: segments with Flightradar24 links,
 layovers, price history of these dates, Google Flights link). Filters appear only when they offer
 a real choice; rarely changed form fields sit under "More options". New features follow this.
-Explanations of a field or function sit behind an "i" (macro `ui.info`; `ui.section_info` at
-the top right of a card – never inside `<summary>`, a click there would fold it; the field
-macros take `hint=` for it): hover, keyboard focus or a tap shows the text, Escape or a click
-elsewhere closes it, and screen readers read it right after the button. Hover and focus work
+Explanations of a field or function sit behind an "i" (macro `ui.info`, right after the label,
+heading or button it explains; the field macros take `hint=` for it): hover, keyboard focus or a
+tap shows the text, Escape or a click elsewhere closes it, and screen readers read it right
+after the button. In the `<summary>` of a folding section it follows the title and its badges
+(`ui.summary_info`: a click on it never folds the section, and its text is the button's
+description instead of part of the summary's name). Hover and focus work
 without JavaScript (`static/js/info.js` adds tapping and keeps the bubble inside the window).
 What the user must not miss stays visible: requirements ("At least 12 characters"), warnings
 and status (`note=` of the field macros, `<p class="note">`).
