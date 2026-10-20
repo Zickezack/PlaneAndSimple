@@ -828,5 +828,22 @@
   "Trip summary": "Zusammenfassung eines Trips",
   "Working options: {n} (at the poll before: {before}).": "Funktionierende Optionen: {n} (bei der vorherigen Abfrage: {before}).",
   "Working options: {n}.": "Funktionierende Optionen: {n}.",
-  "{n} working options": "{n} funktionierende Optionen"
+  "{n} working options": "{n} funktionierende Optionen",
+  "Biggest drop since {date}: {flight}, {change} to {price}.": "Grösste Senkung seit {date}: {flight}, {change} auf {price}.",
+  "Cheapest flight now {price} ({change} since {date}): {flight}.": "Günstigster Flug jetzt {price} ({change} seit {date}): {flight}.",
+  "Cheapest option now {price} ({change} since {date}).": "Günstigste Option jetzt {price} ({change} seit {date}).",
+  "Choose how often the price digest comes.": "Wähle, wie oft der Preis-Digest kommt.",
+  "Daily": "Täglich",
+  "Digest overview": "Überblick im Digest",
+  "How the prices of your tracked searches and Trips (also shared ones) changed – daily at 07:00 in your time zone or weekly on Mondays, only when something changed notably. Needs an e-mail address.": "Wie sich die Preise deiner Suchabos und Trips (auch geteilter) verändert haben – täglich um 07:00 in deiner Zeitzone oder wöchentlich am Montag, nur wenn sich etwas nennenswert geändert hat. Braucht eine E-Mail-Adresse.",
+  "No notable change: {names}.": "Keine nennenswerte Änderung: {names}.",
+  "Overview in the price digest": "Überblick im Preis-Digest",
+  "Price digest": "Preis-Digest",
+  "Price digest by mail": "Preis-Digest per Mail",
+  "Price digest: what changed since {date}": "Preis-Digest: was sich seit {date} geändert hat",
+  "To change or stop it:\n{link}": "Ändern oder abbestellen:\n{link}",
+  "Users can get a daily or weekly price digest by mail (personal settings). With this on, the AI writes a few sentences on top about the most important changes across their tracked searches and Trips – one request per mail.": "Benutzer können einen täglichen oder wöchentlichen Preis-Digest per Mail bekommen (persönliche Einstellungen). Ist dies an, schreibt die KI oben ein paar Sätze zu den wichtigsten Änderungen über alle ihre Suchabos und Trips – eine Anfrage pro Mail.",
+  "Weekly": "Wöchentlich",
+  "You get this digest every Monday when prices changed notably.": "Du bekommst diesen Digest jeden Montag, wenn sich Preise nennenswert geändert haben.",
+  "You get this digest every morning when prices changed notably.": "Du bekommst diesen Digest jeden Morgen, wenn sich Preise nennenswert geändert haben."
 }

@@ -3,12 +3,11 @@
 ## Backlog
 
 ### Epic Benachrichtigungen
-(Mail, account mails and price alerts are implemented – see 42–43.)
-1. Price digest: daily or weekly mail per user (chosen in the personal settings) with how the
-   prices of their Suchabos changed since the last digest – cheapest per month, biggest drops
-   and rises, new lowest prices – optionally with the price chart as an embedded image (mail
-   clients do not run JavaScript, so it must be rendered server-side, e.g. PNG – needs a new
-   dependency such as Pillow or matplotlib).
+(Mail, account mails, price alerts, deal mails and the price digest are implemented – see
+42–43, 59, 61.)
+1. Price chart in the price digest (61) as an embedded image: mail clients do not run
+   JavaScript, so it must be rendered server-side, e.g. PNG – needs a new dependency such as
+   Pillow or matplotlib.
 2. Price alerts for Trips (complete options below a total price); today only Suchabos.
 
 ### Epic Zusatzattribute zu Verbindungen
@@ -36,17 +35,22 @@
    CHF) – no token available yet.
 
 ### Epic AI-gestützte Planung
-(AI setup, rule-based "when to book" with AI explanation and search drafts are implemented –
-see 49.)
+(AI setup, rule-based "when to book" with AI explanation, search drafts, poll summaries and the
+digest overview are implemented – see 49, 58–61.)
 1. Trip drafts from a plain-language wish (legs, stays, window), checked by the Trip rules and
    saved only after confirmation.
-2. AI-worded price alert mails and (with the digest, Epic Benachrichtigungen 1) a digest in
-   plain language: what changed and why it matters, patterns across Suchabos, the "when to
-   book" advice. Numbers always from the app; every statement links to the underlying prices.
-   Fixed texts (password links etc.) stay fixed.
+2. Tips from a user's own data, rule-based and worded by the AI: e.g. "from BSL 40 CHF cheaper
+   on average than from ZRH", "Tuesday departures 15 % cheaper", "7 instead of 6 nights save
+   30 CHF". (Poll summaries in alert mails and the digest overview are implemented – see
+   58–61.)
 3. An AI weighting of the "when to book" signals beyond the fixed rules (what changed across
    the whole tracked search is in the poll report, see 58).
-4. Optional per-feature model choice (e.g. a cheaper model for drafts).
+4. Optional per-feature model choice (e.g. a cheaper model for drafts or poll summaries).
+5. Poll watch for admins: a mail when polls fail repeatedly (e.g. after a change of the Google
+   Flights format), with the AI summing up the errors of the Poll Log.
+6. Questions about one's own data ("When was Lisbon cheapest in October?") answered by the AI
+   through tool calls on the app's queries – bigger, as the three providers' tool formats
+   differ.
 
 ## Planned
 
@@ -215,3 +219,8 @@ see 49.)
 60. What a Trip poll changed: working options and the cheapest one with its legs against the
     poll before, new lowest price of the Trip – on the Trip page, as a line in the list, and
     worded by the AI after a notable poll.
+61. Price digest by mail, daily at 07:00 in the user's time zone or weekly on Mondays (personal
+    settings): per tracked search and Trip what changed since the period began – cheapest price,
+    new lowest prices, biggest drop, unusually cheap prices – with links; only when something
+    changed notably. With AI set up an overview in a few sentences on top ("Overview in the
+    price digest").

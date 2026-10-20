@@ -95,7 +95,7 @@ erDiagram
     trip_legs { bigint id PK; bigint trip_id FK; bigint search_id FK; int position; int min_layover_days; int max_layover_days }
     query_log { bigint id PK; bigint job_id; bigint search_id; string search_name; string provider; enum kind; char3 origin_iata; char3 destination_iata; date departure_month; enum cabin_class; enum outcome; int quotes_found; int quotes_stored; text error; jsonb results; timestamptz started_at; int duration_ms; timestamptz logged_at }
     platform_settings { string key PK; text value; timestamptz updated_at }
-    users { bigint id PK; string username; text password_hash; string email; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; bool deal_mails; int auth_version; timestamptz created_at; timestamptz last_login_at }
+    users { bigint id PK; string username; text password_hash; string email; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; bool deal_mails; string digest; timestamptz digest_at; int auth_version; timestamptz created_at; timestamptz last_login_at }
     password_tokens { bigint id PK; bigint user_id FK; char64 token_hash; enum purpose; timestamptz expires_at; timestamptz used_at }
     price_alerts { bigint id PK; bigint search_id FK; bigint user_id FK; numeric max_price; char3 currency; char3 origin_iata; char3 destination_iata; string cabin_class }
     price_alert_notifications { bigint id PK; bigint alert_id FK; char3 origin_iata; char3 destination_iata; string cabin_class; date departure_date; date return_date; numeric price; char3 currency; timestamptz notified_at }
@@ -142,6 +142,9 @@ erDiagram
   strings, dates ISO. Rows are pruned after 90 days and
   deleted with the price history ("Clear price history"). `summary` / `summary_locale`: the AI's
   words for a notable poll and their language.
+- `users.digest` (migration `0018`): `off` (default), `daily` or `weekly` (VARCHAR + CHECK
+  `digest_frequency`); `digest_at`: when the user's digest last ran (sent, or nothing worth a
+  mail) – set to "now" when it is switched on, so the first one comes with the next period.
 - `deal_notifications` (migration `0017`, like `price_alert_notifications`): an unusually
   cheap flight mailed to a user at this price; mailed again only below the lowest price mailed
   so far. `ON DELETE CASCADE` with the Suchabo and the user. `users.deal_mails` (default true)

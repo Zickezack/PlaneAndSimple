@@ -146,6 +146,7 @@ Where new code goes (dependencies only point downwards):
 | Mail, password links | `services/mail.py`, `services/mail_messages.py`, `services/password_tokens.py`, `web/mails.py`, `web/routes/password.py`, `security/secrets.py` |
 | Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker step in `worker/after_poll.py` |
 | What a poll changed (report, AI summary) | `domain/poll_report.py`, `domain/trip_report.py`, `domain/deals.py`, `services/poll_reports.py`, `services/trip_reports.py`, `services/report_texts.py`, `services/ai_summaries.py`, `worker/after_poll.py`, `templates/searches/_poll_report.html` |
+| Price digest | `services/digest.py`, `services/digest_texts.py`, `worker/digests.py`, personal settings in `web/routes/settings.py` |
 | Deal radar (unusually cheap prices) | `domain/deals.py`, `services/deal_radar.py`, `services/mail_messages.py` (`deal_mail`), worker step in `worker/after_poll.py` |
 | Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
 | AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_wire.py`, `services/ai_prompts.py`, `web/ai_report.py` (connection test), `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
@@ -449,6 +450,19 @@ AI's words only in their own language, the facts always, as translated lines fro
 `services/report_texts.py`); the list shows one line per tracked search (cheapest price and
 its change, new lowest and unusually cheap prices) and per Trip (cheapest option, its change,
 the number of options). Clearing the price history clears the reports too.
+
+**Price digest** (`services/digest.py`, words in `services/digest_texts.py`, sent by
+`worker/digests.py` on every tick): users choose off / daily / weekly in their personal
+settings. It is due at 07:00 in the user's time zone (the platform's without one), weekly on
+Mondays, once per period (`users.digest_at`, set before the mail is built, so a failing one is
+not retried every minute; switching it on starts with the next period). For every visible,
+not archived tracked search (own and shared, Trip legs left out) polled in the period, the real
+prices of its latest poll are compared with the prices observed before the period started
+(same report rules, `domain/poll_report.py`); a Trip compares its latest report with the one
+before the period. Only notable ones get a section (the others one "No notable change" line);
+without any, no mail is sent. With AI set up and "Overview in the price digest" on, one request
+per mail puts the facts of all sections into a few sentences on top (feature `digest`). There is
+no chart image in the mail (it would need a new dependency).
 
 ## Security
 

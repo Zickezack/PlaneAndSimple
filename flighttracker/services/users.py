@@ -11,7 +11,16 @@ from sqlalchemy.orm import Session, aliased
 from flighttracker.config import Settings
 from flighttracker.domain.emails import is_valid_email
 from flighttracker.i18n import SUPPORTED_LOCALES, Msg
-from flighttracker.models import Search, SearchStatus, Share, Trip, TripLeg, User, UserRole
+from flighttracker.models import (
+    DigestFrequency,
+    Search,
+    SearchStatus,
+    Share,
+    Trip,
+    TripLeg,
+    User,
+    UserRole,
+)
 from flighttracker.security.passwords import hash_password, verify_password
 
 MIN_PASSWORD_LENGTH = 12
@@ -267,9 +276,14 @@ def set_preferences(
     locale: str | None,
     timezone: str | None,
     deal_mails: bool | None = None,
+    digest: str | None = None,
+    now: datetime | None = None,
 ) -> None:
-    """`deal_mails`: None keeps the current choice."""
+    """`deal_mails`, `digest`: None keeps the current choice. A digest switched on starts with
+    the next period (`now`), not with one right away."""
     errors: list[Msg] = []
+    if digest is not None and digest not in {f.value for f in DigestFrequency}:
+        errors.append(Msg("Choose how often the price digest comes."))
     if locale is not None and locale not in SUPPORTED_LOCALES:
         errors.append(Msg("Unknown language."))
     if timezone:
@@ -283,6 +297,11 @@ def set_preferences(
     user.timezone = timezone or None
     if deal_mails is not None:
         user.deal_mails = deal_mails
+    if digest is not None:
+        chosen = DigestFrequency(digest)
+        if user.digest is DigestFrequency.OFF and chosen is not DigestFrequency.OFF:
+            user.digest_at = now or datetime.now(UTC)
+        user.digest = chosen
 
 
 def usernames(session: Session, user_ids: set[int]) -> dict[int, str]:

@@ -37,6 +37,7 @@ from flighttracker.services.jobs import (
 from flighttracker.services.poll_plan import place_unplanned, poll_cycle
 from flighttracker.services.settings import effective_settings
 from flighttracker.worker.after_poll import after_search_poll, after_trip_poll
+from flighttracker.worker.digests import send_due_digests
 from flighttracker.worker.job_control import interrupt, should_end
 from flighttracker.worker.trip_job import process_trip_job
 from flighttracker.worker.wake import WakeListener
@@ -209,6 +210,7 @@ def main() -> None:
         provider, config = refresh_provider(provider, config, effective)
         try:
             schedule(session_factory, base_settings=settings)
+            send_due_digests(session_factory, settings)
             while not stop.is_set() and process_next_job(
                 session_factory, provider, should_stop=stop.is_set, base_settings=settings
             ):

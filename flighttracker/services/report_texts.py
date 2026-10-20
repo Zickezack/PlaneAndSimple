@@ -66,7 +66,7 @@ def _counts_line(report: SearchReport, locale: str) -> str:
     )
 
 
-def _change_params(flight: Flight, currency: str, locale: str) -> dict:
+def change_params(flight: Flight, currency: str, locale: str) -> dict:
     return {
         "flight": flight_text(flight, locale),
         "change": delta(flight.change or Decimal(0), currency),
@@ -98,10 +98,10 @@ def search_lines(report: SearchReport, locale: str) -> list[str]:
                 )
             )
     if report.drops and report.drops[0].key != cheapest.key:
-        params = _change_params(report.drops[0], c, locale)
+        params = change_params(report.drops[0], c, locale)
         lines.append(translate("Biggest drop: {flight}, {change} to {price}.", locale, **params))
     if report.rises:
-        params = _change_params(report.rises[0], c, locale)
+        params = change_params(report.rises[0], c, locale)
         lines.append(translate("Biggest rise: {flight}, {change} to {price}.", locale, **params))
     for deal in report.deals[:3]:
         lines.append(

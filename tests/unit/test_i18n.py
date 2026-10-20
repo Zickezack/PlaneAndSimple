@@ -107,6 +107,7 @@ def ui_texts() -> set[str]:
     ):
         texts.update(table.values())
     texts.update(text for _, text in labels.STOPS_OPTIONS)
+    texts.update(text for _, text in labels.DIGEST_OPTIONS)
     texts.update(provider.hint for provider in MAIL_PROVIDERS)
     texts.update(preset.hint for preset in AI_PRESETS)
     mail_on = _settings_for_texts()

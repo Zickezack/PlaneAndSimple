@@ -16,7 +16,8 @@ def locale_of(user: User) -> str:
     return user.locale or DEFAULT_LOCALE
 
 
-def _body(*paragraphs: str | None) -> str:
+def body(*paragraphs: str | None) -> str:
+    """Mail text: the paragraphs that are set, then the signature."""
     return "\n\n".join(p for p in (*paragraphs, SIGNATURE) if p) + "\n"
 
 
@@ -28,7 +29,7 @@ def test_mail(to: str, locale: str) -> Mail:
     return Mail(
         to,
         translate("Test mail from Plane and simple", locale),
-        _body(translate("Mail is set up correctly: this test mail arrived.", locale)),
+        body(translate("Mail is set up correctly: this test mail arrived.", locale)),
         kind="test",
     )
 
@@ -41,7 +42,7 @@ def welcome_mail(
     return Mail(
         user.email,
         translate("Your Plane and simple account", locale),
-        _body(
+        body(
             translate(
                 "An account was created for you. Your username: {name}", locale, name=user.username
             ),
@@ -67,7 +68,7 @@ def reset_mail(user: User, link: str, valid_minutes: int) -> Mail:
     return Mail(
         user.email,
         translate("Reset your Plane and simple password", locale),
-        _body(
+        body(
             translate("Someone asked to reset the password of {name}.", locale, name=user.username),
             translate(
                 "Set a new password here (the link works once, for {n} minutes):\n{link}",
@@ -87,7 +88,7 @@ def password_changed_mail(user: User, reset_link: str | None) -> Mail:
     return Mail(
         user.email,
         translate("Your Plane and simple password was changed", locale),
-        _body(
+        body(
             translate(
                 "The password of {name} was just changed; all other sessions were logged out.",
                 locale,
@@ -121,7 +122,7 @@ def deal_mail(
     return Mail(
         user.email,
         translate("Unusually cheap: {name} from {price}", locale, name=search_name, price=cheapest),
-        _body(
+        body(
             translate(
                 'These flights of "{name}" cost far less than this route usually does right now – '
                 "possibly an error fare, which airlines sometimes cancel later:",
@@ -187,7 +188,7 @@ def price_alert_mail(
             name=search_name,
             price=format_amount(cheapest.price, cheapest.currency),
         ),
-        _body(
+        body(
             translate(
                 'These flights of "{name}" are now at or below your alert price:',
                 locale,

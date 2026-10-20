@@ -14,6 +14,7 @@ from flighttracker.domain import trip_report
 from flighttracker.domain.filters import CabinClass
 from flighttracker.models import (
     AIUsage,
+    DigestFrequency,
     FetchJob,
     JobKind,
     JobStatus,
@@ -30,6 +31,7 @@ from flighttracker.services.jobs import request_trip_poll
 from flighttracker.services.trips import create_trip
 from flighttracker.web.app import create_app
 from flighttracker.worker.after_poll import after_search_poll
+from flighttracker.worker.digests import send_due_digests
 from flighttracker.worker.loop import process_next_job
 from tests.integration.test_ai_pages import ai_settings
 from tests.integration.test_services import create
@@ -307,3 +309,67 @@ def test_a_trip_poll_is_reported_and_summarised(db, session_factory, ollama):
         )
     db.expire_all()
     assert db.scalars(select(PollReport).where(PollReport.trip_id == trip.id)).all() == []
+
+
+def test_daily_digest_only_with_notable_changes(db, session_factory, ollama, monkeypatch):
+    sent: list[mail.Mail] = []
+    monkeypatch.setattr(mail, "send", lambda settings, message: sent.append(message))
+    prompts = ollama("Barcelona got a quarter cheaper this week.")
+    settings = ai_settings(
+        smtp_host="smtp.example.test",
+        mail_from="app@example.test",
+        public_base_url="https://flights.example.test",
+    )
+    alice = add_user(db, "alice", email="alice@example.test", digest=DigestFrequency.DAILY)
+    bob = add_user(db, "bob", email="bob@example.test", digest=DigestFrequency.DAILY)
+    now = datetime.now(UTC)
+    changed, quiet = create(db), create(db)
+    changed.owner_id, quiet.owner_id = alice.id, bob.id
+    changed.name, quiet.name = "Barcelona", "Quiet"
+    db.commit()
+    for search, latest in ((changed, "150"), (quiet, "200")):
+        for at, price in ((now - timedelta(days=3), "200"), (now - timedelta(hours=1), latest)):
+            job = poll(db, search, {3: price, 4: "210"}, at)
+            after_search_poll(db, settings, job.id, at + timedelta(minutes=6))
+
+    assert send_due_digests(session_factory, settings, clock=lambda: now) == 1
+    (digest_mail,) = [m for m in sent if m.kind == "digest"]
+    assert digest_mail.to == "alice@example.test"
+    assert digest_mail.subject.startswith("Price digest: what changed since ")
+    assert "Barcelona got a quarter cheaper this week." in digest_mail.body
+    assert "Cheapest flight now 150.00 CHF (▼ 50.00 CHF since " in digest_mail.body
+    assert f"https://flights.example.test/searches/{changed.id}" in digest_mail.body
+    assert "https://flights.example.test/settings#personal" in digest_mail.body
+    assert "Tracked search: Barcelona" in prompts[-1] and "since" in prompts[-1]
+    db.expire_all()
+    assert alice.digest_at is not None and bob.digest_at is not None  # bob: nothing to tell
+    assert send_due_digests(session_factory, settings, clock=lambda: now) == 0  # done for today
+    features = [u.feature for u in db.scalars(select(AIUsage).order_by(AIUsage.id))]
+    assert features.count("digest") == 1
+
+    # Switching it on starts with the next period, not right away.
+    with TestClient(create_app(settings, session_factory)) as client:
+        token = login_as(client, "bob")
+        client.post(
+            "/settings/personal",
+            data={
+                "csrf_token": token,
+                "locale": "",
+                "timezone": "",
+                "email": "bob@example.test",
+                "digest": "off",
+            },
+        )
+        client.post(
+            "/settings/personal",
+            data={
+                "csrf_token": token,
+                "locale": "",
+                "timezone": "",
+                "email": "bob@example.test",
+                "digest": "weekly",
+            },
+        )
+    db.expire_all()
+    assert bob.digest is DigestFrequency.WEEKLY and bob.digest_at is not None
+    assert bob.digest_at > now

@@ -88,6 +88,7 @@ SETTING_FIELDS: tuple[SettingField, ...] = (
     SettingField("ai_drafts", AI_SECTION, "bool"),
     SettingField("ai_explanations", AI_SECTION, "bool"),
     SettingField("ai_poll_summaries", AI_SECTION, "bool"),
+    SettingField("ai_digest_overview", AI_SECTION, "bool"),
     SettingField("ai_log_messages", AI_SECTION, "bool"),
 )
 

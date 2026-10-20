@@ -21,7 +21,7 @@ from flighttracker.models.search import (
 from flighttracker.models.settings import PlatformSetting
 from flighttracker.models.trip import Trip, TripLeg
 from flighttracker.models.usage import AIUsage, MailLog
-from flighttracker.models.user import Share, User, UserRole
+from flighttracker.models.user import DigestFrequency, Share, User, UserRole
 
 __all__ = [
     "AIUsage",
@@ -35,6 +35,7 @@ __all__ = [
     "CalendarObservation",
     "Country",
     "DealNotification",
+    "DigestFrequency",
     "FetchJob",
     "JobKind",
     "JobStatus",

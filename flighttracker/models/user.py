@@ -31,6 +31,14 @@ class UserRole(StrEnum):
     USER = "user"
 
 
+class DigestFrequency(StrEnum):
+    """How often a user gets the price digest (services/digest.py)."""
+
+    OFF = "off"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+
+
 class User(Base):
     """A login. Personal data (username, password hash, preferences) – see datamodel.md.
 
@@ -61,6 +69,13 @@ class User(Base):
     timezone: Mapped[str | None] = mapped_column(String(64))
     # Mails about unusually cheap prices of the user's tracked searches (services/deal_radar.py).
     deal_mails: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # The price digest and when it last ran (sent, or nothing worth a mail).
+    digest: Mapped[DigestFrequency] = mapped_column(
+        str_enum(DigestFrequency, "digest_frequency"),
+        default=DigestFrequency.OFF,
+        server_default="off",
+    )
+    digest_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Raised on password, role or status changes; sessions carrying an older value end.
     auth_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -161,9 +161,10 @@ summary .info-text { cursor: auto; }
 .table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Detail page */
-.facts { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; margin: 0; }
-.facts dt { color: var(--muted); }
-.facts dd { margin: 0; }
+/* Labels at most 40 % wide, so long (German) words never push the values out on a phone. */
+.facts { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); gap: .35rem 1rem; margin: 0; }
+.facts dt { color: var(--muted); overflow-wrap: break-word; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
 .revisions { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .5rem; }
 .danger-zone { border-color: var(--danger); }
 

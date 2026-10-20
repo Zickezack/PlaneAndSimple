@@ -158,6 +158,7 @@ SETTINGS_FIELD_LABELS = {
     "ai_drafts": "Drafts from a description",
     "ai_explanations": 'Explain "when to book"',
     "ai_poll_summaries": "Summaries after polls",
+    "ai_digest_overview": "Overview in the price digest",
     "ai_log_messages": "Log messages",
     "max_searches_per_user": "Max. tracked searches and Trips per user",
     "max_requests_per_user": "Max. provider requests per poll per user",
@@ -259,6 +260,11 @@ SETTINGS_FIELD_HINTS = {
         "in its mails. One request per notable poll; without it the page shows the same facts "
         "as a list."
     ),
+    "ai_digest_overview": (
+        "Users can get a daily or weekly price digest by mail (personal settings). With this "
+        "on, the AI writes a few sentences on top about the most important changes across their "
+        "tracked searches and Trips – one request per mail."
+    ),
     "ai_log_messages": (
         "Keeps what the app sent, the thinking the provider returned and the answer of each "
         "request for 30 days, to look at in the usage log. Prompts can contain a user's travel "
@@ -290,6 +296,7 @@ MAIL_KIND_LABELS = {
     "price_alert": "Price alert",
     "test": "Test mail",
     "deal": "Unusually cheap price",
+    "digest": "Price digest",
     "other": "Other",
 }
 AI_FEATURE_LABELS = {
@@ -298,6 +305,7 @@ AI_FEATURE_LABELS = {
     "test": "Connection test",
     "summary": "Poll summary",
     "trip_summary": "Trip summary",
+    "digest": "Digest overview",
 }
 # Ollama's durations in its response (AI request detail page).
 AI_TIMING_LABELS = {
@@ -310,3 +318,6 @@ AI_TIMING_LABELS = {
 # How important a not yet set up platform service is (web/settings_forms.setup_status).
 SETUP_LEVEL_LABELS = {"needed": "Needed", "recommended": "Recommended", "optional": "Optional"}
 SETUP_LEVEL_VARIANTS = {"needed": "danger", "recommended": "warning", "optional": "neutral"}
+
+# Personal settings: how often the price digest comes (models.DigestFrequency).
+DIGEST_OPTIONS = [("off", "Off"), ("daily", "Daily"), ("weekly", "Weekly")]

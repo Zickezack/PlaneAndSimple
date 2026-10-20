@@ -29,7 +29,7 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
   poll's price for these dates; optionally the return flight (one more request per price).
   Warnings for airport changes, short, overnight and long layovers.
 - **Price alerts by mail** per search (optionally per route and cabin): once per flight and
-  price drop. Mail via any SMTP account (presets for Gmail, Outlook, iCloud, Infomaniak, …),
+  price drop; a daily or weekly price digest of all one's searches and Trips on request. Mail via any SMTP account (presets for Gmail, Outlook, iCloud, Infomaniak, …),
   also for welcome mails and "Forgot password?"; Mailpit catches all mails in the dev stack.
 - **When to book:** a rule-based reading of every flight's prices (lowest seen, above average,
   rising …) – optionally explained by an AI (local Ollama, any OpenAI-compatible API or

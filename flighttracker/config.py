@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     ai_explanations: bool = True
     # After a notable poll the worker asks for a few sentences (services/poll_reports.py).
     ai_poll_summaries: bool = True
+    # The AI's overview on top of a price digest mail (services/digest.py).
+    ai_digest_overview: bool = True
     # Usage log: also keep the messages (prompts, thinking, answers) of each request, 30 days.
     ai_log_messages: bool = True
     # Timestamps are stored in UTC and shown in this time zone.
