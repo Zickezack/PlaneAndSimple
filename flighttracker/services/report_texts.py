@@ -9,8 +9,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from flighttracker.domain import trip_report
 from flighttracker.domain.deals import Deal
 from flighttracker.domain.poll_report import Flight, SearchReport, from_facts, notable
+from flighttracker.domain.trip_report import TripReport
 from flighttracker.i18n import format_weekday_date, translate
 from flighttracker.models import PollReport
 from flighttracker.services.mail_messages import format_amount
@@ -145,10 +147,84 @@ def short_lines(rows: dict[int, PollReport], locale: str) -> dict[int, str]:
     return lines
 
 
+def trip_lines(report: TripReport, locale: str) -> list[str]:
+    c = report.currency
+    lines = []
+    if report.options_before is not None and not trip_report.notable(report):
+        lines.append(translate("No notable change since the poll before.", locale))
+    if report.total is None:
+        lines.append(translate("No complete option in this poll.", locale))
+    elif report.change is None:
+        price = format_amount(report.total, c)
+        lines.append(translate("Cheapest option now {price}.", locale, price=price))
+    else:
+        lines.append(
+            translate(
+                "Cheapest option now {price} ({change} since the poll before).",
+                locale,
+                price=format_amount(report.total, c),
+                change=delta(report.change, c),
+            )
+        )
+    if report.options_before is None:
+        lines.append(translate("Working options: {n}.", locale, n=report.options))
+    else:
+        lines.append(
+            translate(
+                "Working options: {n} (at the poll before: {before}).",
+                locale,
+                n=report.options,
+                before=report.options_before,
+            )
+        )
+    if report.total is not None and report.options_before and not report.same_option:
+        lines.append(
+            translate("It has other flights than the cheapest option at the poll before.", locale)
+        )
+    if report.new_low:
+        lines.append(translate("A new lowest price for this Trip.", locale))
+    if (changed := report.biggest_leg_change) is not None:
+        number, leg = changed
+        lines.append(
+            translate(
+                "Biggest change: leg {number}, {route} on {date}, {change} to {price}.",
+                locale,
+                number=number,
+                route=f"{leg.origin} → {leg.destination}",
+                date=format_weekday_date(leg.departure, locale),
+                change=delta(leg.change or Decimal(0), c),
+                price=format_amount(leg.price, c),
+            )
+        )
+    return lines
+
+
+def trip_short(report: TripReport, locale: str) -> str:
+    """One line for the list: the cheapest option and its change, the number of options."""
+    if report.total is None:
+        return translate("No complete option in this poll.", locale)
+    first = format_amount(report.total, report.currency)
+    if report.change:
+        first += f" {delta(report.change, report.currency)}"
+    if report.options == 1:
+        return f"{first} · {translate('1 working option', locale)}"
+    return f"{first} · {translate('{n} working options', locale, n=report.options)}"
+
+
+def trip_short_lines(rows: dict[int, PollReport], locale: str) -> dict[int, str]:
+    """`trip_short` per id of `rows` (from `trip_reports.latest_trip_reports`)."""
+    lines = {}
+    for key, row in rows.items():
+        report = trip_report.from_facts(row.facts)
+        if report is not None:
+            lines[key] = trip_short(report, locale)
+    return lines
+
+
 @dataclass(frozen=True)
 class ReportView:
     created_at: datetime
-    report: SearchReport
+    report: SearchReport | TripReport
     lines: list[str]
     summary: str | None  # the AI's words – only when in the reader's language
     summary_locale: str | None
@@ -164,11 +240,21 @@ def view(row: PollReport | None, locale: str) -> ReportView | None:
     )
 
 
-def deals_by_flight(view: "ReportView | None") -> dict[tuple, Deal]:
+def trip_view(row: PollReport | None, locale: str) -> ReportView | None:
+    report = trip_report.from_facts(row.facts) if row else None
+    if row is None or report is None:
+        return None
+    summary = row.summary if row.summary_locale == locale else None
+    return ReportView(
+        row.created_at, report, trip_lines(report, locale), summary, row.summary_locale
+    )
+
+
+def deals_by_flight(shown: ReportView | None) -> dict[tuple, Deal]:
     """The unusually cheap prices of a report by flight and price (for the flights table)."""
-    if view is None:
+    if shown is None or not isinstance(shown.report, SearchReport):
         return {}
-    return {(*deal.flight.key, deal.flight.price): deal for deal in view.report.deals}
+    return {(*deal.flight.key, deal.flight.price): deal for deal in shown.report.deals}
 
 
 def summary_block(row: PollReport | None, locale: str) -> str | None:

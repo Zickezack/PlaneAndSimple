@@ -254,9 +254,10 @@ SETTINGS_FIELD_HINTS = {
     "ai_explanations": "A button on the flight page that puts the advice into sentences.",
     "ai_poll_summaries": (
         "After a poll with a notable change (cheapest price ±3 %, a new lowest price, many "
-        "flights changed, an unusually cheap price) the worker asks for two or three sentences "
-        "– shown on the tracked search's page and in price alert mails. One request per notable "
-        "poll; without it the page shows the same facts as a list."
+        "flights changed, an unusually cheap price; for a Trip its cheapest option) the worker "
+        "asks for two or three sentences – shown on the page of the tracked search or Trip and "
+        "in its mails. One request per notable poll; without it the page shows the same facts "
+        "as a list."
     ),
     "ai_log_messages": (
         "Keeps what the app sent, the thinking the provider returned and the answer of each "
@@ -296,6 +297,7 @@ AI_FEATURE_LABELS = {
     "explain": 'Explain "when to book"',
     "test": "Connection test",
     "summary": "Poll summary",
+    "trip_summary": "Trip summary",
 }
 # Ollama's durations in its response (AI request detail page).
 AI_TIMING_LABELS = {

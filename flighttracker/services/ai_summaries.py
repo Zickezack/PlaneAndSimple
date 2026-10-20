@@ -1,6 +1,7 @@
 """What the worker asks the AI by itself: a few sentences about a notable poll of a tracked
-search. Every fact comes from the app (the poll report, domain/poll_report.py); the AI only
-words them – with the guardrails of every request (services/ai_prompts.system_prompt).
+search or a Trip. Every fact comes from the app (the poll reports, domain/poll_report.py and
+domain/trip_report.py); the AI only words them – with the guardrails of every request
+(services/ai_prompts.system_prompt).
 """
 
 from datetime import datetime, timedelta
@@ -11,12 +12,13 @@ from sqlalchemy.orm import Session
 from flighttracker.config import Settings
 from flighttracker.domain.deals import DEAL_SHARE
 from flighttracker.domain.poll_report import CHANGE_SHARE, Flight, SearchReport
+from flighttracker.domain.trip_report import TripReport
 from flighttracker.models import AIUsage
 from flighttracker.services import ai, ai_prompts
 from flighttracker.services.mail_messages import format_amount
 
 # Requests the worker sends by itself (features in the usage log).
-BACKGROUND_FEATURES = ("summary",)
+BACKGROUND_FEATURES = ("summary", "trip_summary")
 # After a failed one it waits this long: a server that does not answer must not slow every poll.
 PAUSE = timedelta(minutes=15)
 SHARE = f"{int(CHANGE_SHARE * 100)} %"
@@ -25,6 +27,15 @@ SEARCH_TASK = """\
 Below are the facts of the latest poll of a tracked search, compared with the poll before.
 Write at most three short sentences for its owner: the most important change first, then what
 it means for booking now – without predicting prices. No lists, no headings.
+
+{facts}"""
+
+
+TRIP_TASK = """\
+Below are the facts of the latest poll of a planned Trip – several one-way flights in a row,
+each booked separately – compared with the poll before. Write at most three short sentences for
+its owner: the most important change first, then what it means for booking now – without
+predicting prices. No lists, no headings.
 
 {facts}"""
 
@@ -106,4 +117,50 @@ def summarize_search(
     usage: ai.UsageLog | None = None,
 ) -> str:
     task = SEARCH_TASK.format(facts=search_facts(name, route, report))
+    return ai.complete(settings, ai_prompts.system_prompt(settings, locale), task, usage=usage).text
+
+
+def trip_facts(name: str, report: TripReport) -> str:
+    c = report.currency
+
+    def money(amount):
+        return format_amount(amount, c)
+
+    lines = [f"Trip: {name}; prices in {c}, the sum of separate one-way tickets."]
+    before = (
+        f"; at the poll before: {report.options_before}"
+        if report.options_before is not None
+        else ""
+    )
+    lines.append(f"Working options now: {report.options}{before}.")
+    if report.total is None:
+        lines.append("No working option was found in this poll.")
+    else:
+        line = f"Cheapest option now: {money(report.total)}"
+        if report.total_before is not None:
+            line += f"; at the poll before: {money(report.total_before)}"
+        if report.lowest_before is not None:
+            line += f"; lowest before this poll: {money(report.lowest_before)}"
+        lines.append(line + ".")
+        if report.options_before is not None and not report.same_option:
+            lines.append("It has other flights than the cheapest option at the poll before.")
+        legs = "; ".join(
+            f"{i}. {leg.origin}→{leg.destination} {leg.departure.isoformat()}"
+            + (f" {leg.departure_time}" if leg.departure_time else "")
+            + f" at {money(leg.price)}"
+            + (f" (before {money(leg.previous)})" if leg.previous is not None else "")
+            for i, leg in enumerate(report.legs, 1)
+        )
+        lines.append(f"Its legs: {legs}.")
+    return "\n".join(lines)
+
+
+def summarize_trip(
+    settings: Settings,
+    name: str,
+    report: TripReport,
+    locale: str,
+    usage: ai.UsageLog | None = None,
+) -> str:
+    task = TRIP_TASK.format(facts=trip_facts(name, report))
     return ai.complete(settings, ai_prompts.system_prompt(settings, locale), task, usage=usage).text

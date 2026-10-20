@@ -212,3 +212,6 @@ see 49.)
     (median of at least 8 departure dates) is marked "Unusually cheap" in the flights table and
     mailed to the owner and everyone the tracked search is shared with – once per flight, again
     only cheaper; switchable in the personal settings.
+60. What a Trip poll changed: working options and the cheapest one with its legs against the
+    poll before, new lowest price of the Trip – on the Trip page, as a line in the list, and
+    worded by the AI after a notable poll.

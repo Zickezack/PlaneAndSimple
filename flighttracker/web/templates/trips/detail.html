@@ -26,6 +26,8 @@
   <p class="hint">{{ _("Next check") }}: {{ trip.next_poll_at | datetime }} · {{ _("Last check") }}: {{ trip.last_polled_at | datetime }}</p>
 </section>
 
+{% include "searches/_poll_report.html" %}
+
 <section class="card">
   <h2>{{ _("Working options") }}{{ ui.info(_("Only complete options with known flight times and valid layovers are shown. Prices are the sum of the separate one-way tracked searches, not a through-ticket fare.")) }}</h2>
   {% if itineraries %}

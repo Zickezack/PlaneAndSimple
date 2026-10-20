@@ -1,5 +1,5 @@
-"""What the worker does after a completed poll of a tracked search: report what changed, let
-the AI word a notable report, mail unusually cheap prices and the price alerts.
+"""What the worker does after a completed poll: report what changed and let the AI word a
+notable report; for a tracked search also mail unusually cheap prices and the price alerts.
 
 Every step runs on its own and commits: a failing AI provider or mail server never fails the
 poll and never stops the next step.
@@ -12,8 +12,14 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from flighttracker.config import Settings
-from flighttracker.models import FetchJob, PollReport, Search
-from flighttracker.services import deal_radar, poll_reports, price_alerts, report_texts
+from flighttracker.models import FetchJob, PollReport, Search, Trip
+from flighttracker.services import (
+    deal_radar,
+    poll_reports,
+    price_alerts,
+    report_texts,
+    trip_reports,
+)
 
 log = logging.getLogger("flighttracker.worker")
 
@@ -71,3 +77,26 @@ def after_search_poll(session: Session, settings: Settings, job_id: int, now: da
     )
     if sent:
         log.info("%d price alert mails sent for search %d", sent, search.id)
+
+
+def after_trip_poll(session: Session, settings: Settings, job_id: int, now: datetime) -> None:
+    job = session.get(FetchJob, job_id)
+    trip = session.get(Trip, job.trip_id) if job and job.trip_id else None
+    if job is None or trip is None:
+        return
+    recorded = step(
+        session,
+        f"Trip report of job {job_id}",
+        lambda: trip_reports.record_trip(session, trip, job, now),
+    )
+    if recorded is None:
+        return
+    report_id = recorded.id
+    if step(
+        session,
+        f"AI summary of job {job_id}",
+        lambda: trip_reports.summarize_trip(
+            session, settings, session.get(PollReport, report_id), trip, now
+        ),
+    ):
+        log.info("Poll of Trip %d summarised by the AI", trip.id)

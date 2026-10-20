@@ -144,9 +144,13 @@ def record_search(session: Session, search: Search, job: FetchJob, now: datetime
         session.add(row)
     row.facts, row.notable = to_facts(report), notable(report)
     row.summary = row.summary_locale = None
+    prune(session, now)
+    return row
+
+
+def prune(session: Session, now: datetime) -> None:
     session.execute(delete(PollReport).where(PollReport.created_at < now - RETENTION))
     session.flush()
-    return row
 
 
 def route_text(search: Search) -> str:

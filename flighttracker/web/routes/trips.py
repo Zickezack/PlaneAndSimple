@@ -8,7 +8,7 @@ from starlette.datastructures import FormData
 from flighttracker.i18n import Msg
 from flighttracker.models import SearchStatus, User
 from flighttracker.providers.registry import FAKE_DATA_PROVIDERS, provider_class
-from flighttracker.services import quota
+from flighttracker.services import quota, report_texts, trip_reports
 from flighttracker.services.access import (
     Access,
     ShareError,
@@ -168,11 +168,13 @@ def detail(
     trip = _load_trip(db, trip_id, user)
     access = trip_access(db, user, trip)
     settings = effective_settings(db, request.app.state.settings)
+    latest = trip_reports.latest_trip_reports(db, [trip.id]).get(trip.id)
     return templates.TemplateResponse(
         request,
         "trips/detail.html",
         {
             "trip": trip,
+            "report": report_texts.trip_view(latest, current_locale(request)),
             "itineraries": itineraries_for_trip(db, trip, FAKE_DATA_PROVIDERS),
             "poll_interval_minutes": settings.default_poll_interval_minutes,
             "access": access,
@@ -280,7 +282,7 @@ def clear_history(
     if str(form.get("confirm_clear", "")).strip() != trip.name:
         flash(request, Msg("To clear the price history, please enter the exact name."), "error")
         return RedirectResponse(f"/trips/{trip.id}", status_code=303)
-    count = clear_price_history(db, [leg.search_id for leg in trip.legs])
+    count = clear_price_history(db, [leg.search_id for leg in trip.legs], trip_id=trip.id)
     settings = effective_settings(db, request.app.state.settings)
     polled = (
         not trip.is_archived

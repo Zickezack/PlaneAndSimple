@@ -283,9 +283,12 @@ def delete_search_permanently(session: Session, search: Search) -> None:
     session.execute(delete(Search).where(Search.id == search.id))
 
 
-def clear_price_history(session: Session, search_ids: list[int]) -> int:
+def clear_price_history(
+    session: Session, search_ids: list[int], *, trip_id: int | None = None
+) -> int:
     """Deletes every stored price and price-calendar day of these Suchabos, e.g. after a change
-    in how prices are collected. Suchabos, revisions and the Poll Log stay.
+    in how prices are collected – with the poll reports (also those of `trip_id`, whose legs
+    they are). Suchabos, revisions and the Poll Log stay.
 
     Returns the number of deleted prices.
     """
@@ -295,6 +298,8 @@ def clear_price_history(session: Session, search_ids: list[int]) -> int:
     )
     # What earlier polls changed no longer has its prices.
     session.execute(delete(PollReport).where(PollReport.search_id.in_(search_ids)))
+    if trip_id is not None:
+        session.execute(delete(PollReport).where(PollReport.trip_id == trip_id))
     return prices.rowcount
 
 

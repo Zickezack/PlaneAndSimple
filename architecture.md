@@ -145,7 +145,7 @@ Where new code goes (dependencies only point downwards):
 | Import/export | `services/data_export.py`, `services/data_import.py` |
 | Mail, password links | `services/mail.py`, `services/mail_messages.py`, `services/password_tokens.py`, `web/mails.py`, `web/routes/password.py`, `security/secrets.py` |
 | Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker step in `worker/after_poll.py` |
-| What a poll changed (report, AI summary) | `domain/poll_report.py`, `domain/deals.py`, `services/poll_reports.py`, `services/report_texts.py`, `services/ai_summaries.py`, `worker/after_poll.py`, `templates/searches/_poll_report.html` |
+| What a poll changed (report, AI summary) | `domain/poll_report.py`, `domain/trip_report.py`, `domain/deals.py`, `services/poll_reports.py`, `services/trip_reports.py`, `services/report_texts.py`, `services/ai_summaries.py`, `worker/after_poll.py`, `templates/searches/_poll_report.html` |
 | Deal radar (unusually cheap prices) | `domain/deals.py`, `services/deal_radar.py`, `services/mail_messages.py` (`deal_mail`), worker step in `worker/after_poll.py` |
 | Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
 | AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_wire.py`, `services/ai_prompts.py`, `web/ai_report.py` (connection test), `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
@@ -436,11 +436,19 @@ server never fails the poll and never stops the next step:
    words when they are in the recipient's language, otherwise the report's first lines; deal
    mails carry only the AI's words.
 
-The tracked search's page shows the latest report as "Since the poll before" (the AI's words
-only in their own language, the facts always, as translated lines from
+After a completed **Trip** poll the worker reports too (`services/trip_reports.py`, rules in
+`domain/trip_report.py`): the number of working options (real ones only) and the cheapest
+option with its legs – each with its price at the poll before – against the previous report;
+the lowest cheapest option of all earlier reports is carried along from report to report.
+Notable: options appeared or vanished, the cheapest option moved by 3 % or more, has other
+flights now, or is 3 % or more below every earlier one; never the first report. A notable one
+gets the AI's words like a tracked search (feature `trip_summary`).
+
+The page of the tracked search or Trip shows the latest report as "Since the poll before" (the
+AI's words only in their own language, the facts always, as translated lines from
 `services/report_texts.py`); the list shows one line per tracked search (cheapest price and
-its change, new lowest and unusually cheap prices). Clearing the price history clears the
-reports too.
+its change, new lowest and unusually cheap prices) and per Trip (cheapest option, its change,
+the number of options). Clearing the price history clears the reports too.
 
 ## Security
 

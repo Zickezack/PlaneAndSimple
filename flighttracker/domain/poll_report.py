@@ -162,11 +162,11 @@ def notable(report: SearchReport | None) -> bool:
 # --- JSON (poll_reports.facts) ---------------------------------------------------------------
 
 
-def _amount(value: Decimal | None) -> str | None:
+def amount_text(value: Decimal | None) -> str | None:
     return None if value is None else str(value)
 
 
-def _decimal(value: str | None) -> Decimal | None:
+def decimal_or_none(value: str | None) -> Decimal | None:
     return None if value is None else Decimal(value)
 
 
@@ -178,8 +178,8 @@ def flight_facts(flight: Flight) -> dict:
         "departure": flight.departure.isoformat(),
         "return": flight.returning.isoformat() if flight.returning else None,
         "price": str(flight.price),
-        "previous": _amount(flight.previous),
-        "lowest_before": _amount(flight.lowest_before),
+        "previous": amount_text(flight.previous),
+        "lowest_before": amount_text(flight.lowest_before),
     }
 
 
@@ -191,23 +191,28 @@ def flight_from_facts(data: dict) -> Flight:
         departure=date.fromisoformat(data["departure"]),
         returning=date.fromisoformat(data["return"]) if data.get("return") else None,
         price=Decimal(data["price"]),
-        previous=_decimal(data.get("previous")),
-        lowest_before=_decimal(data.get("lowest_before")),
+        previous=decimal_or_none(data.get("previous")),
+        lowest_before=decimal_or_none(data.get("lowest_before")),
     )
 
 
 def to_facts(report: SearchReport) -> dict:
     return {
         "version": FACTS_VERSION,
+        "kind": "search",
         "currency": report.currency,
         "flights": report.flights,
         "compared": report.compared,
         "cheaper": report.cheaper,
         "dearer": report.dearer,
         "cheapest": flight_facts(report.cheapest) if report.cheapest else None,
-        "cheapest_before": _amount(report.cheapest_before),
+        "cheapest_before": amount_text(report.cheapest_before),
         "months": [
-            {"month": m.month.isoformat(), "price": str(m.price), "previous": _amount(m.previous)}
+            {
+                "month": m.month.isoformat(),
+                "price": str(m.price),
+                "previous": amount_text(m.previous),
+            }
             for m in report.months
         ],
         "new_low_count": report.new_low_count,
@@ -220,7 +225,7 @@ def to_facts(report: SearchReport) -> dict:
 
 def from_facts(data: dict | None) -> SearchReport | None:
     """None for facts of another version (or none)."""
-    if not data or data.get("version") != FACTS_VERSION:
+    if not data or data.get("version") != FACTS_VERSION or data.get("kind") != "search":
         return None
     return SearchReport(
         currency=data["currency"],
@@ -229,10 +234,12 @@ def from_facts(data: dict | None) -> SearchReport | None:
         cheaper=data["cheaper"],
         dearer=data["dearer"],
         cheapest=flight_from_facts(data["cheapest"]) if data.get("cheapest") else None,
-        cheapest_before=_decimal(data.get("cheapest_before")),
+        cheapest_before=decimal_or_none(data.get("cheapest_before")),
         months=tuple(
             MonthPrice(
-                date.fromisoformat(m["month"]), Decimal(m["price"]), _decimal(m.get("previous"))
+                date.fromisoformat(m["month"]),
+                Decimal(m["price"]),
+                decimal_or_none(m.get("previous")),
             )
             for m in data.get("months", [])
         ),

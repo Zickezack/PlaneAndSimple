@@ -1,6 +1,7 @@
 """After a poll: the report of what changed, the AI's summary of a notable one, the block on the
 tracked search's page, the line in the list and the paragraph in price alert mails."""
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -9,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from flighttracker.domain import trip_report
 from flighttracker.domain.filters import CabinClass
 from flighttracker.models import (
     AIUsage,
@@ -22,11 +24,16 @@ from flighttracker.models import (
     SearchRevision,
     Share,
 )
+from flighttracker.providers.mock import MockProvider
 from flighttracker.services import ai, mail
+from flighttracker.services.jobs import request_trip_poll
+from flighttracker.services.trips import create_trip
 from flighttracker.web.app import create_app
 from flighttracker.worker.after_poll import after_search_poll
+from flighttracker.worker.loop import process_next_job
 from tests.integration.test_ai_pages import ai_settings
 from tests.integration.test_services import create
+from tests.integration.test_trips import trip_input
 from tests.integration.test_users import add_user, login_as
 from tests.integration.test_web import login
 
@@ -243,3 +250,60 @@ def test_unusually_cheap_prices_are_mailed_once_and_marked(db, session_factory, 
         )
         db.refresh(owner)
         assert owner.deal_mails is False
+
+
+class RealPrices(MockProvider):
+    """The mock's prices as if they were real (fake data is never reported), times `factor`."""
+
+    name = "google_flights"
+    fake_data = False
+
+    def __init__(self, clock, factor="1"):
+        super().__init__(clock)
+        self.factor = Decimal(factor)
+
+    def fetch_current(self, query):
+        return [
+            replace(quote, price=(quote.price * self.factor).quantize(Decimal("0.01")))
+            for quote in super().fetch_current(query)
+        ]
+
+
+def test_a_trip_poll_is_reported_and_summarised(db, session_factory, ollama):
+    prompts = ollama("The cheapest option got cheaper.")
+    trip = create_trip(db, trip_input(), max_route_pairs=50)
+    db.commit()
+    settings = ai_settings()
+    start = datetime.now(UTC).replace(hour=1, minute=0)  # both polls on the same day
+    for at, factor in ((start, "1"), (start + timedelta(hours=6), "0.8")):
+        assert request_trip_poll(db, trip, at)
+        db.commit()
+        assert process_next_job(
+            session_factory,
+            RealPrices(lambda at=at: at, factor),
+            clock=lambda at=at: at,
+            base_settings=settings,
+        )
+    first, second = db.scalars(
+        select(PollReport).where(PollReport.trip_id == trip.id).order_by(PollReport.id)
+    ).all()
+    assert not first.notable and second.notable
+    report = trip_report.from_facts(second.facts)
+    assert report.total < report.total_before and report.same_option
+    assert second.summary == "The cheapest option got cheaper."
+    assert len(prompts) == 1 and "Trip: Island loop" in prompts[0]
+    assert "Its legs: 1. ZRH→BCN" in prompts[0]
+
+    with TestClient(create_app(settings, session_factory)) as client:
+        login(client)
+        page = client.get(f"/trips/{trip.id}").text
+        assert "The cheapest option got cheaper." in page and "Cheapest option now" in page
+        listing = client.get("/searches").text
+        assert f"{trip_report.from_facts(second.facts).options} working options" in listing
+        token = login(client)
+        client.post(
+            f"/trips/{trip.id}/clear-history",
+            data={"csrf_token": token, "confirm_clear": trip.name},
+        )
+    db.expire_all()
+    assert db.scalars(select(PollReport).where(PollReport.trip_id == trip.id)).all() == []

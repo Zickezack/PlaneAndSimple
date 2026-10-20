@@ -36,7 +36,7 @@ from flighttracker.services.jobs import (
 )
 from flighttracker.services.poll_plan import place_unplanned, poll_cycle
 from flighttracker.services.settings import effective_settings
-from flighttracker.worker.after_poll import after_search_poll
+from flighttracker.worker.after_poll import after_search_poll, after_trip_poll
 from flighttracker.worker.job_control import interrupt, should_end
 from flighttracker.worker.trip_job import process_trip_job
 from flighttracker.worker.wake import WakeListener
@@ -102,6 +102,8 @@ def process_next_job(
             if job.trip_id is not None:
                 process_trip_job(session, job, provider, clock, should_stop, currency)
                 log.info("Trip job %d completed", job_id)
+                if job.status is JobStatus.DONE and effective is not None:
+                    after_trip_poll(session, effective, job_id, clock())
                 return True
             plan = plan_job(
                 session,

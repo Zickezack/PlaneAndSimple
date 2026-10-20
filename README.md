@@ -39,8 +39,9 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
 - **What changed:** after every poll a short report – cheapest flight against the poll before,
   new lowest prices, biggest drops and rises, unusually cheap prices – on the tracked search's
   page and as a line in the list; after a notable poll the AI (optional) sums it up in two or
-  three sentences, also in price alert mails. A price far below what its route usually costs
-  (possibly an error fare) is marked and mailed right away.
+  three sentences, also in price alert mails; for Trips the same about their cheapest working
+  option. A price far below what its route usually costs (possibly an error fare) is marked and
+  mailed right away.
 - **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
 - **[Users](#users-and-operation)** with sharing and per-user limits; Poll Log and worker load
   for admins.

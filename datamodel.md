@@ -137,8 +137,9 @@ erDiagram
   Suchabo changes. Duplicates are ignored via `uq_price_history_observation`.
 - `poll_reports` (migration `0016`): one row per completed poll (`job_id` unique, `ON DELETE
   CASCADE` like `search_id` and `trip_id`; exactly one of them is set – CHECK). `facts` is the
-  report as JSON with a `version` (`domain/poll_report.py`; a report of another version is
-  ignored, not migrated): amounts as strings, dates ISO. Rows are pruned after 90 days and
+  report as JSON with a `version` and a `kind` (`search`: `domain/poll_report.py`, `trip`:
+  `domain/trip_report.py`; a report of another version is ignored, not migrated): amounts as
+  strings, dates ISO. Rows are pruned after 90 days and
   deleted with the price history ("Clear price history"). `summary` / `summary_locale`: the AI's
   words for a notable poll and their language.
 - `deal_notifications` (migration `0017`, like `price_alert_notifications`): an unusually
