@@ -86,6 +86,7 @@ def detail(
     )
     locale = current_locale(request)
     report = report_texts.view(poll_reports.latest_reports(db, [search.id]).get(search.id), locale)
+    deals = report_texts.deals_by_flight(report)
     chart = flights.chart_data(
         points,
         today,
@@ -113,6 +114,17 @@ def detail(
             "previous_year": flights.previous_year_lookup(points),
             "trend_for": lambda p: trends.get(price_trends.flight_key(p)),
             "advice_for": lambda p: _advice(trends.get(price_trends.flight_key(p)), p, today),
+            # Unusually cheap in the latest poll – while the table still shows that price.
+            "deal_for": lambda p: deals.get(
+                (
+                    p.origin,
+                    p.destination,
+                    str(p.cabin_class),
+                    p.departure_date,
+                    p.return_date,
+                    p.price,
+                )
+            ),
             "has_fake_prices": any(p.fake for p in upcoming),
             "multiple_cabins": len({p.cabin_class for p in upcoming}) > 1,
             "filter_stays": [

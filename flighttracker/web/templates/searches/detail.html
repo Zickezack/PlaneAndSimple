@@ -121,6 +121,7 @@
             <strong>{{ p.price | price(p.currency) }}</strong>{% if p.fake %} {{ ui.fake_tag() }}{% endif %}
             {% set trend = trend_for(p) %}{% if trend %}<br>{{ ui.trend_spark(trend) }}{% endif %}
             {% set advice = advice_for(p) %}{% if advice %}<br>{{ ui.advice_badge(advice) }}{% endif %}
+            {% set deal = deal_for(p) %}{% if deal %} <span class="badge badge-success" title="{{ _('{percent} % below the usual {usual} of this route in the same poll – possibly an error fare.', percent=deal.percent_below, usual=deal.usual | price(p.currency)) }}">{{ _("Unusually cheap") }}</span>{% endif %}
             {% if last_year %}<br><small class="hint">{{ _("Previous year") }}: {{ last_year.price | price(p.currency) }}</small>{% endif %}
           </td>
         </tr>

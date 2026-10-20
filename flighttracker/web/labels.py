@@ -288,6 +288,7 @@ MAIL_KIND_LABELS = {
     "password_changed": "Password changed",
     "price_alert": "Price alert",
     "test": "Test mail",
+    "deal": "Unusually cheap price",
     "other": "Other",
 }
 AI_FEATURE_LABELS = {

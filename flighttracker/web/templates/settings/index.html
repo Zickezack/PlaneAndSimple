@@ -19,6 +19,7 @@
       {{ ui.select_field("timezone", _("Time zone"), timezone_options, user.timezone or "") }}
     </div>
     {{ ui.text_field("email", _("E-mail address"), user.email or "", type="email", autocomplete="email", hint=_("Optional. You can log in with it too; needed for price alerts and to reset a forgotten password. Never shown to other users.")) }}
+    {{ ui.select_field("deal_mails", _("Mails about unusually cheap prices"), [("true", _("On")), ("false", _("Off"))], "true" if user.deal_mails else "false", hint=_("A mail when a poll of one of your tracked searches (also shared ones) finds a flight for at most 60 % of what its route usually costs right now – possibly an error fare. Each flight once, again only when it gets cheaper. Needs an e-mail address.")) }}
     <div class="actions">{{ ui.button(_("Save"), "secondary") }}</div>
   </form>
 </details>

@@ -1,16 +1,19 @@
 """What each completed poll changed (domain/poll_report.py, domain/trip_report.py), stored by
 the worker right after the poll – with the AI's summary of a notable one."""
 
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Identity,
     Index,
+    Numeric,
     String,
     Text,
     func,
@@ -43,3 +46,34 @@ class PollReport(Base):
     # The AI's words for a notable poll, in the owner's language (None: not asked or failed).
     summary: Mapped[str | None] = mapped_column(Text)
     summary_locale: Mapped[str | None] = mapped_column(String(5))
+
+
+class DealNotification(Base):
+    """An unusually cheap flight already mailed to a user, at this price: mailed again only
+    cheaper (services/deal_radar.py)."""
+
+    __tablename__ = "deal_notifications"
+    __table_args__ = (
+        Index(
+            "ix_deal_notifications_flight",
+            "search_id",
+            "user_id",
+            "origin_iata",
+            "destination_iata",
+            "cabin_class",
+            "departure_date",
+            "return_date",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    search_id: Mapped[int] = mapped_column(ForeignKey("searches.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    origin_iata: Mapped[str] = mapped_column(String(3))
+    destination_iata: Mapped[str] = mapped_column(String(3))
+    cabin_class: Mapped[str] = mapped_column(String(20))
+    departure_date: Mapped[date] = mapped_column(Date)
+    return_date: Mapped[date | None] = mapped_column(Date)
+    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    currency: Mapped[str] = mapped_column(String(3))
+    notified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

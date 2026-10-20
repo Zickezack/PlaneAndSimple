@@ -42,6 +42,7 @@ The code and docs use "Suchabo" for a tracked search.
 | Price alert | Preisalarm | `PriceAlert` / `price_alerts` | A user's highest price for a Suchabo, optionally one route and cabin |
 | – | – | `PriceAlertNotification` / `price_alert_notifications` | Flight and price an alert already reported |
 | Mail log | Mail-Protokoll | `MailLog` / `mail_log` | One mail: user, kind, subject, sent or error (no address) |
+| Deal radar | Schnäppchen-Radar | `DealNotification` / `deal_notifications`, `users.deal_mails` | Unusually cheap flights already mailed to a user, and the user's switch for these mails |
 | Poll report | Abfrage-Bericht | `PollReport` / `poll_reports` | What one completed poll changed (facts as JSON), whether that is notable, and the AI's summary of a notable one |
 | AI usage log | KI-Nutzungsprotokoll | `AIUsage` / `ai_usage` | One AI request: user, feature, model, tokens, duration, outcome (OK, cut off, failed), parameters sent; its messages (prompts, thinking, answer) for 30 days |
 | Owner | Besitzer | `searches.owner_id`, `trips.owner_id` | User a Suchabo/Trip belongs to; `NULL` only until the env admin's next login |
@@ -77,6 +78,8 @@ erDiagram
     fetch_jobs ||--o| poll_reports : "what it changed"
     searches |o--o{ poll_reports : "reports"
     trips |o--o{ poll_reports : "reports"
+    users ||--o{ deal_notifications : "mailed"
+    searches ||--o{ deal_notifications : "found in"
     searches |o--o{ shares : "shared"
     trips |o--o{ shares : "shared"
 
@@ -92,13 +95,14 @@ erDiagram
     trip_legs { bigint id PK; bigint trip_id FK; bigint search_id FK; int position; int min_layover_days; int max_layover_days }
     query_log { bigint id PK; bigint job_id; bigint search_id; string search_name; string provider; enum kind; char3 origin_iata; char3 destination_iata; date departure_month; enum cabin_class; enum outcome; int quotes_found; int quotes_stored; text error; jsonb results; timestamptz started_at; int duration_ms; timestamptz logged_at }
     platform_settings { string key PK; text value; timestamptz updated_at }
-    users { bigint id PK; string username; text password_hash; string email; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; int auth_version; timestamptz created_at; timestamptz last_login_at }
+    users { bigint id PK; string username; text password_hash; string email; enum role; bool is_active; int max_searches; int max_requests; string locale; string timezone; bool deal_mails; int auth_version; timestamptz created_at; timestamptz last_login_at }
     password_tokens { bigint id PK; bigint user_id FK; char64 token_hash; enum purpose; timestamptz expires_at; timestamptz used_at }
     price_alerts { bigint id PK; bigint search_id FK; bigint user_id FK; numeric max_price; char3 currency; char3 origin_iata; char3 destination_iata; string cabin_class }
     price_alert_notifications { bigint id PK; bigint alert_id FK; char3 origin_iata; char3 destination_iata; string cabin_class; date departure_date; date return_date; numeric price; char3 currency; timestamptz notified_at }
     mail_log { bigint id PK; timestamptz sent_at; bigint user_id FK; string kind; string subject; bool ok; text error }
     ai_usage { bigint id PK; timestamptz requested_at; bigint user_id FK; string feature; string provider; string model; int input_tokens; int output_tokens; int output_limit; int duration_ms; bool ok; bool cut_off; string stop_reason; text error; jsonb request; jsonb response; text system_prompt; text user_prompt; text thinking; text answer; text result }
     shares { bigint id PK; bigint search_id FK; bigint trip_id FK; bigint user_id FK; bool can_edit; timestamptz created_at }
+    deal_notifications { bigint id PK; bigint search_id FK; bigint user_id FK; char3 origin_iata; char3 destination_iata; string cabin_class; date departure_date; date return_date; numeric price; char3 currency; timestamptz notified_at }
     poll_reports { bigint id PK; bigint job_id FK; bigint search_id FK; bigint trip_id FK; timestamptz created_at; jsonb facts; bool notable; text summary; string summary_locale }
 ```
 
@@ -137,6 +141,10 @@ erDiagram
   ignored, not migrated): amounts as strings, dates ISO. Rows are pruned after 90 days and
   deleted with the price history ("Clear price history"). `summary` / `summary_locale`: the AI's
   words for a notable poll and their language.
+- `deal_notifications` (migration `0017`, like `price_alert_notifications`): an unusually
+  cheap flight mailed to a user at this price; mailed again only below the lowest price mailed
+  so far. `ON DELETE CASCADE` with the Suchabo and the user. `users.deal_mails` (default true)
+  switches these mails off.
 - `platform_settings` holds the admin's overrides of selected `.env` values (Settings →
   Platform Settings), one row per key. Only keys in `services/settings.py` `SETTING_FIELDS` are
   written; a value that no longer validates is ignored, and deleting a row falls back to `.env`.
@@ -222,7 +230,7 @@ jobs and the query log stay; an active Suchabo or Trip is polled again right awa
 ## Privacy
 
 **Personal data:** `users` (username, optional e-mail address, scrypt password hash, last
-login, language and time zone), `password_tokens` (hashes only) and `price_alerts` (what a
+login, language and time zone, mail choices), `password_tokens` (hashes only) and `price_alerts` (what a
 user wants to be told about) and indirectly `shares`, `searches.owner_id` and `trips.owner_id` (what a user tracks and
 with whom they share it). Deleting a user removes the row and their shares; their Suchabos and
 Trips stay without owner. Usernames are shown to other users only where they share something

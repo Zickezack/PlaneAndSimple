@@ -261,7 +261,14 @@ def delete_user(session: Session, actor: User, user: User, settings: Settings) -
     return paused
 
 
-def set_preferences(user: User, *, locale: str | None, timezone: str | None) -> None:
+def set_preferences(
+    user: User,
+    *,
+    locale: str | None,
+    timezone: str | None,
+    deal_mails: bool | None = None,
+) -> None:
+    """`deal_mails`: None keeps the current choice."""
     errors: list[Msg] = []
     if locale is not None and locale not in SUPPORTED_LOCALES:
         errors.append(Msg("Unknown language."))
@@ -274,6 +281,8 @@ def set_preferences(user: User, *, locale: str | None, timezone: str | None) -> 
         raise UserValidationError(errors)
     user.locale = locale
     user.timezone = timezone or None
+    if deal_mails is not None:
+        user.deal_mails = deal_mails
 
 
 def usernames(session: Session, user_ids: set[int]) -> dict[int, str]:

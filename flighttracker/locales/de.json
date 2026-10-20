@@ -807,5 +807,15 @@
   "Written by AI from the numbers of the app.": "Von der KI aus den Zahlen der App formuliert.",
   "{n} new lowest prices": "{n} neue Tiefstpreise",
   "{n} new lowest prices, e.g. {flight} for {price}.": "{n} neue Tiefstpreise, z. B. {flight} für {price}.",
-  "{n} unusually cheap prices": "{n} ungewöhnlich günstige Preise"
+  "{n} unusually cheap prices": "{n} ungewöhnlich günstige Preise",
+  "A mail when a poll of one of your tracked searches (also shared ones) finds a flight for at most 60 % of what its route usually costs right now – possibly an error fare. Each flight once, again only when it gets cheaper. Needs an e-mail address.": "Eine Mail, wenn eine Abfrage eines deiner Suchabos (auch geteilter) einen Flug für höchstens 60 % dessen findet, was seine Strecke gerade üblicherweise kostet – vielleicht ein Fehlerpreis. Jeder Flug einmal, erneut nur, wenn er günstiger wird. Braucht eine E-Mail-Adresse.",
+  "Mails about unusually cheap prices": "Mails zu ungewöhnlich günstigen Preisen",
+  "These flights of \"{name}\" cost far less than this route usually does right now – possibly an error fare, which airlines sometimes cancel later:": "Diese Flüge von „{name}“ kosten weit weniger, als diese Strecke gerade üblicherweise kostet – vielleicht ein Fehlerpreis, den Airlines manchmal später stornieren:",
+  "Unusually cheap": "Ungewöhnlich günstig",
+  "Unusually cheap price": "Ungewöhnlich günstiger Preis",
+  "Unusually cheap: {name} from {price}": "Ungewöhnlich günstig: {name} ab {price}",
+  "You get each flight again only when it gets cheaper. These mails can be switched off in your personal settings.": "Jeden Flug bekommst du erneut nur, wenn er günstiger wird. Diese Mails lassen sich in deinen persönlichen Einstellungen abschalten.",
+  "You get each flight again only when it gets cheaper. To stop these mails:\n{link}": "Jeden Flug bekommst du erneut nur, wenn er günstiger wird. Diese Mails abschalten:\n{link}",
+  "{flight}: {price} (usually {usual}, {percent} % less)": "{flight}: {price} (sonst {usual}, {percent} % weniger)",
+  "{percent} % below the usual {usual} of this route in the same poll – possibly an error fare.": "{percent} % unter den üblichen {usual} dieser Strecke in derselben Abfrage – vielleicht ein Fehlerpreis."
 }

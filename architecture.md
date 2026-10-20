@@ -146,6 +146,7 @@ Where new code goes (dependencies only point downwards):
 | Mail, password links | `services/mail.py`, `services/mail_messages.py`, `services/password_tokens.py`, `web/mails.py`, `web/routes/password.py`, `security/secrets.py` |
 | Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker step in `worker/after_poll.py` |
 | What a poll changed (report, AI summary) | `domain/poll_report.py`, `domain/deals.py`, `services/poll_reports.py`, `services/report_texts.py`, `services/ai_summaries.py`, `worker/after_poll.py`, `templates/searches/_poll_report.html` |
+| Deal radar (unusually cheap prices) | `domain/deals.py`, `services/deal_radar.py`, `services/mail_messages.py` (`deal_mail`), worker step in `worker/after_poll.py` |
 | Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
 | AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_wire.py`, `services/ai_prompts.py`, `web/ai_report.py` (connection test), `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
 | AI usage log | `services/ai_log.py` (write), `services/usage_logs.py` (read), `web/routes/ai_usage.py` + `templates/settings/ai_request.html` (one request stage by stage) |
@@ -426,8 +427,14 @@ server never fails the poll and never stops the next step:
    (a server that does not answer must not slow every poll down by the timeout). The prompt
    holds only the report's facts and the usual guardrails; the answer, in the owner's
    language, is stored with the report (feature `summary` in the usage log).
-3. **Price alert mails** (see Mail): after a notable poll they carry its summary – the AI's
-   words when they are in the recipient's language, otherwise the report's first lines.
+3. **Deal radar mails** (`services/deal_radar.py`): the report's unusually cheap prices go to
+   the owner and everyone the tracked search is shared with – active, with an e-mail address
+   and "Mails about unusually cheap prices" on (personal settings, default on). A flight is
+   mailed to a user once and again only when it gets cheaper (`deal_notifications`; it counts
+   as mailed only after its mail went out). The flights table marks them "Unusually cheap".
+4. **Price alert mails** (see Mail): after a notable poll they carry its summary – the AI's
+   words when they are in the recipient's language, otherwise the report's first lines; deal
+   mails carry only the AI's words.
 
 The tracked search's page shows the latest report as "Since the poll before" (the AI's words
 only in their own language, the facts always, as translated lines from

@@ -59,6 +59,8 @@ class User(Base):
     # Personal display settings; None = the platform default.
     locale: Mapped[str | None] = mapped_column(String(5))
     timezone: Mapped[str | None] = mapped_column(String(64))
+    # Mails about unusually cheap prices of the user's tracked searches (services/deal_radar.py).
+    deal_mails: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Raised on password, role or status changes; sessions carrying an older value end.
     auth_version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

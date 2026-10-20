@@ -20,13 +20,14 @@ from flighttracker.models import (
     PriceHistory,
     PriceSource,
     SearchRevision,
+    Share,
 )
 from flighttracker.services import ai, mail
 from flighttracker.web.app import create_app
 from flighttracker.worker.after_poll import after_search_poll
 from tests.integration.test_ai_pages import ai_settings
 from tests.integration.test_services import create
-from tests.integration.test_users import add_user
+from tests.integration.test_users import add_user, login_as
 from tests.integration.test_web import login
 
 YEAR = datetime.now(UTC).year + 1
@@ -185,3 +186,60 @@ def test_page_list_and_alert_mail_tell_what_changed(db, session_factory, ollama,
         )
         db.expire_all()
         assert db.scalars(select(PollReport).where(PollReport.search_id == search.id)).all() == []
+
+
+USUAL = {day: "200" for day in range(1, 10)}  # nine departure dates at the usual price
+
+
+def test_unusually_cheap_prices_are_mailed_once_and_marked(db, session_factory, monkeypatch):
+    sent: list[mail.Mail] = []
+    monkeypatch.setattr(mail, "send", lambda settings, message: sent.append(message))
+    settings = ai_settings(
+        ai_provider="",  # facts only
+        smtp_host="smtp.example.test",
+        mail_from="app@example.test",
+        public_base_url="https://flights.example.test",
+    )
+    owner = add_user(db, "owner", email="owner@example.test")
+    friend = add_user(db, "friend", email="friend@example.test", locale="de")
+    quiet = add_user(db, "quiet", email="quiet@example.test", deal_mails=False)
+    search = create(db)
+    search.owner_id = owner.id
+    db.add_all(
+        [Share(search_id=search.id, user_id=user.id, can_edit=False) for user in (friend, quiet)]
+    )
+    db.commit()
+    polls(db, search, settings, {**USUAL, 20: "90"}, {**USUAL, 20: "90"}, {**USUAL, 20: "80"})
+    # First poll: owner and friend; second: already mailed; third: cheaper again.
+    assert [m.to for m in sent] == [
+        "owner@example.test",
+        "friend@example.test",
+        "owner@example.test",
+        "friend@example.test",
+    ]
+    assert sent[0].kind == "deal" and sent[0].subject == "Unusually cheap: Test from 90.00 CHF"
+    assert "90.00 CHF (usually 200.00 CHF, 55 % less)" in sent[0].body
+    assert "https://flights.example.test/settings#personal" in sent[0].body
+    assert "Ungewöhnlich günstig" in sent[1].subject  # in the friend's language
+    assert "80.00 CHF" in sent[2].body
+
+    with TestClient(create_app(settings, session_factory)) as client:
+        login(client)
+        page = client.get(f"/searches/{search.id}").text
+        assert page.count(">Unusually cheap</span>") == 1  # the flight in the table
+        assert "60 % below the usual 200.00 CHF of this route" in page
+
+        # The switch in the personal settings.
+        token = login_as(client, "owner")
+        client.post(
+            "/settings/personal",
+            data={
+                "csrf_token": token,
+                "locale": "",
+                "timezone": "",
+                "email": "owner@example.test",
+                "deal_mails": "false",
+            },
+        )
+        db.refresh(owner)
+        assert owner.deal_mails is False

@@ -1,5 +1,5 @@
 """What the worker does after a completed poll of a tracked search: report what changed, let
-the AI word a notable report, send the price alert mails.
+the AI word a notable report, mail unusually cheap prices and the price alerts.
 
 Every step runs on its own and commits: a failing AI provider or mail server never fails the
 poll and never stops the next step.
@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from flighttracker.config import Settings
 from flighttracker.models import FetchJob, PollReport, Search
-from flighttracker.services import poll_reports, price_alerts, report_texts
+from flighttracker.services import deal_radar, poll_reports, price_alerts, report_texts
 
 log = logging.getLogger("flighttracker.worker")
 
@@ -34,29 +34,40 @@ def after_search_poll(session: Session, settings: Settings, job_id: int, now: da
     search = session.get(Search, job.search_id) if job else None
     if job is None or search is None:
         return
-    report = step(
+    recorded = step(
         session,
         f"Poll report of job {job_id}",
         lambda: poll_reports.record_search(session, search, job, now),
     )
-    report_id = report.id if report is not None else None
+    report_id = recorded.id if recorded is not None else None
+
+    def report() -> PollReport | None:
+        # Read again after every step: a failed one rolls the session back.
+        return session.get(PollReport, report_id) if report_id is not None else None
+
     if report_id is not None and step(
         session,
         f"AI summary of job {job_id}",
-        lambda: poll_reports.summarize_search(
-            session, settings, session.get(PollReport, report_id), search, now
-        ),
+        lambda: poll_reports.summarize_search(session, settings, report(), search, now),
     ):
         log.info("Poll of search %d summarised by the AI", search.id)
-
-    def blocks(locale: str) -> list[str]:
-        row = session.get(PollReport, report_id) if report_id is not None else None
-        return report_texts.mail_blocks(row, locale)
-
+    deals = step(
+        session,
+        f"Deal mails of search {search.id}",
+        lambda: deal_radar.notify(session, settings, search, report(), now),
+    )
+    if deals:
+        log.info("%d mails about unusually cheap prices sent for search %d", deals, search.id)
     sent = step(
         session,
         f"Price alerts of search {search.id}",
-        lambda: price_alerts.notify(session, settings, search, now, extra=blocks),
+        lambda: price_alerts.notify(
+            session,
+            settings,
+            search,
+            now,
+            extra=lambda locale: report_texts.mail_blocks(report(), locale),
+        ),
     )
     if sent:
         log.info("%d price alert mails sent for search %d", sent, search.id)

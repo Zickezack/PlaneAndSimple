@@ -106,6 +106,48 @@ def password_changed_mail(user: User, reset_link: str | None) -> Mail:
     )
 
 
+def deal_mail(
+    user: User,
+    search_name: str,
+    lines: list[str],
+    cheapest: str,
+    links: tuple[str | None, str | None],
+    extra: list[str] | tuple[str, ...] = (),
+) -> Mail:
+    """`lines`: the unusually cheap flights as text; `links`: the tracked search, the personal
+    settings (to switch these mails off)."""
+    locale = locale_of(user)
+    page, settings = links
+    return Mail(
+        user.email,
+        translate("Unusually cheap: {name} from {price}", locale, name=search_name, price=cheapest),
+        _body(
+            translate(
+                'These flights of "{name}" cost far less than this route usually does right now – '
+                "possibly an error fare, which airlines sometimes cancel later:",
+                locale,
+                name=search_name,
+            ),
+            "\n".join(f"• {line}" for line in lines),
+            *extra,
+            translate("All prices and flights:\n{link}", locale, link=page) if page else None,
+            translate(
+                "You get each flight again only when it gets cheaper. To stop these mails:\n{link}",
+                locale,
+                link=settings,
+            )
+            if settings
+            else translate(
+                "You get each flight again only when it gets cheaper. These mails can be switched "
+                "off in your personal settings.",
+                locale,
+            ),
+        ),
+        kind="deal",
+        user_id=user.id,
+    )
+
+
 @dataclass(frozen=True)
 class AlertMatch:
     origin: str

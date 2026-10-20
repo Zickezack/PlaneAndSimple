@@ -208,3 +208,7 @@ see 49.)
     search. A notable poll gets two or three sentences by the AI (switch "Summaries after
     polls"; paused for 15 minutes after a failed request), also in the price alert mails after
     the same poll.
+59. Deal radar: a price at most 60 % of what its route and cabin usually cost in the same poll
+    (median of at least 8 departure dates) is marked "Unusually cheap" in the flights table and
+    mailed to the owner and everyone the tracked search is shared with – once per flight, again
+    only cheaper; switchable in the personal settings.

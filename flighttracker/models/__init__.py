@@ -10,7 +10,7 @@ from flighttracker.models.mail import (
     TokenPurpose,
 )
 from flighttracker.models.price import PriceHistory, PriceSource
-from flighttracker.models.report import PollReport
+from flighttracker.models.report import DealNotification, PollReport
 from flighttracker.models.search import (
     LocationRole,
     Search,
@@ -34,6 +34,7 @@ __all__ = [
     "Base",
     "CalendarObservation",
     "Country",
+    "DealNotification",
     "FetchJob",
     "JobKind",
     "JobStatus",

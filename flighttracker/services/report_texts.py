@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+from flighttracker.domain.deals import Deal
 from flighttracker.domain.poll_report import Flight, SearchReport, from_facts, notable
 from flighttracker.i18n import format_weekday_date, translate
 from flighttracker.models import PollReport
@@ -163,13 +164,29 @@ def view(row: PollReport | None, locale: str) -> ReportView | None:
     )
 
 
+def deals_by_flight(view: "ReportView | None") -> dict[tuple, Deal]:
+    """The unusually cheap prices of a report by flight and price (for the flights table)."""
+    if view is None:
+        return {}
+    return {(*deal.flight.key, deal.flight.price): deal for deal in view.report.deals}
+
+
+def summary_block(row: PollReport | None, locale: str) -> str | None:
+    """The AI's words about the poll as a mail paragraph – only in their own language."""
+    if row is None or not row.summary or row.summary_locale != locale:
+        return None
+    title = translate("Since the poll before:", locale)
+    note = translate("Written by AI from the numbers of the app.", locale)
+    return f"{title}\n{row.summary}\n({note})"
+
+
 def mail_blocks(row: PollReport | None, locale: str) -> list[str]:
-    """Paragraphs for a mail after the same poll – only when it was notable."""
+    """Paragraphs for a mail after the same poll – only when it was notable: the AI's words, or
+    else the first lines of the report."""
     report = from_facts(row.facts) if row else None
     if row is None or report is None or not row.notable:
         return []
-    title = translate("Since the poll before:", locale)
-    if row.summary and row.summary_locale == locale:
-        note = translate("Written by AI from the numbers of the app.", locale)
-        return [f"{title}\n{row.summary}\n({note})"]
-    return [title, "\n".join(f"• {line}" for line in search_lines(report, locale)[:4])]
+    if summary := summary_block(row, locale):
+        return [summary]
+    lines = "\n".join(f"• {line}" for line in search_lines(report, locale)[:4])
+    return [translate("Since the poll before:", locale), lines]

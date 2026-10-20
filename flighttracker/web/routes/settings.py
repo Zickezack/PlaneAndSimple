@@ -166,11 +166,13 @@ def save_personal(
     user: User = Depends(get_user),
 ):
     locale = str(form.get("locale", ""))
+    deal_mails = form.get("deal_mails")
     try:
         set_preferences(
             user,
             locale=locale or None,
             timezone=str(form.get("timezone", "")).strip(),
+            deal_mails=None if deal_mails is None else deal_mails == "true",
         )
         set_email(db, user, str(form.get("email", "")))
     except UserValidationError as exc:
