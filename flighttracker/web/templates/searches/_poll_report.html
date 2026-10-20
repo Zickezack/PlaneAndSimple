@@ -1,0 +1,13 @@
+{#- What the latest poll changed (services/poll_reports.py, report_texts.py): the AI's words when
+    there are some in the reader's language, and always the app's facts. -#}
+{% if report %}
+<section class="card poll-report" id="changes">
+  <h2>{{ _("Since the poll before") }}{{ ui.info(_("The app compares the prices of the latest poll with those of the poll before. After a notable change the AI (when set up) puts these facts into a few sentences – the numbers are always the app's.")) }} <small class="hint">{{ report.created_at | datetime }}</small></h2>
+  {% if report.summary %}
+  <div class="advice-ai" lang="{{ report.summary_locale }}"><p>{{ report.summary }}</p><small class="hint">{{ _("Written by AI from the numbers below.") }}</small></div>
+  {% endif %}
+  <ul class="report-lines">
+    {% for line in report.lines %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}

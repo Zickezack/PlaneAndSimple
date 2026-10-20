@@ -42,6 +42,7 @@ The code and docs use "Suchabo" for a tracked search.
 | Price alert | Preisalarm | `PriceAlert` / `price_alerts` | A user's highest price for a Suchabo, optionally one route and cabin |
 | – | – | `PriceAlertNotification` / `price_alert_notifications` | Flight and price an alert already reported |
 | Mail log | Mail-Protokoll | `MailLog` / `mail_log` | One mail: user, kind, subject, sent or error (no address) |
+| Poll report | Abfrage-Bericht | `PollReport` / `poll_reports` | What one completed poll changed (facts as JSON), whether that is notable, and the AI's summary of a notable one |
 | AI usage log | KI-Nutzungsprotokoll | `AIUsage` / `ai_usage` | One AI request: user, feature, model, tokens, duration, outcome (OK, cut off, failed), parameters sent; its messages (prompts, thinking, answer) for 30 days |
 | Owner | Besitzer | `searches.owner_id`, `trips.owner_id` | User a Suchabo/Trip belongs to; `NULL` only until the env admin's next login |
 | Sharing | Teilen | `Share` / `shares` | Access of one user to one Suchabo or Trip: view only (`can_edit` false) or view and edit |
@@ -73,6 +74,9 @@ erDiagram
     price_alerts ||--o{ price_alert_notifications : "reported"
     users |o--o{ mail_log : "recipient"
     users |o--o{ ai_usage : "requested by"
+    fetch_jobs ||--o| poll_reports : "what it changed"
+    searches |o--o{ poll_reports : "reports"
+    trips |o--o{ poll_reports : "reports"
     searches |o--o{ shares : "shared"
     trips |o--o{ shares : "shared"
 
@@ -95,6 +99,7 @@ erDiagram
     mail_log { bigint id PK; timestamptz sent_at; bigint user_id FK; string kind; string subject; bool ok; text error }
     ai_usage { bigint id PK; timestamptz requested_at; bigint user_id FK; string feature; string provider; string model; int input_tokens; int output_tokens; int output_limit; int duration_ms; bool ok; bool cut_off; string stop_reason; text error; jsonb request; jsonb response; text system_prompt; text user_prompt; text thinking; text answer; text result }
     shares { bigint id PK; bigint search_id FK; bigint trip_id FK; bigint user_id FK; bool can_edit; timestamptz created_at }
+    poll_reports { bigint id PK; bigint job_id FK; bigint search_id FK; bigint trip_id FK; timestamptz created_at; jsonb facts; bool notable; text summary; string summary_locale }
 ```
 
 ## Constraints and rules
@@ -126,6 +131,12 @@ erDiagram
 - `price_history` and `search_revisions` are **append-only** (trigger `forbid_update()`).
   Every price row carries its own route, dates, cabin and stops, so it stays valid when the
   Suchabo changes. Duplicates are ignored via `uq_price_history_observation`.
+- `poll_reports` (migration `0016`): one row per completed poll (`job_id` unique, `ON DELETE
+  CASCADE` like `search_id` and `trip_id`; exactly one of them is set – CHECK). `facts` is the
+  report as JSON with a `version` (`domain/poll_report.py`; a report of another version is
+  ignored, not migrated): amounts as strings, dates ISO. Rows are pruned after 90 days and
+  deleted with the price history ("Clear price history"). `summary` / `summary_locale`: the AI's
+  words for a notable poll and their language.
 - `platform_settings` holds the admin's overrides of selected `.env` values (Settings →
   Platform Settings), one row per key. Only keys in `services/settings.py` `SETTING_FIELDS` are
   written; a value that no longer validates is ignored, and deleting a row falls back to `.env`.
@@ -216,6 +227,10 @@ user wants to be told about) and indirectly `shares`, `searches.owner_id` and `t
 with whom they share it). Deleting a user removes the row and their shares; their Suchabos and
 Trips stay without owner. Usernames are shown to other users only where they share something
 (owner, share list). The JSON export contains no user data.
+
+`poll_reports` hold prices, routes and dates only – and, in `summary`, the AI's words about
+them. The prompt behind a summary carries the tracked search's name (the owner's own text) and
+the report's facts, never account data.
 
 `mail_log` and `ai_usage` (migration `0014`) refer to users only by id (`ON DELETE SET NULL`),
 store no addresses and are pruned after half a year. Since migration `0015` an `ai_usage` row

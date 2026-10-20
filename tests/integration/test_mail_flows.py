@@ -211,7 +211,7 @@ def test_worker_checks_alerts_after_a_completed_poll(db, session_factory, monkey
     db.commit()
     checked = []
     monkeypatch.setattr(
-        loop.price_alerts, "notify", lambda session, settings, s, now: checked.append(s.id) or 0
+        price_alerts, "notify", lambda session, settings, s, now, extra: checked.append(s.id) or 0
     )
     now = datetime.now(UTC)
     loop.schedule(session_factory, clock=lambda: now)

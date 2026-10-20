@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from flighttracker.domain.locations import describe_locations
 from flighttracker.models import LocationRole, Search
-from flighttracker.services import history
+from flighttracker.services import history, poll_reports, report_texts
 from flighttracker.services.access import (
     visible_searches,
     visible_trips,
@@ -22,6 +22,7 @@ from flighttracker.services.trips import (
 from flighttracker.services.users import usernames
 from flighttracker.web.deps import (
     AuthUser,
+    current_locale,
     get_db,
     require_login,
 )
@@ -57,6 +58,8 @@ def search_list(
     counts = history.observation_counts(db, [s.id for s in all_searches])
     searches = [search for search in all_searches if search.id not in trip_ids]
     owners = {item.owner_id for item in [*searches, *trips] if item.owner_id is not None}
+    locale = current_locale(request)
+    reports = poll_reports.latest_reports(db, [s.id for s in searches])
     return templates.TemplateResponse(
         request,
         "searches/list.html",
@@ -64,6 +67,8 @@ def search_list(
             "searches": searches,
             "trips": trips,
             "counts": counts,
+            # What the latest poll changed, as one line under the name.
+            "report_lines": report_texts.short_lines(reports, locale),
             "archived": archived,
             "location_text": _location_text,
             "owner_names": usernames(db, owners),

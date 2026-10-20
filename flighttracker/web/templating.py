@@ -8,7 +8,14 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 
 from flighttracker.domain.currencies import currency_decimals
-from flighttracker.i18n import SUPPORTED_LOCALES, Msg, format_number, translate
+from flighttracker.i18n import (
+    SUPPORTED_LOCALES,
+    Msg,
+    format_month,
+    format_number,
+    format_weekday_date,
+    translate,
+)
 from flighttracker.providers.registry import provider_class
 from flighttracker.services.settings import effective_settings
 from flighttracker.web import flights, labels
@@ -82,23 +89,9 @@ def _format_date(context, value) -> str:
     return value.strftime("%d.%m.%Y" if context["locale"] == "de" else "%Y-%m-%d")
 
 
-_WEEKDAYS = {
-    "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
-    "de": ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"),
-}
-_MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
-
 @pass_context
 def _format_weekday_date(context, value) -> str:
-    """Departure dates with weekday – the weekday matters when choosing a flight."""
-    if not value:
-        return "–"
-    locale = context["locale"]
-    weekday = _WEEKDAYS.get(locale, _WEEKDAYS["en"])[value.weekday()]
-    if locale == "de":
-        return f"{weekday}, {value.strftime('%d.%m.%Y')}"
-    return f"{weekday}, {value.day} {_MONTHS_EN[value.month - 1]} {value.year}"
+    return format_weekday_date(value, context["locale"]) if value else "–"
 
 
 @pass_context
@@ -114,9 +107,7 @@ def _stay_option(context, option: tuple[str, str]) -> tuple[str, str]:
 
 @pass_context
 def _format_month(context, value) -> str:
-    if not value:
-        return "–"
-    return value.strftime("%m.%Y" if context["locale"] == "de" else "%Y-%m")
+    return format_month(value, context["locale"]) if value else "–"
 
 
 @pass_context

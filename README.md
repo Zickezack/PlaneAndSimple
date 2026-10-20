@@ -36,6 +36,10 @@ Design and conventions: [architecture.md](architecture.md) · data model: [datam
   Claude), which can also turn a plain-language travel wish into a draft tracked search.
   Admins see every AI request in a usage log, stage by stage: what was sent, the model's
   thinking, the answer as received (also when it was cut off) and what the app made of it.
+- **What changed:** after every poll a short report – cheapest flight against the poll before,
+  new lowest prices, biggest drops and rises, unusually cheap prices – on the tracked search's
+  page and as a line in the list; after a notable poll the AI (optional) sums it up in two or
+  three sentences, also in price alert mails.
 - **[Trip Planner](#trip-planner)** for routes of 2–8 one-way legs with stays in between.
 - **[Users](#users-and-operation)** with sharing and per-user limits; Poll Log and worker load
   for admins.

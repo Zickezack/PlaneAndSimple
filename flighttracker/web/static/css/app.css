@@ -406,3 +406,9 @@ tr.is-changed td { background: var(--info-bg); }
 }
 .ai-stage h3 { font-size: 1rem; margin: 1rem 0 .4rem; }
 .ai-stage h2 .badge { margin-left: .4rem; }
+
+/* What the latest poll changed (searches/_poll_report.html). */
+.poll-report h2 .hint { font-weight: 400; margin-left: .3rem; }
+.report-lines { margin: .25rem 0 0; padding-left: 1.2rem; }
+.report-lines li { margin: .15rem 0; }
+.report-line { display: inline-block; margin-top: .1rem; }

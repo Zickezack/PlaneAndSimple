@@ -8,6 +8,7 @@ lists all flights that are new or cheaper.
 """
 
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
@@ -187,10 +188,16 @@ def matches(session: Session, search: Search, now: datetime) -> dict[PriceAlert,
     return result
 
 
-def notify(session: Session, settings: Settings, search: Search, now: datetime) -> int:
+def notify(
+    session: Session,
+    settings: Settings,
+    search: Search,
+    now: datetime,
+    extra: Callable[[str], list[str]] | None = None,
+) -> int:
     """Mails to every user with new or cheaper matches; returns the number of mails sent.
     A flight counts as reported only once its mail went out (so a failed one is retried
-    after the next poll)."""
+    after the next poll). `extra`: further paragraphs for a mail in this language."""
     if not mail.mail_enabled(settings):
         return 0
     by_user: dict[User, list[tuple[PriceAlert, AlertMatch]]] = defaultdict(list)
@@ -204,7 +211,13 @@ def notify(session: Session, settings: Settings, search: Search, now: datetime) 
             (m.origin, m.destination, m.cabin_class, m.departure_date, m.return_date): m
             for _, m in pairs
         }
-        message = mail_messages.price_alert_mail(user, search.name, list(unique.values()), link)
+        message = mail_messages.price_alert_mail(
+            user,
+            search.name,
+            list(unique.values()),
+            link,
+            extra(mail_messages.locale_of(user)) if extra else (),
+        )
         if not mail.deliver(session, settings, message):
             continue
         sent += 1

@@ -140,7 +140,7 @@
 <details class="card more" id="{{ section.key }}"{% if section.key == open_section %} open{% endif %}>
   <summary>{{ _(section.label) }}
     {%- if section.key == "mail" %}{{ ui.summary_info(_("Mails: welcome and password links, a notice after a password change, price alerts. Only users with an e-mail address get them. Without host and sender no mail is sent.")) }}
-    {%- elif section.key == "ai" %}{{ ui.summary_info(_("Optional. The AI drafts tracked searches from a plain-language wish and explains the “when to book” advice. It never calculates: every number comes from the app, and drafts are only saved after you check them.")) }}{% endif %}</summary>
+    {%- elif section.key == "ai" %}{{ ui.summary_info(_("Optional. The AI drafts tracked searches from a plain-language wish, explains the “when to book” advice and sums up notable polls. It never calculates: every number comes from the app, and drafts are only saved after you check them.")) }}{% endif %}</summary>
   <form method="post" action="/settings/section/{{ section.key }}" class="form" data-settings-section data-working="{{ _('Working …') }}" data-failed="{{ _('No answer from the server – nothing was changed.') }}" data-secret-set="{{ _('set, not shown') }}" data-secret-unset="{{ _('not set') }}">
     {{ ui.csrf_field() }}
     {% if section.key == "mail" %}
@@ -156,7 +156,7 @@
     </div>
     {% endif %}
     {% if section.key == "ai" %}
-    <p class="note">{{ _("With a cloud provider, the facts of a request (routes, dates, prices; for a draft the travel wish – no account data) are sent to it; a local Ollama keeps everything on your server.") }}</p>
+    <p class="note">{{ _("With a cloud provider, the facts of a request (routes, dates, prices, names of tracked searches; for a draft the travel wish – no account data) are sent to it; a local Ollama keeps everything on your server.") }}</p>
     <div class="field">
       <span class="field-label"><label for="f-ai_preset">{{ _("Provider preset") }}</label>{{ ui.info(_("Fills in provider, API URL and a model; fields you change yourself stay as you typed them. Cloud providers still need an API key.")) }}</span>
       <select class="input" id="f-ai_preset" name="ai_preset" data-ai-preset>

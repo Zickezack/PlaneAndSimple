@@ -13,7 +13,7 @@ from flighttracker.domain.locations import describe_locations
 from flighttracker.i18n import translate
 from flighttracker.models import User
 from flighttracker.providers.registry import FAKE_DATA_PROVIDERS
-from flighttracker.services import history, jobs, price_trends
+from flighttracker.services import history, jobs, poll_reports, price_trends, report_texts
 from flighttracker.services.access import (
     Access,
     search_access,
@@ -85,6 +85,7 @@ def detail(
         upcoming, price_trends.price_series(db, search.id, today, passengers=passengers)
     )
     locale = current_locale(request)
+    report = report_texts.view(poll_reports.latest_reports(db, [search.id]).get(search.id), locale)
     chart = flights.chart_data(
         points,
         today,
@@ -102,6 +103,7 @@ def detail(
         {
             "search": search,
             "trip": trip,
+            "report": report,
             "spec": spec,
             "origins": describe_locations(spec.origins, spec.country_airports),
             "destinations": describe_locations(spec.destinations, spec.country_airports),

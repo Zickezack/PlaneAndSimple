@@ -14,6 +14,7 @@ from flighttracker.models import (
     CalendarObservation,
     Country,
     LocationRole,
+    PollReport,
     PriceHistory,
     Search,
     SearchLocation,
@@ -292,6 +293,8 @@ def clear_price_history(session: Session, search_ids: list[int]) -> int:
     session.execute(
         delete(CalendarObservation).where(CalendarObservation.search_id.in_(search_ids))
     )
+    # What earlier polls changed no longer has its prices.
+    session.execute(delete(PollReport).where(PollReport.search_id.in_(search_ids)))
     return prices.rowcount
 
 

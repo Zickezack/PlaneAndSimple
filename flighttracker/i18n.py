@@ -9,6 +9,7 @@ so each request can render them in its own language. Pure module: usable from ev
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import date
 from functools import cache
 from pathlib import Path
 
@@ -58,6 +59,25 @@ def format_number(value: float, decimals: int = 0) -> str:
     """Numbers as everywhere in the app, whatever the language: ' between thousands and . before
     the decimals – 1'234 and 1'234.50 (a per-locale format is in the backlog)."""
     return f"{value:,.{decimals}f}".replace(",", "'")
+
+
+_WEEKDAYS = {
+    "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+    "de": ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"),
+}
+_MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def format_weekday_date(value: date, locale: str) -> str:
+    """Departure dates with weekday – the weekday matters when choosing a flight."""
+    weekday = _WEEKDAYS.get(locale, _WEEKDAYS["en"])[value.weekday()]
+    if locale == "de":
+        return f"{weekday}, {value.strftime('%d.%m.%Y')}"
+    return f"{weekday}, {value.day} {_MONTHS_EN[value.month - 1]} {value.year}"
+
+
+def format_month(value: date, locale: str) -> str:
+    return value.strftime("%m.%Y" if locale == "de" else "%Y-%m")
 
 
 def _param(value: object, locale: str) -> object:

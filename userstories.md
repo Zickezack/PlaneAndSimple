@@ -44,8 +44,8 @@ see 49.)
    plain language: what changed and why it matters, patterns across Suchabos, the "when to
    book" advice. Numbers always from the app; every statement links to the underlying prices.
    Fixed texts (password links etc.) stay fixed.
-3. "When to book" for the whole tracked search (e.g. "3 dates at their lowest price") and an
-   AI weighting of the signals beyond the fixed rules.
+3. An AI weighting of the "when to book" signals beyond the fixed rules (what changed across
+   the whole tracked search is in the poll report, see 58).
 4. Optional per-feature model choice (e.g. a cheaper model for drafts).
 
 ## Planned
@@ -201,3 +201,10 @@ see 49.)
     a request's detail page shows what the app sent (address, parameters, prompts), the thinking
     the provider returned, the answer as received with Ollama's timings (a reload of the model
     shows) and what the app used. Messages kept 30 days, switchable ("Log messages").
+58. What a poll changed: after every completed poll the worker stores a rule-based report –
+    cheapest flight now against the poll before, flights cheaper and dearer by 3 % or more, new
+    lowest prices, biggest drops and rises, cheapest per month, unusually cheap prices. The
+    tracked search's page shows it as "Since the poll before", the list as one line per tracked
+    search. A notable poll gets two or three sentences by the AI (switch "Summaries after
+    polls"; paused for 15 minutes after a failed request), also in the price alert mails after
+    the same poll.

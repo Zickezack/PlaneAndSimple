@@ -114,13 +114,15 @@ Where new code goes (dependencies only point downwards):
   Trips, `web/settings_forms.py` for the Settings page); routes only call them and render.
 - Worker: `__main__.py` is only the entry point; `loop.py` (scheduling, dispatch), `wake.py`
   (LISTEN/NOTIFY), `job_control.py` (stop/cancel checks), one module per job kind
-  (`trip_job.py`). Rules about *what* to query and store live in services (`ingestion.py`,
-  `trip_polling.py`).
+  (`trip_job.py`), `after_poll.py` (the steps after a completed poll). Rules about *what* to
+  query and store live in services (`ingestion.py`, `trip_polling.py`, `poll_reports.py`).
 - Services: one use case per module – write side `searches`, `trips`; lookups `locations`;
   read side `history`, `price_trends`, `month_overview`, `capacity`; polling `ingestion`, `day_selection`, `trip_polling`;
   transfer `data_export`, `data_import`; accounts `users` (management), `login`, `password_tokens`;
   mail `mail`, `mail_messages`, `price_alerts`; AI `ai` (one request), `ai_wire` (the providers'
-  wire formats), `ai_log` (usage log), `ai_prompts`; admins' logs read side `usage_logs`.
+  wire formats), `ai_log` (usage log), `ai_prompts`, `ai_summaries` (what the worker asks by
+  itself); after a poll `poll_reports` (with `report_texts` for its words); admins' logs read
+  side `usage_logs`.
 - No imports of another module's `_private` names: a helper a second module needs becomes public.
 - JS: one file per widget (chart, `price-band`, `price-history`, `price-calendar`, `info` for the "i" explanations), shared SVG helpers in `static/js/chart-svg.js` (`window.PlaneChart`);
   classic `defer` scripts loaded via `static_url()` in a fixed order – no ES-module `import`
@@ -142,7 +144,8 @@ Where new code goes (dependencies only point downwards):
 | Polling | `worker/*`, `services/ingestion.py`, `services/day_selection.py`, `domain/sampling.py`, `services/trip_polling.py`, `providers/*` (Google Flights: package `providers/google_flights/` – `results` list, `page` fallback, `price_calendar`, `provider`) |
 | Import/export | `services/data_export.py`, `services/data_import.py` |
 | Mail, password links | `services/mail.py`, `services/mail_messages.py`, `services/password_tokens.py`, `web/mails.py`, `web/routes/password.py`, `security/secrets.py` |
-| Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker hook in `worker/loop.py` |
+| Price alerts | `services/price_alerts.py`, `web/routes/searches/alerts.py`, worker step in `worker/after_poll.py` |
+| What a poll changed (report, AI summary) | `domain/poll_report.py`, `domain/deals.py`, `services/poll_reports.py`, `services/report_texts.py`, `services/ai_summaries.py`, `worker/after_poll.py`, `templates/searches/_poll_report.html` |
 | Layover warnings | `domain/layovers.py`, `web/flights.py`, macros `layover_warning` / `layover_place` |
 | AI: setup, drafts, "when to book" | `domain/ai_providers.py`, `domain/booking_advice.py`, `services/ai.py`, `services/ai_wire.py`, `services/ai_prompts.py`, `web/ai_report.py` (connection test), `web/routes/searches/draft.py`, `web/routes/searches/advice.py` |
 | AI usage log | `services/ai_log.py` (write), `services/usage_logs.py` (read), `web/routes/ai_usage.py` + `templates/settings/ai_request.html` (one request stage by stage) |
@@ -400,6 +403,37 @@ section summarises the last 30 days per feature (`services/usage_logs.py`); a re
 opens `/settings/ai-usage/<id>` with the four stages – sent by the app, thinking, received (for
 Ollama with its timings; a model load over a second means it was (re)loaded for the request),
 used by the app.
+
+## After a poll
+
+After every completed poll of a tracked search the worker runs a few steps
+(`worker/after_poll.py`), each on its own with its own commit – a failing AI provider or mail
+server never fails the poll and never stops the next step:
+
+1. **Report** (`services/poll_reports.py`, rules in `domain/poll_report.py`): the real, upcoming
+   prices the poll observed (fake data left out; the currency most of them have) are compared
+   with the prices observed before it – flights compared, cheaper and dearer by 3 % or more,
+   new ones, the cheapest flight now against the cheapest of the poll before (from that poll's
+   report), the cheapest per departure month, new lowest prices (3 % or more below everything
+   seen before for the flight), the biggest drops and rises, and unusually cheap prices
+   (`domain/deals.py`: at most 60 % of the median price of the same route and cabin over at
+   least 8 departure dates of the same poll). Stored as versioned JSON in `poll_reports`, one
+   row per job, kept 90 days. **Notable** is a poll with an unusually cheap price, a cheapest
+   price that moved by 3 % or more, a new lowest price, or 25 % of the compared flights
+   changed; a first poll only with an unusually cheap price.
+2. **AI summary** (`services/ai_summaries.py`) of a notable report – only with AI set up,
+   "Summaries after polls" on, and not within 15 minutes after a failed request of the worker
+   (a server that does not answer must not slow every poll down by the timeout). The prompt
+   holds only the report's facts and the usual guardrails; the answer, in the owner's
+   language, is stored with the report (feature `summary` in the usage log).
+3. **Price alert mails** (see Mail): after a notable poll they carry its summary – the AI's
+   words when they are in the recipient's language, otherwise the report's first lines.
+
+The tracked search's page shows the latest report as "Since the poll before" (the AI's words
+only in their own language, the facts always, as translated lines from
+`services/report_texts.py`); the list shows one line per tracked search (cheapest price and
+its change, new lowest and unusually cheap prices). Clearing the price history clears the
+reports too.
 
 ## Security
 

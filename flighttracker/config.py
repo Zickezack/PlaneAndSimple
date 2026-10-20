@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     ai_system_prompt: str = ""
     ai_drafts: bool = True
     ai_explanations: bool = True
+    # After a notable poll the worker asks for a few sentences (services/poll_reports.py).
+    ai_poll_summaries: bool = True
     # Usage log: also keep the messages (prompts, thinking, answers) of each request, 30 days.
     ai_log_messages: bool = True
     # Timestamps are stored in UTC and shown in this time zone.

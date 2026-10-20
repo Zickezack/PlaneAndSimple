@@ -74,7 +74,8 @@
     <tbody>
       {% for s in searches %}
       <tr>
-        <td><a href="/searches/{{ s.id }}">{{ s.name }}</a>{{ owner_tag(s) }}</td>
+        <td><a href="/searches/{{ s.id }}">{{ s.name }}</a>{{ owner_tag(s) }}
+          {%- if report_lines.get(s.id) %}<br><small class="hint report-line">{{ report_lines[s.id] }}</small>{% endif %}</td>
         <td>{{ location_text(s, "origin") }}</td>
         <td>{{ location_text(s, "destination") }}</td>
         <td>{{ ui.status_badge(s) }}</td>

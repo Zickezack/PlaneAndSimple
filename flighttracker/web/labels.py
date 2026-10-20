@@ -157,6 +157,7 @@ SETTINGS_FIELD_LABELS = {
     "ai_system_prompt": "Instructions (system prompt)",
     "ai_drafts": "Drafts from a description",
     "ai_explanations": 'Explain "when to book"',
+    "ai_poll_summaries": "Summaries after polls",
     "ai_log_messages": "Log messages",
     "max_searches_per_user": "Max. tracked searches and Trips per user",
     "max_requests_per_user": "Max. provider requests per poll per user",
@@ -251,6 +252,12 @@ SETTINGS_FIELD_HINTS = {
     ),
     "ai_drafts": '"Describe your trip" on the new tracked search page.',
     "ai_explanations": "A button on the flight page that puts the advice into sentences.",
+    "ai_poll_summaries": (
+        "After a poll with a notable change (cheapest price ±3 %, a new lowest price, many "
+        "flights changed, an unusually cheap price) the worker asks for two or three sentences "
+        "– shown on the tracked search's page and in price alert mails. One request per notable "
+        "poll; without it the page shows the same facts as a list."
+    ),
     "ai_log_messages": (
         "Keeps what the app sent, the thinking the provider returned and the answer of each "
         "request for 30 days, to look at in the usage log. Prompts can contain a user's travel "
@@ -287,6 +294,7 @@ AI_FEATURE_LABELS = {
     "draft": "Draft from a description",
     "explain": 'Explain "when to book"',
     "test": "Connection test",
+    "summary": "Poll summary",
 }
 # Ollama's durations in its response (AI request detail page).
 AI_TIMING_LABELS = {

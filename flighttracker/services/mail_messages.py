@@ -128,8 +128,13 @@ def _match_line(match: AlertMatch) -> str:
 
 
 def price_alert_mail(
-    user: User, search_name: str, matches: list[AlertMatch], link: str | None
+    user: User,
+    search_name: str,
+    matches: list[AlertMatch],
+    link: str | None,
+    extra: list[str] | tuple[str, ...] = (),
 ) -> Mail:
+    """`extra`: further paragraphs after the flights (what the same poll changed)."""
     locale = locale_of(user)
     cheapest = min(matches, key=lambda m: m.price)
     return Mail(
@@ -147,6 +152,7 @@ def price_alert_mail(
                 name=search_name,
             ),
             "\n".join(_match_line(m) for m in sorted(matches, key=lambda m: m.price)),
+            *extra,
             translate("All prices and flights:\n{link}", locale, link=link) if link else None,
             translate(
                 "You get each flight again only when it gets cheaper. Change or delete the alert "
