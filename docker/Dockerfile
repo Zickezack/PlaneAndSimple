@@ -1,9 +1,13 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim AS base
+# More retries and a longer timeout than pip's defaults: a short hiccup of PyPI's CDN (e.g.
+# HTTP 502 for a few minutes) must not break a deploy.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_RETRIES=10 \
+    PIP_DEFAULT_TIMEOUT=60
 WORKDIR /app
 
 # Development: the repository is bind-mounted over /app, so the editable install

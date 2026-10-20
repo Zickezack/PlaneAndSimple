@@ -45,6 +45,9 @@ x-app: &app
     AI_OLLAMA_NUM_CTX: ${AI_OLLAMA_NUM_CTX:-0}
     AI_OLLAMA_KEEP_ALIVE: ${AI_OLLAMA_KEEP_ALIVE:-}
     AI_OLLAMA_NO_THINKING: ${AI_OLLAMA_NO_THINKING:-false}
+    AI_LOG_MESSAGES: ${AI_LOG_MESSAGES:-true}
+    AI_POLL_SUMMARIES: ${AI_POLL_SUMMARIES:-true}
+    AI_DIGEST_OVERVIEW: ${AI_DIGEST_OVERVIEW:-true}
     # Reverse proxy IPs whose X-Forwarded-For uvicorn trusts (for login throttling per client).
     FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
   depends_on:
